@@ -1,10 +1,10 @@
 alpha: 0.002
 batch_size: 512
 capacity: 100000
-env_name: Safexp-PointGoal0-v0
+env_name: Safexp-PointGoal2-v0
 epsilon: 0.05
-folder_name: /home/davide/ROS/constraint_RL_ws/src/Meta_Constrained_RL/scripts/Test/DQL
-  - Safety Gym/SAC/
+folder_name: /home/davide/ROS/constraint_RL_ws/src/Meta_Constrained_RL/Constrained
+  RL/
 gamma: 0.99
 hidden_size: 256
 loss_function: !!python/name:torch.nn.functional.smooth_l1_loss ''
