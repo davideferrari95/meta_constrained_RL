@@ -1,13 +1,9 @@
 import os
-# import gymnasium as gym
 import gym
 
 # Import Environments
 import safety_gym
 import mujoco_py
-
-# Import GYM_NEW
-from SAC.Utils import GYM_NEW
 
 # Environment Types
 GOAL_ENV = 'GOAL_ENV'
@@ -17,27 +13,19 @@ STANDARD_ENV = 'STANDARD_ENV'
 def create_environment(name, folder, render_mode='rgb_array'):
     
     # Build the Environment
-    if GYM_NEW: 
+    try: env = gym.make(name, render_mode=render_mode)
+    except:
       
-      # NEW RELEASE: Render Mode
-      try: env = gym.make(name, render_mode=render_mode)
-      except:
-        
-        # Not-Standard Render Mode 
-        try: env = gym.make(name, render=True)
-        except: gym.make(name)
-      
-    else:
-      
-      # Old Make Environment Statement
-      env = gym.make(name)
-      env.reset()
+      # Not-Standard Render Mode 
+      try: env = gym.make(name, render=True)
+      except: gym.make(name)
+    
     
     # Check Environment Type (GOAL, STANDARD...)
     ENV_TYPE = check_environment_type(env)
     
     # Apply Wrappers
-    if GYM_NEW: env = apply_wrappers(env, folder=check_video_folder(folder), env_type=ENV_TYPE)
+    env = apply_wrappers(env, folder=check_video_folder(folder), env_type=ENV_TYPE)
     
     return env
 

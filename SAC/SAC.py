@@ -3,7 +3,6 @@ from SAC.Network import DQN, polyak_average, DEVICE
 from SAC.ReplayBuffer import ReplayBuffer, RLDataset
 from SAC.Policy import GradientPolicy
 from SAC.Environment import create_environment
-from SAC.Utils import GYM_NEW
 
 # Import Utilities
 import copy, itertools, random
@@ -78,10 +77,10 @@ class SAC(LightningModule):
     @torch.no_grad()
     def play_episode(self, policy=None):
 
-        # NEW RELEASE: Reset Environment
-        if GYM_NEW: obs, _ = self.env.reset()
-        else: obs = self.env.reset()
+        # Reset Environment
+        obs, _ = self.env.reset()
         done = False
+        episode_cost = 0.0
 
         while not done:
 
@@ -96,14 +95,18 @@ class SAC(LightningModule):
             else: action = self.env.action_space.sample()
 
             # Execute Action on the Environment
-            if GYM_NEW:
-                # NEW RELEASE: gym>=0.26 -> observation, reward, termination, truncation, info = env.step()
-                next_obs, reward, done, truncated, info = self.env.step(action)
-                if truncated: done = truncated
-            else: next_obs, reward, done, info = self.env.step(action)
+            next_obs, reward, done, truncated, info = self.env.step(action)
+            if truncated: done = truncated
             
-            # Save Experience in Replay Buffer
-            exp = (obs, action, reward, done, next_obs)
+            # Get Cumulative Cost from the Info Dict 
+            cost = info.get('cost', 0)
+
+            # Update and Log Episode Cost
+            episode_cost += cost
+            if policy: self.log('episode/Cost', episode_cost)
+            
+            # Save Experience (with cost) in Replay Buffer
+            exp = (obs, action, reward, cost, done, next_obs)
             self.buffer.append(exp)
         
             # Update State
@@ -116,6 +119,7 @@ class SAC(LightningModule):
     
     def configure_optimizers(self):
         
+        # TODO: Add Optimizer for Q-Cost
         # Create an Iterator with the Parameters of the Critic Q-Networks
         q_net_params = itertools.chain(self.q_net1.parameters(), self.q_net2.parameters())
         
@@ -138,10 +142,11 @@ class SAC(LightningModule):
     def training_step(self, batch, batch_idx, optimizer_idx):
         
         # Un-Pack the Batch Tuple
-        states, actions, rewards, dones, next_states = batch
+        states, actions, rewards, costs, dones, next_states = batch
         
         # Create an Extra Dimension to have Matrix in which first row stops at first element, second rows stop at second element...
         rewards = rewards.unsqueeze(1)
+        costs = costs.unsqueeze(1)
         dones = dones.unsqueeze(1)
         
         if optimizer_idx == 0:
@@ -202,4 +207,4 @@ class SAC(LightningModule):
         polyak_average(self.policy, self.target_policy, tau=self.hparams.tau)
         
         # Log Episode Return
-        if GYM_NEW: self.log("episode/Return", self.env.return_queue[-1].item())
+        self.log("episode/Return", self.env.return_queue[-1].item())

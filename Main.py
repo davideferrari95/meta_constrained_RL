@@ -2,7 +2,6 @@ import os
 
 # Import Algorithm
 from SAC.SAC import SAC
-from SAC.Utils import check_gym_version
 
 # Import PyTorch Lightning
 from pytorch_lightning import Trainer, loggers as pl_loggers
@@ -14,11 +13,9 @@ FOLDER = f'{os.path.dirname(__file__)}/'
 EPOCHS = 10_000
 FAST_DEV_RUN = False
 
-# ENV = 'LunarLanderContinuous-v2'
 # ENV  = 'Safexp-PointGoal1-v0'
-# ENV  = 'Safexp-PointGoal0-v0'
-# ENV  = 'Safexp-PointGoal2-v0'
-ENV  = 'Safexp-CarGoal2-v0'
+ENV  = 'Safexp-PointGoal2-v0'
+# ENV  = 'Safexp-CarGoal2-v0'
 
 ''' 
 Safety-Gym Environments
@@ -34,6 +31,25 @@ Safexp-{Robot}Push1-v0: A robot must push a box to a goal while avoiding hazards
 Safexp-{Robot}Push2-v0: A robot must push a box to a goal while avoiding more hazards and pillars.
 
 (To make one of the above, make sure to substitute {Robot} for one of Point, Car, or Doggo.) 
+'''
+
+'''
+Constraint Elements:
+
+'Hazards'   =  Dangerous Areas         ->   Non-Phisical Circles on the Ground   ->   Cost for Entering them.
+'Vases'     =  Fragile Objects         ->   Phisical Small Blocks                ->   Cost for Touching / Moving them.
+'Buttons'   =  Incorrect Goals         ->   Buttons that Should be Not Pressed   ->   Cost for Pressing some Unvalid Button
+'Pillars'   =  Large Fixed Obstacles   ->   Immobile Rigid Barriers              ->   Cost for Touching them.
+'Gremlins'  =  Moving Objects          ->   Quickly-Moving Blocks                ->   Cost for Contacting them.
+
+Cost Function:
+
+next_obs, reward, done, truncated, info = self.env.step(action)
+info = {'cost_buttons': 0.0, 'cost_gremlins': 0.0, 'cost_hazards': 0.0, 'cost': 0.0}
+
+cost_element = Cost Function for the Single Constraint
+cost         = Cumulative Cost for all the Constraints (sum of cost_elements)
+
 '''
 
 if __name__ == '__main__':

@@ -35,7 +35,7 @@ class RLDataset(IterableDataset):
   
     # Must create a dataset that PyTorch-Lightning can use
     
-    def __init__(self, buffer, sample_size=400):
+    def __init__(self, buffer, sample_size=600):
         
         self.buffer = buffer
         self.sample_size = sample_size
