@@ -1,4 +1,4 @@
-import os
+import argparse
 
 # Import Algorithm
 from SAC.SAC import SAC
@@ -8,14 +8,8 @@ from pytorch_lightning import Trainer, loggers as pl_loggers
 from pytorch_lightning.callbacks import EarlyStopping
 from SAC.LightningCallbacks import PrintCallback
 
-# Hyperparameters
-FOLDER = f'{os.path.dirname(__file__)}/'
-EPOCHS = 10_000
-FAST_DEV_RUN = False
-
-# ENV  = 'Safexp-PointGoal1-v0'
-ENV  = 'Safexp-PointGoal2-v0'
-# ENV  = 'Safexp-CarGoal2-v0'
+# Import Utilities
+from SAC.Utils import ENV, FOLDER, print_arguments
 
 ''' 
 Safety-Gym Environments
@@ -54,8 +48,25 @@ cost         = Cumulative Cost for all the Constraints (sum of cost_elements)
 
 if __name__ == '__main__':
     
+    # Instantiate Parser
+    parser = argparse.ArgumentParser()
+    
+    # Parse Arguments
+    parser.add_argument('--env',                type=str,    default=ENV)
+    parser.add_argument('--epochs',             type=int,    default=10_000)
+    parser.add_argument('--samples_per_epoch',  type=int,    default=1_000)
+    parser.add_argument('--alpha',              type=float,  default=0.002)
+    parser.add_argument('--beta',               type=float,  default=0.002)
+    parser.add_argument('--tau',                type=float,  default=0.1)
+    parser.add_argument('--fast_dev_run',       type=bool,   default=False)
+    args = parser.parse_args()
+
+    # Display Arguments
+    print_arguments(args)
+
     # Instantiate Algorithm
-    algorithm = SAC(env_name=ENV, folder_name=FOLDER, samples_per_epoch=1_000, alpha=0.002, tau=0.1)
+    algorithm = SAC(env_name=args.env, folder_name=FOLDER, samples_per_epoch=args.samples_per_epoch, 
+                    alpha=args.alpha, beta=args.beta, tau=args.tau)
     
     # Create Trainer Module
     trainer = Trainer(
@@ -65,7 +76,7 @@ if __name__ == '__main__':
         accelerator="auto",
         
         # Hyperparameters
-        max_epochs  = EPOCHS,
+        max_epochs  = args.epochs,
         
         # Additional Callbacks
         callbacks   = [PrintCallback(),
@@ -76,7 +87,7 @@ if __name__ == '__main__':
         logger = pl_loggers.TensorBoardLogger(save_dir=f'{FOLDER}/Logs/'),
         
         # Developer Test Mode
-        fast_dev_run = FAST_DEV_RUN
+        fast_dev_run = args.fast_dev_run
 
     )
     
