@@ -58,7 +58,7 @@ if __name__ == '__main__':
     parser.add_argument('--alpha',              type=float,  default=0.002)
     parser.add_argument('--beta',               type=float,  default=0.002)
     parser.add_argument('--tau',                type=float,  default=0.1)
-    parser.add_argument('--fast_dev_run',       type=bool,   default=False)
+    parser.add_argument('--fast_dev_run',       action=argparse.BooleanOptionalAction, default=False)
     args = parser.parse_args()
 
     # Display Arguments
