@@ -20,17 +20,18 @@ if __name__ == '__main__':
     parser.add_argument('--env',                type=str,    default=ENV)
     parser.add_argument('--epochs',             type=int,    default=10_000)
     parser.add_argument('--samples_per_epoch',  type=int,    default=10_000)
+    parser.add_argument('--patience',           type=int,    default=1_000)
     parser.add_argument('--alpha',              type=float,  default=0.002)
-    parser.add_argument('--beta',               type=float,  default=0.01)
+    parser.add_argument('--beta',               type=float,  default=0.05)
     parser.add_argument('--tau',                type=float,  default=0.1)
     parser.add_argument('--fast_dev_run',       action=argparse.BooleanOptionalAction, default=False)
     args = parser.parse_args()
 
     # Display Arguments
-    print_arguments(args)
+    print_arguments(args, term_print=True, save=False)
 
     # Instantiate Algorithm
-    algorithm = SAC(env_name=args.env, folder_name=FOLDER, samples_per_epoch=args.samples_per_epoch, 
+    algorithm = SAC(env_name=args.env, samples_per_epoch=args.samples_per_epoch, 
                     alpha=args.alpha, beta=args.beta, tau=args.tau)
     
     # Create Trainer Module
@@ -45,7 +46,7 @@ if __name__ == '__main__':
         
         # Additional Callbacks
         callbacks   = [PrintCallback(),
-                       EarlyStopping(monitor='episode/Return', mode='max', patience=500, verbose=True),
+                       EarlyStopping(monitor='episode/Return', mode='max', patience=args.patience, verbose=True),
                        ],
         
         # Custom TensorBoard Logger
@@ -55,5 +56,8 @@ if __name__ == '__main__':
         fast_dev_run = args.fast_dev_run
 
     )
+    
+    # Save Arguments
+    print_arguments(args, term_print=False, save=True)
     
     trainer.fit(algorithm)

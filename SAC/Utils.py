@@ -1,12 +1,12 @@
 import os
 from termcolor import colored
 
-# Video Folder
+# Project Folder
 FOLDER = f'{os.path.dirname(__file__)}/'
 
 # Default Environment
-# ENV  = 'Safexp-PointGoal1-v0'
-ENV  = 'Safexp-PointGoal2-v0'
+ENV  = 'Safexp-PointGoal1-v0'
+# ENV  = 'Safexp-PointGoal2-v0'
 # ENV  = 'Safexp-CarGoal2-v0'
 
 ''' 
@@ -44,10 +44,42 @@ cost         = Cumulative Cost for all the Constraints (sum of cost_elements)
 
 '''
 
-def print_arguments(args):
+# Check Video Folder and Return /Videos/Trial_{n}
+def check_video_folder(folder):
+  
+    # Check Existing Video Folders
+    n = 0
+    while True:
+        if not os.path.exists(f'{folder}/Videos/Trial_{n}'): break
+        else: n += 1
+        
+    return f'{folder}/Videos/Trial_{n}'
+
+VIDEO_FOLDER = check_video_folder(FOLDER)
+
+# Print and Save Arguments
+def print_arguments(args, term_print = True, save = False):
     
-    print(colored('\n\nArguments:\n', 'green'))
+    if term_print: print(colored('\n\nArguments:\n', 'green'))
     
+    if save:
+        
+        # Create Directory
+        if not os.path.exists(VIDEO_FOLDER): os.mkdir(VIDEO_FOLDER)
+        
+        # Create File Info.txt
+        file = open(f'{VIDEO_FOLDER}/# Info.txt', 'w')
+    
+        file.write('Arguments:\n\n')
+
     for arg in vars(args):
+        
+        # Print Arguments
         tab = '\t' if len(arg) > 11 else '\t\t'
-        print (colored(f'   {arg}: ', 'white', attrs=['bold']), f'{tab}{getattr(args, arg)}')
+        if term_print: print (colored(f'   {arg}: ', 'white', attrs=['bold']), f'{tab}{getattr(args, arg)}')
+        
+        # Save Info Arguments
+        if save: file.write(f'   {arg}: {tab}{getattr(args, arg)}\n')
+
+    # Close Save File
+    if save: file.close()

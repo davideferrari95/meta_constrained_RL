@@ -1,6 +1,9 @@
 import os
 import gym
 
+# Import Utils
+from SAC.Utils import VIDEO_FOLDER
+
 # Import Environments
 import safety_gym
 import mujoco_py
@@ -10,7 +13,7 @@ GOAL_ENV = 'GOAL_ENV'
 STANDARD_ENV = 'STANDARD_ENV'
 
 # Create Environment Function
-def create_environment(name, folder, render_mode='rgb_array'):
+def create_environment(name, render_mode='rgb_array'):
     
     # Build the Environment
     try: env = gym.make(name, render_mode=render_mode)
@@ -25,7 +28,7 @@ def create_environment(name, folder, render_mode='rgb_array'):
     ENV_TYPE = check_environment_type(env)
     
     # Apply Wrappers
-    env = apply_wrappers(env, folder=check_video_folder(folder), env_type=ENV_TYPE)
+    env = apply_wrappers(env, folder=VIDEO_FOLDER, env_type=ENV_TYPE)
     
     return env
 
@@ -81,13 +84,3 @@ def check_environment_type(env):
   # Check if is a Goal-Environment
   if type(env.reset()[0]) is dict and 'observation' in env.reset()[0]: return GOAL_ENV
   else: return STANDARD_ENV
-
-def check_video_folder(folder):
-  
-    # Check Existing Video Folders
-    n = 0
-    while True:
-        if not os.path.exists(f'{folder}/Videos/Trial_{n}'): break
-        else: n += 1
-        
-    return f'{folder}/Videos/Trial_{n}'
