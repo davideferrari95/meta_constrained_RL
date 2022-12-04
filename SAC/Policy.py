@@ -53,7 +53,7 @@ class GradientPolicy(nn.Module):
         # Sum the Value to Obtain a Single Probability (Instead of a Vector of N Probabilities)
         log_prob = log_prob.sum(dim=-1, keepdim=True)
         
-        # Probability of an Action in [0,1] -> Log in [-inf,0] -> Numerical Instability -> Trick Formula
+        # Probability of an Action in [0,1] -> Log in [-inf,0] -> Numerical Instability -> Trick Formula (Squashing Function)
         log_prob -= (2 * (np.log(2) - action- F.softplus(-2 * action))).sum(dim=-1, keepdim=True)
 
         # Map the Output in [-1,+1] and Scale it to the Env Range
