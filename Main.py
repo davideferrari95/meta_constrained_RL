@@ -1,5 +1,4 @@
-# PYTHON_ARGCOMPLETE_OK
-import argparse, argcomplete
+import argparse
 
 # Import Algorithm
 from SAC.SAC import SAC
@@ -28,9 +27,6 @@ if __name__ == '__main__':
     parser.add_argument('--auto_lr_find',       action=argparse.BooleanOptionalAction, default=False)
     parser.add_argument('--auto_batch_size',    action=argparse.BooleanOptionalAction, default=False)
     parser.add_argument('--fast_dev_run',       action=argparse.BooleanOptionalAction, default=False)
-    
-    # Autocomplete and Parse Functions
-    argcomplete.autocomplete(parser)
     args = parser.parse_args()
 
     # Display Arguments
