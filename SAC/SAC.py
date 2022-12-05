@@ -65,6 +65,7 @@ class SAC(LightningModule):
 
         # Save Hyperparameters in Internal Properties that we can Reference in our Code
         self.save_hyperparameters()
+        self.lr = lr
 
         print(colored('\n\nStart Collecting Experience\n\n','yellow'))
 
@@ -130,8 +131,8 @@ class SAC(LightningModule):
         q_net_params = itertools.chain(self.q_net1.parameters(), self.q_net2.parameters(), self.q_net_cost.parameters())
         
         # We need 2 Separate Optimizers as we have 2 Neural Networks
-        q_net_optimizer  = self.hparams.optim(q_net_params,  lr=self.hparams.lr)
-        policy_optimizer = self.hparams.optim(self.policy.parameters(), lr=self.hparams.lr)
+        q_net_optimizer  = self.hparams.optim(q_net_params,  lr=self.lr)
+        policy_optimizer = self.hparams.optim(self.policy.parameters(), lr=self.lr)
 
         return [q_net_optimizer, policy_optimizer]
     
