@@ -1,12 +1,15 @@
 import os
 from termcolor import colored
 
+# Utils
+AUTO = 'auto'
+
 # Project Folder
 FOLDER = f'{os.path.dirname(__file__)}/'
 
 # Default Environment
-ENV  = 'Safexp-PointGoal1-v0'
-# ENV  = 'Safexp-PointGoal2-v0'
+# ENV  = 'Safexp-PointGoal1-v0'
+ENV  = 'Safexp-PointGoal2-v0'
 # ENV  = 'Safexp-CarGoal2-v0'
 
 ''' 
@@ -75,7 +78,7 @@ def print_arguments(args, term_print = True, save = False):
     for arg in vars(args):
         
         # Print Arguments
-        tab = '\t' if len(arg) > 11 else '\t\t'
+        tab = '\t' if len(arg) > 9 else '\t\t'
         if term_print: print (colored(f'   {arg}: ', 'white', attrs=['bold']), f'{tab}{getattr(args, arg)}')
         
         # Save Info Arguments
