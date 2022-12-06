@@ -84,10 +84,10 @@ class SAC(LightningModule):
 
         # Reset Environment
         obs, _ = self.env.reset()
-        done = False
+        done = truncated = False
         episode_cost = 0.0
 
-        while not done:
+        while not done and not truncated:
 
             # Select an Action using our Policy or Random Action (in the beginning or if random < epsilon)
             if policy and random.random() > self.hparams.epsilon:
@@ -101,7 +101,6 @@ class SAC(LightningModule):
 
             # Execute Action on the Environment
             next_obs, reward, done, truncated, info = self.env.step(action)
-            if truncated: done = truncated
             
             # Get Cumulative Cost from the Info Dict 
             cost = info.get('cost', 0)
@@ -155,6 +154,7 @@ class SAC(LightningModule):
         costs = costs.unsqueeze(1)
         dones = dones.unsqueeze(1)
         
+        # Update Q-Networks
         if optimizer_idx == 0:
             
             # Compute the Action-Value Pair
