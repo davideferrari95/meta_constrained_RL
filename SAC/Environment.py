@@ -21,8 +21,7 @@ def create_environment(name, render_mode='rgb_array'):
       
       # Not-Standard Render Mode 
       try: env = gym.make(name, render=True)
-      except: gym.make(name)
-    
+      except: env = gym.make(name)
     
     # Check Environment Type (GOAL, STANDARD...)
     ENV_TYPE = check_environment_type(env)
