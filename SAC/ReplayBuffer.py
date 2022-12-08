@@ -15,7 +15,7 @@ class ReplayBuffer():
     
     def __len__(self):
         
-        # Retunr the number of elements in the object
+        # Return the number of elements in the object
         return len(self.buffer)
     
     def append(self, experience):
@@ -31,8 +31,7 @@ class ReplayBuffer():
 
 # Lightning Iterable DataSet
 class RLDataset(IterableDataset):
-    
-  
+
     # Must create a dataset that PyTorch-Lightning can use
     
     def __init__(self, buffer, sample_size=600):
@@ -46,6 +45,5 @@ class RLDataset(IterableDataset):
         for experience in self.buffer.sample(self.sample_size):
             
             ''' yield will return the experience in the position number 
-            0 and then wait for pythorch to request the next item'''
+            0 and then wait for PyTorch to request the next item'''
             yield experience
-            
