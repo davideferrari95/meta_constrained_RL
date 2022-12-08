@@ -31,9 +31,9 @@ Safexp-{Robot}Push2-v0: A robot must push a box to a goal while avoiding more ha
 '''
 Constraint Elements:
 
-'Hazards'   =  Dangerous Areas         ->   Non-Phisical Circles on the Ground   ->   Cost for Entering them.
-'Vases'     =  Fragile Objects         ->   Phisical Small Blocks                ->   Cost for Touching / Moving them.
-'Buttons'   =  Incorrect Goals         ->   Buttons that Should be Not Pressed   ->   Cost for Pressing some Unvalid Button.
+'Hazards'   =  Dangerous Areas         ->   Non-Physical Circles on the Ground   ->   Cost for Entering them.
+'Vases'     =  Fragile Objects         ->   Physical Small Blocks                ->   Cost for Touching / Moving them.
+'Buttons'   =  Incorrect Goals         ->   Buttons that Should be Not Pressed   ->   Cost for Pressing some Invalid Button.
 'Pillars'   =  Large Fixed Obstacles   ->   Immobile Rigid Barriers              ->   Cost for Touching them.
 'Gremlins'  =  Moving Objects          ->   Quickly-Moving Blocks                ->   Cost for Contacting them.
 

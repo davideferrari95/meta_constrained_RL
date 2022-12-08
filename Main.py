@@ -10,7 +10,6 @@ from SAC.LightningCallbacks import PrintCallback
 
 # Import Utilities
 from SAC.Utils import ENV, FOLDER, AUTO, print_arguments
-from typing import Union, Optional
 
 if __name__ == '__main__':
     
@@ -19,8 +18,8 @@ if __name__ == '__main__':
     
     # Learning HyperParameters
     parser.add_argument('--env',                type=str,    default=ENV)
+    parser.add_argument('--samples_per_epoch',  type=int,    default=1_000)
     parser.add_argument('--epochs',             type=int,    default=10_000)
-    parser.add_argument('--samples_per_epoch',  type=int,    default=10_000)
     parser.add_argument('--patience',           type=int,    default=1_000)
     parser.add_argument('--tau',                type=float,  default=0.1)
 
@@ -72,5 +71,5 @@ if __name__ == '__main__':
     # Save Arguments
     print_arguments(args, term_print=False, save=True)
         
-    # Start Traiing
+    # Start Training
     trainer.fit(model)

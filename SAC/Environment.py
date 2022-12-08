@@ -12,8 +12,11 @@ import mujoco_py
 GOAL_ENV = 'GOAL_ENV'
 STANDARD_ENV = 'STANDARD_ENV'
 
-# Create Environment Function
-def create_environment(name, render_mode='rgb_array'):
+# Create Single Environment
+def create_environment(name, render_mode='rgb_array') -> gym.Env:
+  return __create_environment(name, render_mode)
+
+def __create_environment(name, render_mode='rgb_array'):
     
     # Build the Environment
     try: env = gym.make(name, render_mode=render_mode)
@@ -24,14 +27,14 @@ def create_environment(name, render_mode='rgb_array'):
       except: env = gym.make(name)
     
     # Check Environment Type (GOAL, STANDARD...)
-    ENV_TYPE = check_environment_type(env)
+    ENV_TYPE = __check_environment_type(env)
     
     # Apply Wrappers
-    env = apply_wrappers(env, folder=VIDEO_FOLDER, env_type=ENV_TYPE)
+    env = __apply_wrappers(env, folder=VIDEO_FOLDER, env_type=ENV_TYPE)
     
     return env
 
-def apply_wrappers(env, folder, env_type):
+def __apply_wrappers(env, folder, env_type):
       
   # Apply Specific Wrappers form GOAl Environments
   if env_type == GOAL_ENV:
@@ -52,7 +55,7 @@ def apply_wrappers(env, folder, env_type):
 
   return env
 
-def check_environment_type(env):
+def __check_environment_type(env):
 
   '''
   GOAL Environment: GOAL is inside the Observation Tuple

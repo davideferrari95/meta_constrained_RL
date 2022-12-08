@@ -22,7 +22,7 @@ class GradientPolicy(nn.Module):
             nn.ReLU()
         )
         
-        # Mean and Standare Deviation of the Gaussian Distribution
+        # Mean and Standard Deviation of the Gaussian Distribution
         self.linear_mu  = nn.Linear(hidden_size, out_dims)
         self.linear_std = nn.Linear(hidden_size, out_dims)
 

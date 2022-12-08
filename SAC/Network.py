@@ -34,7 +34,7 @@ class DQN(nn.Module):
         # Concatenate the Features of State and Action Horizontally
         in_vector = torch.hstack((state, action))
         
-        # Pass the State-Action Pair trought the Network
+        # Pass the State-Action Pair through the Network
         return self.net(in_vector.float())
         
 # Polyak Average Function to update the Target Parameters

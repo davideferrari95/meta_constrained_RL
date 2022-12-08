@@ -27,7 +27,7 @@ class SAC(LightningModule):
     # batch_size:           Size of the Batch
     # lr:                   Learning Rate
     # hidden_size           Size of the Hidden Layer
-    # gamma:                Discout Factor
+    # gamma:                Discount Factor
     # loss_function:        Loss Function to Compute the Loss Value
     # optim:                Optimizer to Train the NN
     # epsilon:              Epsilon = Prob. to Take a Random Action
@@ -134,7 +134,7 @@ class SAC(LightningModule):
 
     @property
     # Alpha Computation Function
-    def _alpha(self): 
+    def __alpha(self): 
         
         # Return 'log_alpha' if AUTO | else: Force Float Conversion -> α
         if self.hparams.alpha == AUTO: return self.log_alpha.exp().detach()
@@ -142,7 +142,7 @@ class SAC(LightningModule):
 
     @property
     # Beta Computation Function
-    def _beta(self): 
+    def __beta(self): 
         
         # Return 'log_beta' if AUTO | else: Force Float Conversion -> β
         # if self.hparams.beta == AUTO: return self.log_beta.exp().detach()
@@ -187,7 +187,7 @@ class SAC(LightningModule):
         
         # Log Episode Cost
         if policy: self.log('episode/Cost', episode_cost)
-    
+
     def forward(self, x):
         
         # Input: State of Environment | Output: Policy Computed by our Network
@@ -254,7 +254,7 @@ class SAC(LightningModule):
             next_cost_values[dones] = 0.0
             
             # Construct the Target, Adjusting the Value with α * log(π) 
-            expected_action_values = rewards + self.hparams.gamma * (next_action_values - self._alpha * target_log_probs)
+            expected_action_values = rewards + self.hparams.gamma * (next_action_values - self.__alpha * target_log_probs)
             
             # Construct Cost Target
             expected_cost_values = costs + self.hparams.gamma * (next_cost_values)
@@ -284,7 +284,7 @@ class SAC(LightningModule):
             cost_values = self.q_net_cost(states, actions)
 
             # Compute the Policy Loss (α * Entropy + β * Cost)
-            policy_loss = (self._alpha * log_probs - action_values + self._beta * cost_values).mean()
+            policy_loss = (self.__alpha * log_probs - action_values + self.__beta * cost_values).mean()
             self.log('episode/Policy Loss', policy_loss)
 
             return policy_loss
