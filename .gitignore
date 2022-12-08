@@ -7,6 +7,9 @@ eggs/
 *.egg-info/
 *.egg
 
+# VSCode Folder
+.vscode/*
+
 # Videos, Logs
 SAC/Logs/*
 SAC/Videos/*

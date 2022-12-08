@@ -14,5 +14,8 @@
         "/home/davide/ROS/skill_ws/devel/lib/python3.8/site-packages",
         "/home/davide/ROS/skill_ws/src/MAPLE/doodad",
         "/home/davide/ROS/skill_ws/src/Gym/bullet3/build_cmake/examples/pybullet"
+    ],
+    "cSpell.words": [
+        "optim"
     ]
 }
