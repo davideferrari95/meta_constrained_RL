@@ -7,10 +7,6 @@ eggs/
 *.egg-info/
 *.egg
 
-# VSCode Folder
-.vscode/c_cpp_properties.json
-.vscode/settings.json
-
 # Videos, Logs
 SAC/Logs/*
 SAC/Videos/*
