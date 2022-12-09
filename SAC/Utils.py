@@ -78,11 +78,19 @@ def print_arguments(args, term_print = True, save = False):
     for arg in vars(args):
         
         # Print Arguments
-        tab = '\t' if len(arg) > 9 else '\t\t'
-        if term_print: print (colored(f'   {arg}: ', 'white', attrs=['bold']), f'{tab}{getattr(args, arg)}')
+        print_arg(arg, getattr(args, arg), term_print)
+        
+        # Get Tabulation Length
+        tab = '' if len(arg) >= 18 else '\t' if len(arg) >= 9 else '\t\t' 
         
         # Save Info Arguments
         if save: file.write(f'   {arg}: {tab}{getattr(args, arg)}\n')
 
     # Close Save File
     if save: file.close()
+
+def print_arg(arg, value, term_print = True):
+    
+    # Print Arguments
+    tab = '' if len(arg) >= 18 else '\t' if len(arg) >= 9 else '\t\t' 
+    if term_print: print (colored(f'   {arg}: ', 'white', attrs=['bold']), f'{tab}{value}')
