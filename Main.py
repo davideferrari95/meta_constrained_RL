@@ -18,7 +18,7 @@ if __name__ == '__main__':
     
     # Learning HyperParameters
     parser.add_argument('--env',                type=str,    default=ENV)
-    parser.add_argument('--samples_per_epoch',  type=int,    default=1_000)
+    parser.add_argument('--samples_per_epoch',  type=int,    default=10_000)
     parser.add_argument('--epochs',             type=int,    default=10_000)
     parser.add_argument('--patience',           type=int,    default=1_000)
     parser.add_argument('--tau',                type=float,  default=0.1)
@@ -27,12 +27,12 @@ if __name__ == '__main__':
     parser.add_argument('--alpha',              default=AUTO)
     parser.add_argument('--target_alpha',       default=AUTO)
     parser.add_argument('--init_alpha',         default=None)
-    # parser.add_argument('--beta',               default=AUTO)
-    parser.add_argument('--beta',               default=0.05)
-    parser.add_argument('--target_beta',        default=AUTO)
-    parser.add_argument('--init_beta',          default=None)
+    parser.add_argument('--fixed_cost_penalty', default=None)
+    parser.add_argument('--cost_constraint',    default=None)
+    parser.add_argument('--cost_limit',         default=25)
     
-    # Training Options
+    # Training Options (--no- to set False)
+    parser.add_argument('--record_video',       action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument('--fast_dev_run',       action=argparse.BooleanOptionalAction, default=False)
 
     args = parser.parse_args()
@@ -41,9 +41,10 @@ if __name__ == '__main__':
     print_arguments(args, term_print=True, save=False)
 
     # Instantiate Algorithm Model
-    model = SAC(env_name = args.env, samples_per_epoch = args.samples_per_epoch, tau = args.tau, 
+    model = SAC(env_name = args.env, record_video=(args.record_video and not args.fast_dev_run),
+                samples_per_epoch = args.samples_per_epoch, tau = args.tau, 
                 alpha = args.alpha, target_alpha = args.target_alpha, init_alpha = args.init_alpha,
-                beta  = args.beta,  target_beta  = args.target_beta,  init_beta  = args.init_beta)
+                fixed_cost_penalty = args.fixed_cost_penalty, cost_constraint = args.cost_constraint, cost_limit = args.cost_limit)
     
     # Create Trainer Module
     trainer = Trainer(
@@ -69,7 +70,7 @@ if __name__ == '__main__':
     )
         
     # Save Arguments
-    print_arguments(args, term_print=False, save=True)
+    print_arguments(args, term_print=False, save=(True and (args.record_video and not args.fast_dev_run)))
         
     # Start Training
     trainer.fit(model)

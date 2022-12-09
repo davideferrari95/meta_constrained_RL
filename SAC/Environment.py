@@ -13,10 +13,10 @@ GOAL_ENV = 'GOAL_ENV'
 STANDARD_ENV = 'STANDARD_ENV'
 
 # Create Single Environment
-def create_environment(name, render_mode='rgb_array') -> gym.Env:
-  return __create_environment(name, render_mode)
+def create_environment(name, record_video=True, render_mode='rgb_array') -> gym.Env:
+  return __create_environment(name, record_video, render_mode)
 
-def __create_environment(name, render_mode='rgb_array'):
+def __create_environment(name, record_video, render_mode='rgb_array'):
     
     # Build the Environment
     try: env = gym.make(name, render_mode=render_mode)
@@ -30,11 +30,11 @@ def __create_environment(name, render_mode='rgb_array'):
     ENV_TYPE = __check_environment_type(env)
     
     # Apply Wrappers
-    env = __apply_wrappers(env, folder=VIDEO_FOLDER, env_type=ENV_TYPE)
+    env = __apply_wrappers(env, record_video, folder=VIDEO_FOLDER, env_type=ENV_TYPE)
     
     return env
 
-def __apply_wrappers(env, folder, env_type):
+def __apply_wrappers(env, record_video, folder, env_type):
       
   # Apply Specific Wrappers form GOAl Environments
   if env_type == GOAL_ENV:
@@ -48,7 +48,7 @@ def __apply_wrappers(env, folder, env_type):
         env = gym.wrappers.FlattenObservation(env)
 
   # Record Environment Videos in the specified folder, trigger specifies which episode to record and which to ignore (1 in 50)
-  env = gym.wrappers.RecordVideo(env, video_folder=folder, episode_trigger=lambda x: x % 50 == 0)
+  if record_video: env = gym.wrappers.RecordVideo(env, video_folder=folder, episode_trigger=lambda x: x % 50 == 0)
   
   # Keep Track of the Reward the Agent Obtain and Save them into a Property
   env = gym.wrappers.RecordEpisodeStatistics(env)
