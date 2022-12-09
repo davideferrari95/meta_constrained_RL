@@ -16,6 +16,7 @@
         "/home/davide/ROS/skill_ws/src/Gym/bullet3/build_cmake/examples/pybullet"
     ],
     "cSpell.words": [
-        "optim"
+        "optim",
+        "undiscounted"
     ]
 }
