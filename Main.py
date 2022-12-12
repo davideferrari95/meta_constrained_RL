@@ -32,6 +32,7 @@ if __name__ == '__main__':
     parser.add_argument('--cost_limit',         default=25)
     
     # Training Options (--no- to set False)
+    parser.add_argument('--early_stopping',     action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument('--record_video',       action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument('--fast_dev_run',       action=argparse.BooleanOptionalAction, default=False)
 
@@ -47,6 +48,12 @@ if __name__ == '__main__':
                 alpha = args.alpha, target_alpha = args.target_alpha, init_alpha = args.init_alpha,
                 fixed_cost_penalty = args.fixed_cost_penalty, cost_constraint = args.cost_constraint, cost_limit = args.cost_limit)
     
+    # Instantiate Default Callbacks
+    callbacks = [PrintCallback()]
+    
+    # Optional Callbacks
+    if args.early_stopping: callbacks.append(EarlyStopping(monitor='episode/Return', mode='max', patience=args.patience, verbose=True))
+    
     # Create Trainer Module
     trainer = Trainer(
         
@@ -58,9 +65,7 @@ if __name__ == '__main__':
         max_epochs  = args.epochs,
         
         # Additional Callbacks
-        callbacks   = [PrintCallback(),
-                       EarlyStopping(monitor='episode/Return', mode='max', patience=args.patience, verbose=True),
-                       ],
+        callbacks = callbacks,
         
         # Custom TensorBoard Logger
         logger = pl_loggers.TensorBoardLogger(save_dir=f'{FOLDER}/Logs/'),
