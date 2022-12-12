@@ -42,7 +42,7 @@ if __name__ == '__main__':
 
     # Instantiate Algorithm Model
     model = SAC(env_name = args.env, record_video=(args.record_video and not args.fast_dev_run),
-                samples_per_epoch = args.samples_per_epoch, tau = args.tau, 
+                samples_per_epoch = args.samples_per_epoch if not args.fast_dev_run else 1, tau = args.tau, 
                 alpha = args.alpha, target_alpha = args.target_alpha, init_alpha = args.init_alpha,
                 fixed_cost_penalty = args.fixed_cost_penalty, cost_constraint = args.cost_constraint, cost_limit = args.cost_limit)
     
