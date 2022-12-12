@@ -94,3 +94,12 @@ def print_arg(arg, value, term_print = True):
     # Print Arguments
     tab = '' if len(arg) >= 18 else '\t' if len(arg) >= 9 else '\t\t' 
     if term_print: print (colored(f'   {arg}: ', 'white', attrs=['bold']), f'{tab}{value}')
+
+def check_none(args):
+    
+    for arg in vars(args):
+        
+        # Check if an Arguments Contains 'None' as String
+        if getattr(args, arg) == 'None': vars(args)[arg] = None
+
+    return args

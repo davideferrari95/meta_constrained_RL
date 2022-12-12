@@ -9,7 +9,7 @@ from pytorch_lightning.callbacks import EarlyStopping
 from SAC.LightningCallbacks import PrintCallback
 
 # Import Utilities
-from SAC.Utils import ENV, FOLDER, AUTO, print_arguments
+from SAC.Utils import ENV, FOLDER, AUTO, print_arguments, check_none
 
 if __name__ == '__main__':
     
@@ -36,6 +36,7 @@ if __name__ == '__main__':
     parser.add_argument('--fast_dev_run',       action=argparse.BooleanOptionalAction, default=False)
 
     args = parser.parse_args()
+    args = check_none(args)
 
     # Display Arguments
     print_arguments(args, term_print=True, save=False)
