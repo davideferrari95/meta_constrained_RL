@@ -3,7 +3,7 @@ from SAC.Network import DQN, polyak_average, DEVICE
 from SAC.ReplayBuffer import ReplayBuffer, RLDataset
 from SAC.Policy import GradientPolicy
 from SAC.Environment import create_environment
-from SAC.Utils import AUTO
+from SAC.Utils import print_arg, AUTO
 
 # Import Utilities
 import copy, itertools, random
@@ -16,13 +16,13 @@ import torch.nn.functional as F
 from torch import Tensor
 from torch.optim import AdamW
 from torch.utils.data import DataLoader
-from torch.nn.parameter import Parameter
 from pytorch_lightning import LightningModule
 
 # Create SAC Algorithm
 class SAC(LightningModule):
     
     # env_name:             Environment Name
+    # record_video:         Record Video with RecordVideo Wrapper
     # capacity:             ReplayBuffer Capacity
     # batch_size:           Size of the Batch
     # lr:                   Learning Rate
@@ -38,13 +38,13 @@ class SAC(LightningModule):
     # init_alpha:           Initial Value of α [Optional]       |  When Learning Automatically α
     # target_alpha:         Target Entropy                      |  When Learning Automatically α, Set it to 'auto' to Automatically Compute Target    
     
-    # beta:                 Cost Coefficient                    |  Set it to 'auto' to Automatically Learn
-    # init_beta:            Initial Value of β [Optional]       |  When Learning Automatically β
-    # target_beta:          Target Cost                         |  When Learning Automatically β, Set it to 'auto' to Automatically Compute Target
+    # fixed_cost_penalty:   Cost Penalty Coefficient                    |  Set it to 'auto' to Automatically Learn
+    # cost_constraint:      Adjust Cost Penalty to Maintain this Cost   |  When 'fixed_cost_penalty' is None
+    # cost_limit:           Compute an Approximate Cost Constraint      |  When 'cost_constraint' is None
 
     def __init__(
         
-        self, env_name, capacity=100_000, batch_size=512, hidden_size=256,
+        self, env_name, record_video=True, capacity=100_000, batch_size=512, hidden_size=256,
         lr=1e-3, gamma=0.99, loss_function=F.smooth_l1_loss, optim=AdamW, 
         epsilon=0.05, samples_per_epoch=10_000, tau=0.05,
                  
@@ -53,17 +53,21 @@ class SAC(LightningModule):
         init_alpha: Optional[float]=None,
         target_alpha: Union[str, float]=AUTO,
         
-        # Constraint Coefficient β, if AUTO -> Automatic Learning 
-        beta: Union[str, float]=AUTO,
-        init_beta: Optional[float]=None,
-        target_beta:Union[str, float]=AUTO
+        # Cost Constraints
+        fixed_cost_penalty: Optional[float]=None,
+        cost_constraint: Optional[float]=None,
+        cost_limit: Optional[float]=None
         
     ):
 
         super().__init__()
 
         # Create Environment
-        self.env = create_environment(env_name)
+        self.env = create_environment(env_name, record_video)
+        
+        # FIX: Get max_episode_steps from Environment -> For Safety-Gym = 1000
+        # self.max_episode_steps = self.env.spec.max_episode_steps = 1000
+        self.max_episode_steps = 1000
 
         # Action, Observation Dimension 
         obs_size = self.env.observation_space.shape[0]
@@ -86,12 +90,12 @@ class SAC(LightningModule):
         self.target_q_net2 = copy.deepcopy(self.q_net2)
         self.target_policy = copy.deepcopy(self.policy)
         self.target_q_net_cost = copy.deepcopy(self.q_net_cost)
-
-        # Initialize Entropy Coefficient (Alpha) and Constraint Coefficient (Beta)
-        self.init_coefficients(alpha, init_alpha, target_alpha, beta, init_beta, target_beta)
-
+        
         # Save Hyperparameters in Internal Properties that we can Reference in our Code
         self.save_hyperparameters()
+        
+        # Initialize Entropy Coefficient (Alpha) and Constraint Coefficient (Beta)
+        self.init_coefficients(alpha, init_alpha, target_alpha, fixed_cost_penalty, cost_constraint, cost_limit)
 
         print(colored('\n\nStart Collecting Experience\n\n','yellow'))
 
@@ -115,10 +119,10 @@ class SAC(LightningModule):
         init_alpha: Optional[float]=None,
         target_alpha: Union[str, float]=AUTO,
                   
-        # Constraint Coefficient β, if 'auto' -> Automatic Learning 
-        beta: Union[str, float]=AUTO,
-        init_beta: Optional[float]=None,
-        target_beta: Union[str, float]=AUTO
+        # Cost Constraints
+        fixed_cost_penalty: Optional[float]=None,
+        cost_constraint: Optional[float]=None,
+        cost_limit: Optional[float]=None
     
     ):
         
@@ -129,25 +133,62 @@ class SAC(LightningModule):
             if target_alpha == AUTO: self.target_alpha = - torch.prod(Tensor(self.env.action_space.shape)).item()
             else: self.target_alpha = float(target_alpha)
 
-            # Compute Log Alpha
-            self.log_alpha = Parameter(torch.log(torch.ones(1, device=DEVICE) * (float(init_alpha) if init_alpha is not None else 1.0)), requires_grad=True)
+            # Instantiate Alpha, Log_Alpha
+            # alpha = torch.ones(1, device=DEVICE) * (float(init_alpha) if init_alpha is not None else 0.0)
+            # self.log_alpha = torch.nn.Parameter(torch.log(F.softplus(alpha)), requires_grad=True)
+            alpha_ = torch.ones(1, device=DEVICE) * (float(init_alpha) if init_alpha is not None else 0.0)
+            self.alpha = torch.nn.Parameter(F.softplus(alpha_), requires_grad=True)
+            self.log_alpha = torch.log(self.alpha)
+        
+        # Use Cost = False is All of the Cost Arguments are None
+        self.use_cost = bool(fixed_cost_penalty or cost_constraint or cost_limit)
+        print_arg('use_cost', self.use_cost)
+
+        # Automatically Compute Cost Penalty
+        if self.use_cost and fixed_cost_penalty is None:
+            
+            # Instantiate Beta and Log_Beta
+            self.beta = torch.nn.Parameter(F.softplus(torch.zeros(1, device=DEVICE)), requires_grad=True)
+            self.log_beta = torch.log(self.beta)
+            
+            # Compute Cost Constraint
+            if cost_constraint is None:
+                
+                ''' 
+                Convert assuming equal cost accumulated each step
+                Note this isn't the case, since the early in episode doesn't usually have cost,
+                but since our algorithm optimizes the discounted infinite horizon from each entry
+                in the replay buffer, we should be approximately correct here.
+                It's worth checking empirical total undiscounted costs to see if they match. 
+                '''
+
+                self.cost_constraint = cost_limit * (1 - self.hparams.gamma * self.max_episode_steps) / \
+                                       (1 - self.hparams.gamma) / self.max_episode_steps
 
     @property
-    # Alpha Computation Function
+    # Alpha (Entropy Bonus) Computation Function
     def __alpha(self): 
         
         # Return 'log_alpha' if AUTO | else: Force Float Conversion -> α
-        if self.hparams.alpha == AUTO: return self.log_alpha.exp().detach()
+        # if self.hparams.alpha == AUTO: return self.log_alpha.exp().detach()
+        if self.hparams.alpha == AUTO: return self.alpha.detach()
         else: return float(self.hparams.alpha)
 
     @property
-    # Beta Computation Function
-    def __beta(self): 
+    # Beta (Cost Penalty) Computation Function 
+    def __beta(self):
         
-        # Return 'log_beta' if AUTO | else: Force Float Conversion -> β
-        # if self.hparams.beta == AUTO: return self.log_beta.exp().detach()
-        # else: return float(self.hparams.beta)
-        return float(self.hparams.beta)
+        # Cost Not Contribute to Policy Optimization
+        if not self.use_cost: 
+            return 0.0
+        
+        # Use Fixed Cost Penalty
+        if self.hparams.fixed_cost_penalty is not None:
+            return float(self.hparams.fixed_cost_penalty)
+        
+        # Else Return 'log_beta'
+        # return self.log_beta.exp().detach()
+        return self.beta.detach()
 
     @torch.no_grad()
     def play_episode(self, policy=None):
@@ -202,10 +243,31 @@ class SAC(LightningModule):
         q_net_optimizer  = self.hparams.optim(q_net_params,  lr=self.hparams.lr)
         policy_optimizer = self.hparams.optim(self.policy.parameters(), lr=self.hparams.lr)
         
+        # Default Optimizers
+        optimizers = [q_net_optimizer, policy_optimizer]
+        self.optimizers_list = ['q_net_optimizer', 'policy_optimizer']
+        
         # Entropy Regularization Optimizer
-        alpha_optimizer = self.hparams.optim([self.log_alpha], lr=self.hparams.lr)
+        if self.hparams.alpha == AUTO:
+            
+            # alpha_optimizer = self.hparams.optim([self.log_alpha], lr=self.hparams.lr)
+            alpha_optimizer = self.hparams.optim([self.alpha], lr=self.hparams.lr)
 
-        return [q_net_optimizer, policy_optimizer, alpha_optimizer]
+            # Append Optimizer
+            optimizers.append(alpha_optimizer)
+            self.optimizers_list.append('alpha_optimizer')
+
+        # Cost Penalty Optimizer
+        if self.use_cost and self.hparams.fixed_cost_penalty is None:
+            
+            # cost_penalty_optimizer = self.hparams.optim([self.log_beta], lr=self.hparams.lr)
+            cost_penalty_optimizer = self.hparams.optim([self.beta], lr=self.hparams.lr)
+
+            # Append Optimizer
+            optimizers.append(cost_penalty_optimizer)
+            self.optimizers_list.append('cost_penalty_optimizer')
+
+        return optimizers
     
     def train_dataloader(self):
         
@@ -289,24 +351,32 @@ class SAC(LightningModule):
 
             return policy_loss
         
-        # Update Alpha
-        elif optimizer_idx == 2:
+        # Update Alpha        
+        elif 'alpha_optimizer' in self.optimizers_list and optimizer_idx == self.optimizers_list.index('alpha_optimizer'):
             
             # Compute the Actions and the Log Probabilities
-            actions, log_probs = self.policy(states)
-
-            # Use Q-Networks to Evaluate the Actions Selected by the Policy
-            action_values = torch.min(
-                self.q_net1(states, actions),
-                self.q_net2(states, actions)
-            )
+            _, log_probs = self.policy(states)
 
             # Compute the Alpha Loss
-            alpha_loss = - (self.log_alpha * (log_probs + self.target_alpha).detach()).mean()
+            # TODO: alpha_loss = - self.__alpha * (self.target_alpha + torch.mean(log_probs)).detach()
+            # OLD: alpha_loss = - (self.log_alpha * (log_probs + self.target_alpha).detach()).mean()
+            # alpha_loss = - torch.mean(self.log_alpha * (log_probs + self.target_alpha))
+            alpha_loss = - self.alpha * (torch.mean(log_probs) + self.target_alpha)
             self.log('episode/Alpha Loss', alpha_loss)
 
             return alpha_loss
         
+        # Update Beta
+        elif 'cost_penalty_optimizer' in self.optimizers_list and optimizer_idx == self.optimizers_list.index('cost_penalty_optimizer'):
+            
+            # Compute the Cost
+            cost_values = self.q_net_cost(states, actions)
+
+            # Compute the Alpha Loss
+            beta_loss = self.beta * (self.cost_constraint - torch.mean(cost_values))
+            self.log('episode/Beta Loss', beta_loss)
+
+            return beta_loss
 
     def training_epoch_end(self, training_step_outputs):
         
