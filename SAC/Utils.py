@@ -77,23 +77,25 @@ def print_arguments(args, term_print = True, save = False):
 
     for arg in vars(args):
         
+        new_line = '\n' if arg in ['tau','init_alpha','cost_limit','record_video','fast_dev_run'] else ''
+        
         # Print Arguments
-        print_arg(arg, getattr(args, arg), term_print)
+        print_arg(arg, getattr(args, arg), term_print, new_line)
         
         # Get Tabulation Length
         tab = '' if len(arg) >= 18 else '\t' if len(arg) >= 9 else '\t\t' 
         
         # Save Info Arguments
-        if save: file.write(f'   {arg}: {tab}{getattr(args, arg)}\n')
+        if save: file.write(f'   {arg}: {tab}{getattr(args, arg)}\n{new_line}')
 
     # Close Save File
     if save: file.close()
 
-def print_arg(arg, value, term_print = True):
+def print_arg(arg, value, term_print = True, new_line=''):
     
     # Print Arguments
     tab = '' if len(arg) >= 18 else '\t' if len(arg) >= 9 else '\t\t' 
-    if term_print: print (colored(f'   {arg}: ', 'white', attrs=['bold']), f'{tab}{value}')
+    if term_print: print (colored(f'   {arg}: ', 'white', attrs=['bold']), f'{tab}{value}{new_line}')
 
 def check_none(args):
     
