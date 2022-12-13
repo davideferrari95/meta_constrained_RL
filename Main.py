@@ -36,8 +36,12 @@ if __name__ == '__main__':
     parser.add_argument('--record_video',       action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument('--fast_dev_run',       action=argparse.BooleanOptionalAction, default=False)
 
+    # Parse Arguments and Check for 'None' String
     args = parser.parse_args()
     args = check_none(args)
+
+    # TODO: Argparse Terminal Arguments Suggestion
+    # TODO: Remove MoviePy Log
 
     # Display Arguments
     print_arguments(args, term_print=True, save=False)
@@ -58,11 +62,11 @@ if __name__ == '__main__':
     trainer = Trainer(
         
         # Devices
-        devices="auto", 
-        accelerator="auto",
+        devices = "auto", 
+        accelerator = "auto",
         
         # Hyperparameters
-        max_epochs  = args.epochs,
+        max_epochs = args.epochs,
         
         # Additional Callbacks
         callbacks = callbacks,
@@ -77,6 +81,6 @@ if __name__ == '__main__':
         
     # Save Arguments
     print_arguments(args, term_print=False, save=(True and (args.record_video and not args.fast_dev_run)))
-        
+
     # Start Training
     trainer.fit(model)
