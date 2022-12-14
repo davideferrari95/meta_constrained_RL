@@ -24,7 +24,7 @@ class SAC(LightningModule):
     # batch_size:           Size of the Batch
     # lr:                   Learning Rate
     # hidden_size           Size of the Hidden Layer
-    # gamma:                Discout Factor
+    # gamma:                Discount Factor
     # loss_function:        Loss Function to Compute the Loss Value
     # optim:                Optimizer to Train the NN
     # epsilon:              Epsilon = Prob. to Take a Random Action
