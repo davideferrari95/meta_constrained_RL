@@ -40,6 +40,10 @@
 	path = Examples/softlearning
 	url = https://github.com/rail-berkeley/softlearning.git
 
+[submodule "wcsac"]
+	path = Examples/wcsac
+	url = https://github.com/acl21/wcsac.git
+
 [submodule "WCSAC"]
 	path = Examples/WCSAC
 	url = https://github.com/AlgTUDelft/WCSAC.git
