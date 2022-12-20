@@ -14,3 +14,6 @@ eggs/
 # Videos, Logs
 SAC/Logs/*
 SAC/Videos/*
+
+# Test Files
+Test/*
