@@ -1,0 +1,15 @@
+Arguments:
+
+   env: 		Safexp-PointGoal2-v0
+   samples_per_epoch: 	10000
+   epochs: 		10000
+   patience: 		1000
+   tau: 		0.1
+   alpha: 		auto
+   target_alpha: 	auto
+   init_alpha: 	None
+   fixed_cost_penalty: None
+   cost_constraint: 	None
+   cost_limit: 	25
+   record_video: 	True
+   fast_dev_run: 	False

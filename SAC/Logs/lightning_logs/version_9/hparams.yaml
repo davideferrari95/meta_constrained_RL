@@ -1,0 +1,18 @@
+alpha: auto
+batch_size: 512
+capacity: 100000
+cost_constraint: null
+cost_limit: 25
+env_name: Safexp-PointGoal2-v0
+epsilon: 0.05
+fixed_cost_penalty: null
+gamma: 0.99
+hidden_size: 256
+init_alpha: null
+loss_function: !!python/name:torch.nn.functional.smooth_l1_loss ''
+lr: 0.001
+optim: !!python/name:torch.optim.adamw.AdamW ''
+record_video: true
+samples_per_epoch: 10000
+target_alpha: auto
+tau: 0.995

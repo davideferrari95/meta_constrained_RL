@@ -1,0 +1,10 @@
+Arguments:
+
+   env: 		            Safexp-PointGoal1-v0
+   epochs: 		         10000
+   samples_per_epoch: 	10000
+   patience: 		      1000
+   alpha: 		         0.002
+   beta: 		         0.05
+   tau: 		            0.1
+   fast_dev_run: 	      False

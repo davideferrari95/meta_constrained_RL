@@ -12,5 +12,5 @@ eggs/
 .vscode/*
 
 # Videos, Logs
-SAC/Logs/*
-SAC/Videos/*
+# SAC/Logs/*
+# SAC/Videos/*

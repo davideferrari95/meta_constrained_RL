@@ -1,0 +1,2 @@
+beta = 0.1
+patience = 1000

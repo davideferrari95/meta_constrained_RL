@@ -1,0 +1,17 @@
+Arguments:
+
+   env: 		            Safexp-PointGoal2-v0
+   epochs: 		         10000
+   samples_per_epoch: 	10000
+   patience: 		      1000
+   tau: 		            0.1
+   alpha: 		         auto
+   target_alpha: 	      auto
+   init_alpha: 	      None
+   beta: 		         0.05
+   target_beta: 	      auto
+   init_beta: 		      None
+   fast_dev_run: 	      False
+
+log_alpha optimization
+fixed cost
