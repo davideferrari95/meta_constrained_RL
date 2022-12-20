@@ -9,6 +9,7 @@ from SAC.Utils import print_arg, AUTO
 import copy, itertools, random
 from termcolor import colored
 from typing import Union, Optional
+from math import pow
 
 # Import PyTorch
 import torch
@@ -65,10 +66,9 @@ class SAC(LightningModule):
         # Create Environment
         self.env = create_environment(env_name, record_video)
         
-        # FIX: Get max_episode_steps from Environment -> For Safety-Gym = 1000
-        # self.max_episode_steps = self.env.spec.max_episode_steps = 1000
-        self.max_episode_steps = 1000
-
+        # Get max_episode_steps from Environment -> For Safety-Gym = 1000
+        self.max_episode_steps = self.env.spec.max_episode_steps
+        
         # Action, Observation Dimension 
         obs_size = self.env.observation_space.shape[0]
         action_dims = self.env.action_space.shape[0]
@@ -129,16 +129,16 @@ class SAC(LightningModule):
         # Automatically Learn Alpha
         if alpha == AUTO:
             
-            # Automatically Set Target Entropy | else: Force Float Conversion -> target α
+            # Automatically Set Target Entropy | else: Force Float Conversion -> target α (safety-gym = -2.0)
             if target_alpha == AUTO: self.target_alpha = - torch.prod(Tensor(self.env.action_space.shape)).item()
             else: self.target_alpha = float(target_alpha)
 
-            # Instantiate Alpha, Log_Alpha
-            # alpha = torch.ones(1, device=DEVICE) * (float(init_alpha) if init_alpha is not None else 0.0)
-            # self.log_alpha = torch.nn.Parameter(torch.log(F.softplus(alpha)), requires_grad=True)
-            alpha_ = torch.ones(1, device=DEVICE) * (float(init_alpha) if init_alpha is not None else 0.0)
-            self.alpha = torch.nn.Parameter(F.softplus(alpha_), requires_grad=True)
-            self.log_alpha = torch.log(self.alpha)
+            # FIX: Instantiate Alpha, Log_Alpha
+            alpha = torch.ones(1, device=DEVICE) * (float(init_alpha) if init_alpha is not None else 0.0)
+            self.log_alpha = torch.nn.Parameter(torch.log(F.softplus(alpha)), requires_grad=True)
+            # alpha_ = torch.ones(1, device=DEVICE) * (float(init_alpha) if init_alpha is not None else 0.0)
+            # self.alpha = torch.nn.Parameter(F.softplus(alpha_), requires_grad=True)
+            # self.log_alpha = torch.log(self.alpha)
         
         # Use Cost = False is All of the Cost Arguments are None
         self.use_cost = bool(fixed_cost_penalty or cost_constraint or cost_limit)
@@ -147,9 +147,11 @@ class SAC(LightningModule):
         # Automatically Compute Cost Penalty
         if self.use_cost and fixed_cost_penalty is None:
             
-            # Instantiate Beta and Log_Beta
+            # FIX: Instantiate Beta and Log_Beta
             self.beta = torch.nn.Parameter(F.softplus(torch.zeros(1, device=DEVICE)), requires_grad=True)
             self.log_beta = torch.log(self.beta)
+            # beta = torch.zeros(1, device=DEVICE)
+            # self.log_beta = torch.nn.Parameter(torch.log(F.softplus(beta)), requires_grad=True)
             
             # Compute Cost Constraint
             if cost_constraint is None:
@@ -161,17 +163,18 @@ class SAC(LightningModule):
                 in the replay buffer, we should be approximately correct here.
                 It's worth checking empirical total undiscounted costs to see if they match. 
                 '''
-
-                self.cost_constraint = cost_limit * (1 - self.hparams.gamma * self.max_episode_steps) / \
-                                       (1 - self.hparams.gamma) / self.max_episode_steps
+                
+                # FIX: a ** b = pow(a,b)
+                gamma, max_len = self.hparams.gamma, self.max_episode_steps
+                self.cost_constraint = cost_limit * (1 - pow(gamma, max_len)) / (1 - gamma) / max_len
 
     @property
     # Alpha (Entropy Bonus) Computation Function
     def __alpha(self): 
         
-        # Return 'log_alpha' if AUTO | else: Force Float Conversion -> α
-        # if self.hparams.alpha == AUTO: return self.log_alpha.exp().detach()
-        if self.hparams.alpha == AUTO: return self.alpha.detach()
+        # FIX: Return 'log_alpha' / 'alpha' if AUTO | else: Force Float Conversion -> α
+        if self.hparams.alpha == AUTO: return self.log_alpha.exp().detach()
+        # if self.hparams.alpha == AUTO: return self.alpha.detach()
         else: return float(self.hparams.alpha)
 
     @property
@@ -186,7 +189,7 @@ class SAC(LightningModule):
         if self.hparams.fixed_cost_penalty is not None:
             return float(self.hparams.fixed_cost_penalty)
         
-        # Else Return 'log_beta'
+        # FIX: Else Return 'log_beta' / 'beta'
         # return self.log_beta.exp().detach()
         return self.beta.detach()
 
@@ -250,8 +253,9 @@ class SAC(LightningModule):
         # Entropy Regularization Optimizer
         if self.hparams.alpha == AUTO:
             
-            # alpha_optimizer = self.hparams.optim([self.log_alpha], lr=self.hparams.lr)
-            alpha_optimizer = self.hparams.optim([self.alpha], lr=self.hparams.lr)
+            # FIX: Create Alpha Optimizer
+            alpha_optimizer = self.hparams.optim([self.log_alpha], lr=self.hparams.lr)
+            # alpha_optimizer = self.hparams.optim([self.alpha], lr=self.hparams.lr)
 
             # Append Optimizer
             optimizers.append(alpha_optimizer)
@@ -260,6 +264,7 @@ class SAC(LightningModule):
         # Cost Penalty Optimizer
         if self.use_cost and self.hparams.fixed_cost_penalty is None:
             
+            # FIX: Create Beta Optimizer
             # cost_penalty_optimizer = self.hparams.optim([self.log_beta], lr=self.hparams.lr)
             cost_penalty_optimizer = self.hparams.optim([self.beta], lr=self.hparams.lr)
 
@@ -357,11 +362,9 @@ class SAC(LightningModule):
             # Compute the Actions and the Log Probabilities
             _, log_probs = self.policy(states)
 
-            # Compute the Alpha Loss
-            # TODO: alpha_loss = - self.__alpha * (self.target_alpha + torch.mean(log_probs)).detach()
-            # OLD: alpha_loss = - (self.log_alpha * (log_probs + self.target_alpha).detach()).mean()
-            # alpha_loss = - torch.mean(self.log_alpha * (log_probs + self.target_alpha))
-            alpha_loss = - self.alpha * (torch.mean(log_probs) + self.target_alpha)
+            # FIX: Compute the Alpha Loss
+            alpha_loss = - self.log_alpha * (torch.mean(log_probs) + self.target_alpha)
+            # alpha_loss = - self.alpha * (torch.mean(log_probs) + self.target_alpha)
             self.log('episode/Alpha Loss', alpha_loss)
 
             return alpha_loss
@@ -372,8 +375,9 @@ class SAC(LightningModule):
             # Compute the Cost
             cost_values = self.q_net_cost(states, actions)
 
-            # Compute the Alpha Loss
+            # FIX: Compute the Beta Loss
             beta_loss = self.beta * (self.cost_constraint - torch.mean(cost_values))
+            # beta_loss = - self.log_beta * (self.cost_constraint - torch.mean(cost_values))
             self.log('episode/Beta Loss', beta_loss)
 
             return beta_loss
