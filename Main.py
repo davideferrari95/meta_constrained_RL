@@ -21,7 +21,7 @@ if __name__ == '__main__':
     parser.add_argument('--samples_per_epoch',  type=int,    default=10_000)
     parser.add_argument('--epochs',             type=int,    default=10_000)
     parser.add_argument('--patience',           type=int,    default=1_000)
-    parser.add_argument('--tau',                type=float,  default=0.1)
+    parser.add_argument('--tau',                type=float,  default=0.995)
 
     # Trainable HyperParameters
     parser.add_argument('--alpha',              default=AUTO)
@@ -41,7 +41,6 @@ if __name__ == '__main__':
     args = check_none(args)
 
     # TODO: Argparse Terminal Arguments Suggestion
-    # TODO: Remove MoviePy Log
 
     # Display Arguments
     print_arguments(args, term_print=True, save=False)
