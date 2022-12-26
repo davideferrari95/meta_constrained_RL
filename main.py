@@ -16,10 +16,10 @@ from config.config import Params
 # Hydra Decorator to Load Configuration Files
 @hydra.main(config_path='config', config_name='config', version_base=None)
 def main(cfg: Params):
-
-    # 'None' String
-    # cfg = check_none(cfg)
-
+    
+    # Check for 'None' or 'Null' Strings -> None
+    cfg = check_none(cfg)
+    
     # Display Arguments
     # print_arguments(args, term_print=True, save=False)
 

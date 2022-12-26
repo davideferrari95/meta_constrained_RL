@@ -1,5 +1,6 @@
 import os
 from termcolor import colored
+import omegaconf
 
 # Utils
 AUTO = 'auto'
@@ -99,9 +100,16 @@ def print_arg(arg, value, term_print = True, new_line=''):
 
 def check_none(args):
     
-    for arg in vars(args):
+    for arg in args:
         
-        # Check if an Arguments Contains 'None' as String
-        if getattr(args, arg) == 'None': vars(args)[arg] = None
+        if type(args[arg]) is omegaconf.dictconfig.DictConfig:
+            # print(f'recursive, {arg}')
+            # print(args[arg])
+            check_none(args[arg])
 
+        else:
+            # print(f'{arg}: {args[arg]}')
+            # Check if an Arguments Contains 'None' as String
+            if type(args[arg]) is str and (args[arg]).lower() in ['none', 'null']: args[arg] = None
+    
     return args
