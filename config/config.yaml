@@ -1,0 +1,22 @@
+defaults:
+
+  - training_params: training
+  - _self_
+
+entropy_params:
+
+  alpha:              AUTO
+  target_alpha:       AUTO
+  init_alpha:         null
+
+cost_params:
+
+  fixed_cost_penalty: null
+  cost_constraint:    null
+  cost_limit:         25
+
+utilities_params:
+
+  early_stopping:     True
+  record_video:       True
+  fast_dev_run:       False

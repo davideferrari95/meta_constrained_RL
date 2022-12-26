@@ -11,9 +11,10 @@ eggs/
 .vscode
 .vscode/*
 
-# Videos, Logs
+# Videos, Logs, Hydra outputs
 SAC/Logs/*
 SAC/Videos/*
+outputs/*
 
 # Test Files
 Test/*
