@@ -3,7 +3,7 @@ from SAC.Network import DQN, polyak_average, DEVICE
 from SAC.ReplayBuffer import ReplayBuffer, RLDataset
 from SAC.Policy import GradientPolicy
 from SAC.Environment import create_environment
-from SAC.Utils import print_arg, AUTO
+from SAC.Utils import AUTO
 
 # Import Utilities
 import copy, itertools, random
@@ -142,7 +142,6 @@ class SAC(LightningModule):
         
         # Use Cost = False is All of the Cost Arguments are None
         self.use_cost = bool(fixed_cost_penalty or cost_constraint or cost_limit)
-        print_arg('use_cost', self.use_cost)
 
         # Automatically Compute Cost Penalty
         if self.use_cost and fixed_cost_penalty is None:

@@ -8,6 +8,7 @@ AUTO = 'auto'
 # Project Folder
 FOLDER = f'{os.path.dirname(__file__)}/'
 
+
 # Check Video Folder and Return /Videos/Trial_{n}
 def check_video_folder(folder):
   
@@ -21,12 +22,13 @@ def check_video_folder(folder):
 
 VIDEO_FOLDER = check_video_folder(FOLDER)
 
+
 # Print and Save Arguments
-def print_arguments(args, term_print = True, save = False):
+def print_arguments(cfg, term_print = True, save_file = False):
     
     if term_print: print(colored('\n\nArguments:\n', 'green'))
     
-    if save:
+    if save_file:
         
         # Create Directory
         if not os.path.exists(VIDEO_FOLDER): os.mkdir(VIDEO_FOLDER)
@@ -34,42 +36,68 @@ def print_arguments(args, term_print = True, save = False):
         # Create File Info.txt
         file = open(f'{VIDEO_FOLDER}/# Info.txt', 'w')
     
-        file.write('Arguments:\n\n')
-
-    for arg in vars(args):
-        
-        new_line = '\n' if arg in ['tau','init_alpha','cost_limit','record_video','fast_dev_run'] else ''
-        
-        # Print Arguments
-        print_arg(arg, getattr(args, arg), term_print, new_line)
-        
-        # Get Tabulation Length
-        tab = '' if len(arg) >= 18 else '\t' if len(arg) >= 9 else '\t\t' 
-        
-        # Save Info Arguments
-        if save: file.write(f'   {arg}: {tab}{getattr(args, arg)}\n{new_line}')
-
+        file.write('Arguments:\n')
+    
+    # Recursive Print Function
+    _recursive_print(cfg, (file if save_file else None), space='   ', term_print=term_print, save_file=save_file)    
+    
     # Close Save File
-    if save: file.close()
+    if save_file: file.close()
 
-def print_arg(arg, value, term_print = True, new_line=''):
-    
-    # Print Arguments
-    tab = '' if len(arg) >= 18 else '\t' if len(arg) >= 9 else '\t\t' 
-    if term_print: print (colored(f'   {arg}: ', 'white', attrs=['bold']), f'{tab}{value}{new_line}')
 
-def check_none(args):
+def _recursive_print(cfg, file=None, space='   ', term_print=True, save_file=False):
     
-    for arg in args:
+    new_line = False
+    
+    for arg in cfg:
         
-        if type(args[arg]) is omegaconf.dictconfig.DictConfig:
-            # print(f'recursive, {arg}')
-            # print(args[arg])
-            check_none(args[arg])
+        if type(cfg[arg]) is omegaconf.dictconfig.DictConfig:
+            
+            # Terminal Print Argument Group
+            if term_print: print(f"\n{colored(f'{space}{arg}:', 'yellow', attrs=['bold'])}\n")
+            
+            # Save File Info Arguments
+            if save_file: file.write(f'\n{space}{arg}:\n\n')
+            
+            _recursive_print(cfg[arg], file=file, space=f'{space}   ', term_print=term_print, save_file=save_file)
+            
+            # New Line Required for New Group
+            new_line = True
 
         else:
-            # print(f'{arg}: {args[arg]}')
-            # Check if an Arguments Contains 'None' as String
-            if type(args[arg]) is str and (args[arg]).lower() in ['none', 'null']: args[arg] = None
+            
+            # Get Tabulation Length
+            length = len(arg) + len(space)
+            tab = '' if length >= 24 else ' ' if length >= 23 else '\t  ' if length >= 13 else '\t\t  ' if length >= 9 else '\t\t\t  '
+            
+            # Print Arguments
+            if term_print: print (('\n' if new_line else ''), colored((f'{space[:-1]}{arg}:'), 'white', attrs=['bold']), f'{tab}{cfg[arg]}')
+            
+            # Save Info Arguments
+            if save_file: 
+                file.write(('\n' if new_line else ''))
+                file.write(f'{space}{arg}:{tab}{cfg[arg]}\n')
+        
+        if arg == 'utilities_params':
+            
+            # Compute Cost Usage
+            use_costs = bool(cfg['cost_params']['fixed_cost_penalty'] or cfg['cost_params']['cost_constraint'] or cfg['cost_params']['cost_limit'])
+            
+            # Print Arguments
+            if term_print: print (colored(f'{space}   use_costs:', 'white', attrs=['bold']), f'\t  {use_costs}')
+            
+            # Save Info Arguments
+            if save_file: file.write(f'{space}   use_costs:\t  {use_costs}\n')
+
+
+def check_none(cfg):
     
-    return args
+    for arg in cfg:
+        
+        # Recursive Check None if New Group
+        if type(cfg[arg]) is omegaconf.dictconfig.DictConfig: check_none(cfg[arg])
+
+        # Check if 'None' or 'Null'
+        elif type(cfg[arg]) is str and (cfg[arg]).lower() in ['none', 'null']: cfg[arg] = None
+    
+    return cfg

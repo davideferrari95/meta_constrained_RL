@@ -21,7 +21,7 @@ def main(cfg: Params):
     cfg = check_none(cfg)
     
     # Display Arguments
-    # print_arguments(args, term_print=True, save=False)
+    print_arguments(cfg, term_print=True, save_file=False)
 
     TP = cfg.training_params
     EP = cfg.entropy_params
@@ -62,7 +62,7 @@ def main(cfg: Params):
     )
         
     # Save Arguments
-    # print_arguments(args, term_print=False, save=(True and (args.record_video and not args.fast_dev_run)))
+    print_arguments(cfg, term_print=False, save_file=(True and (UP.record_video and not UP.fast_dev_run)))
 
     # Start Training
     trainer.fit(model)
