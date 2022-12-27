@@ -7,7 +7,7 @@ from pytorch_lightning.callbacks import EarlyStopping
 from SAC.LightningCallbacks import PrintCallback
 
 # Import Utilities
-from SAC.Utils import ENV, FOLDER, AUTO, print_arguments, check_none
+from SAC.Utils import FOLDER, AUTO, print_arguments, check_none
 
 # Import Hydra, Parameters Configuration File
 import hydra
@@ -44,8 +44,8 @@ def main(cfg: Params):
     trainer = Trainer(
         
         # Devices
-        devices = "auto", 
-        accelerator = "auto",
+        devices = AUTO, 
+        accelerator = AUTO,
         
         # Hyperparameters
         max_epochs = TP.epochs,
