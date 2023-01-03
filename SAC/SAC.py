@@ -124,12 +124,12 @@ class WCSAC(LightningModule):
         
         self,
         
-        # Entropy Coefficient α, if 'auto' -> Automatic Learning
+        # Entropy Coefficient α, if 'auto' -> Automatic Learning:
         alpha: Union[str, float]=AUTO,
         init_alpha: Optional[float]=None,
         target_alpha: Union[str, float]=AUTO,
                   
-        # Cost Constraints
+        # Cost Constraints:
         fixed_cost_penalty: Optional[float]=None,
         cost_constraint: Optional[float]=None,
         cost_limit: Optional[float]=None
