@@ -1,5 +1,0 @@
-env:                Safexp-PointGoal2-v0
-samples_per_epoch:  10_000
-epochs:             10_000
-patience:           1_000
-tau:                0.995

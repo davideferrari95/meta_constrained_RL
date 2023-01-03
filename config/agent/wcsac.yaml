@@ -1,0 +1,26 @@
+# WCSAC Algorithm Class
+_target_: SAC.SAC.WCSAC
+
+# SAC Parameters
+env_name:           ${training_params.env}
+record_video:       ${utilities_params.record_video}
+capacity:           100_000
+batch_size:         512
+hidden_size:        256
+lr:                 0.001
+gamma:              0.99
+loss_function:      smooth_l1_loss
+optim:              AdamW
+epsilon:            0.05
+samples_per_epoch:  ${training_params.samples_per_epoch}
+tau:                ${training_params.tau}
+
+# Entropy Coefficient
+alpha:              ${entropy_params.alpha}
+init_alpha:         ${entropy_params.init_alpha}
+target_alpha:       ${entropy_params.target_alpha}
+
+# Cost Constraints
+fixed_cost_penalty: ${cost_params.fixed_cost_penalty}
+cost_constraint:    ${cost_params.cost_constraint}
+cost_limit:         ${cost_params.cost_limit}

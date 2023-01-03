@@ -1,13 +1,21 @@
 defaults:
 
-  - training_params: training
+  - agent: wcsac
   - _self_
+
+training_params:
+
+  env:                Safexp-PointGoal2-v0
+  samples_per_epoch:  10_000
+  epochs:             10_000
+  patience:           1_000
+  tau:                0.995
 
 entropy_params:
 
   alpha:              AUTO
-  target_alpha:       AUTO
   init_alpha:         null
+  target_alpha:       AUTO
 
 cost_params:
 

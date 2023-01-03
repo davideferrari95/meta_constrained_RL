@@ -1,5 +1,5 @@
-# Import Algorithm
-from SAC.SAC import SAC
+# Import WCSAC Algorithm
+from SAC.SAC import WCSAC
 
 # Import PyTorch Lightning
 from pytorch_lightning import Trainer, loggers as pl_loggers
@@ -23,16 +23,13 @@ def main(cfg: Params):
     # Display Arguments
     print_arguments(cfg, term_print=True, save_file=False)
 
+    # Training and Utilities Parameters
     TP = cfg.training_params
-    EP = cfg.entropy_params
-    CP = cfg.cost_params
     UP = cfg.utilities_params
 
     # Instantiate Algorithm Model
-    model = SAC(env_name = TP.env, record_video=(UP.record_video and not UP.fast_dev_run),
-                samples_per_epoch = TP.samples_per_epoch if not UP.fast_dev_run else 1, tau = TP.tau, 
-                alpha = EP.alpha, target_alpha = EP.target_alpha, init_alpha = EP.init_alpha,
-                fixed_cost_penalty = CP.fixed_cost_penalty, cost_constraint = CP.cost_constraint, cost_limit = CP.cost_limit)
+    model = hydra.utils.instantiate(cfg.agent, record_video=(UP.record_video and not UP.fast_dev_run),
+                                    samples_per_epoch = TP.samples_per_epoch if not UP.fast_dev_run else 1)
 
     # Instantiate Default Callbacks
     callbacks = [PrintCallback()]
