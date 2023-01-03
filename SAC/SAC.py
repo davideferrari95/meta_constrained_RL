@@ -48,12 +48,12 @@ class WCSAC(LightningModule):
         lr=1e-3, gamma=0.99, loss_function='smooth_l1_loss', optim='AdamW', 
         epsilon=0.05, samples_per_epoch=10_000, tau=0.05,
                  
-        # Entropy Coefficient α, if AUTO -> Automatic Learning
+        # Entropy Coefficient α, if AUTO -> Automatic Learning:
         alpha: Union[str, float]=AUTO,
         init_alpha: Optional[float]=None,
         target_alpha: Union[str, float]=AUTO,
         
-        # Cost Constraints
+        # Cost Constraints:
         fixed_cost_penalty: Optional[float]=None,
         cost_constraint: Optional[float]=None,
         cost_limit: Optional[float]=None
