@@ -34,6 +34,7 @@ class UtilitiesParams:
 @dataclass
 class Params:
     
+    agent:              classmethod
     training_params:    TrainingParams
     entropy_params:     EntropyParams
     cost_params:        CostParams
