@@ -7,7 +7,7 @@ from pytorch_lightning.callbacks import EarlyStopping
 from SAC.LightningCallbacks import PrintCallback
 
 # Import Utilities
-from SAC.Utils import FOLDER, AUTO, print_arguments, check_none
+from SAC.Utils import FOLDER, AUTO, print_arguments, check_spells_error
 
 # Import Hydra, Parameters Configuration File
 import hydra
@@ -18,7 +18,7 @@ from config.config import Params
 def main(cfg: Params):
     
     # Check for 'None' or 'Null' Strings -> None
-    cfg = check_none(cfg)
+    cfg = check_spells_error(cfg)
     
     # Display Arguments
     print_arguments(cfg, term_print=True, save_file=False)

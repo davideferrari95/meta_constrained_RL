@@ -97,14 +97,17 @@ def _recursive_print(cfg, file=None, space='   ', term_print=True, save_file=Fal
             if save_file: file.write(f'{space}   use_costs:\t  {use_costs}\n')
 
 
-def check_none(cfg):
+def check_spells_error(cfg):
     
     for arg in cfg:
-        
+
         # Recursive Check None if New Group
-        if type(cfg[arg]) is omegaconf.dictconfig.DictConfig: check_none(cfg[arg])
+        if type(cfg[arg]) is omegaconf.dictconfig.DictConfig: check_spells_error(cfg[arg])
 
         # Check if 'None' or 'Null'
         elif type(cfg[arg]) is str and (cfg[arg]).lower() in ['none', 'null']: cfg[arg] = None
-    
+
+        # Check if 'AUTO' or 'auto'
+        elif type(cfg[arg]) is str and (cfg[arg]).lower() in ['auto']: cfg[arg] = AUTO
+
     return cfg
