@@ -16,5 +16,8 @@ SAC/Logs/*
 SAC/Videos/*
 outputs/*
 
+# TODO List
+TODO.todo
+
 # Test Files
 Test/*
