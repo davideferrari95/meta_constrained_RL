@@ -51,6 +51,7 @@ def _recursive_print(cfg, file=None, space='   ', term_print=True, save_file=Fal
     
     for arg in cfg:
         
+        # Print Argument Group Names
         if type(cfg[arg]) is omegaconf.dictconfig.DictConfig:
             
             # Terminal Print Argument Group
@@ -64,19 +65,25 @@ def _recursive_print(cfg, file=None, space='   ', term_print=True, save_file=Fal
             # New Line Required for New Group
             new_line = True
 
+        # Print Arguments
         else:
             
+            # Change Arg Name if _target_ Class
+            arg_name = 'class' if arg == '_target_' else arg
+                
             # Get Tabulation Length
-            length = len(arg) + len(space)
-            tab = '' if length >= 24 else ' ' if length >= 23 else '\t  ' if length >= 13 else '\t\t  ' if length >= 9 else '\t\t\t  '
+            length = (len('class') if arg == '_target_' else len(arg)) + len(space)
+            tab = '' if length >= 24 else ' ' if length >= 23 else '\t  ' if length >= 14 else '\t\t  ' if length >= 8 else '\t\t\t  '
             
             # Print Arguments
-            if term_print: print (('\n' if new_line else ''), colored((f'{space[:-1]}{arg}:'), 'white', attrs=['bold']), f'{tab}{cfg[arg]}')
+            if term_print: print (('\n' if new_line else ''), colored((f'{space[:-1]}{arg_name}:'), 
+                                  ('red' if arg == '_target_' else 'white'), attrs=['bold']),
+                                  f'{tab}{cfg[arg]}', '\n' if arg == '_target_' else '')
             
-            # Save Info Arguments
-            if save_file: 
+            # Save into File
+            if save_file:
                 file.write(('\n' if new_line else ''))
-                file.write(f'{space}{arg}:{tab}{cfg[arg]}\n')
+                file.write(f'{space}{arg_name}:{tab}{cfg[arg]}\n')
         
         if arg == 'utilities_params':
             
