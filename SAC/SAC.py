@@ -15,12 +15,11 @@ from math import pow
 import torch
 import torch.nn.functional as F
 from torch import Tensor
-from torch.optim import AdamW
 from torch.utils.data import DataLoader
 from pytorch_lightning import LightningModule
 
 # Create SAC Algorithm
-class SAC(LightningModule):
+class WCSAC(LightningModule):
     
     # env_name:             Environment Name
     # record_video:         Record Video with RecordVideo Wrapper
@@ -46,7 +45,7 @@ class SAC(LightningModule):
     def __init__(
         
         self, env_name, record_video=True, capacity=100_000, batch_size=512, hidden_size=256,
-        lr=1e-3, gamma=0.99, loss_function=F.smooth_l1_loss, optim=AdamW, 
+        lr=1e-3, gamma=0.99, loss_function='smooth_l1_loss', optim='AdamW', 
         epsilon=0.05, samples_per_epoch=10_000, tau=0.05,
                  
         # Entropy Coefficient α, if AUTO -> Automatic Learning
@@ -91,12 +90,22 @@ class SAC(LightningModule):
         self.target_policy = copy.deepcopy(self.policy)
         self.target_q_net_cost = copy.deepcopy(self.q_net_cost)
         
+        # Instantiate Loss Function and Optimizer
+        self.loss_function = getattr(torch.nn.functional, loss_function)
+        self.optim = getattr(torch.optim, optim)
+        
         # Save Hyperparameters in Internal Properties that we can Reference in our Code
         self.save_hyperparameters()
         
         # Initialize Entropy Coefficient (Alpha) and Constraint Coefficient (Beta)
-        self.init_coefficients(alpha, init_alpha, target_alpha, fixed_cost_penalty, cost_constraint, cost_limit)
+        self.__init_coefficients(alpha, init_alpha, target_alpha, fixed_cost_penalty, cost_constraint, cost_limit)
 
+        # Fill the ReplayBuffer
+        self.__collect_experience()
+        
+    # Method for Filling the ReplayBuffer
+    def __collect_experience(self):
+        
         print(colored('\n\nStart Collecting Experience\n\n','yellow'))
 
         # While Buffer is Filling
@@ -109,8 +118,9 @@ class SAC(LightningModule):
             self.play_episode()
 
         print(colored('\n\nEnd Collecting Experience\n\n','yellow'))
-
-    def init_coefficients(
+    
+    # Coefficient Initialization
+    def __init_coefficients(
         
         self,
         
@@ -242,8 +252,8 @@ class SAC(LightningModule):
         q_net_params = itertools.chain(self.q_net1.parameters(), self.q_net2.parameters(), self.q_net_cost.parameters())
         
         # We need 2 Separate Optimizers as we have 2 Neural Networks
-        q_net_optimizer  = self.hparams.optim(q_net_params,  lr=self.hparams.lr)
-        policy_optimizer = self.hparams.optim(self.policy.parameters(), lr=self.hparams.lr)
+        q_net_optimizer  = self.optim(q_net_params,  lr=self.hparams.lr)
+        policy_optimizer = self.optim(self.policy.parameters(), lr=self.hparams.lr)
         
         # Default Optimizers
         optimizers = [q_net_optimizer, policy_optimizer]
@@ -253,8 +263,8 @@ class SAC(LightningModule):
         if self.hparams.alpha == AUTO:
             
             # FIX: Create Alpha Optimizer
-            alpha_optimizer = self.hparams.optim([self.log_alpha], lr=self.hparams.lr)
-            # alpha_optimizer = self.hparams.optim([self.alpha], lr=self.hparams.lr)
+            alpha_optimizer = self.optim([self.log_alpha], lr=self.hparams.lr)
+            # alpha_optimizer = self.optim([self.alpha], lr=self.hparams.lr)
 
             # Append Optimizer
             optimizers.append(alpha_optimizer)
@@ -264,8 +274,8 @@ class SAC(LightningModule):
         if self.use_cost and self.hparams.fixed_cost_penalty is None:
             
             # FIX: Create Beta Optimizer
-            # cost_penalty_optimizer = self.hparams.optim([self.log_beta], lr=self.hparams.lr)
-            cost_penalty_optimizer = self.hparams.optim([self.beta], lr=self.hparams.lr)
+            # cost_penalty_optimizer = self.optim([self.log_beta], lr=self.hparams.lr)
+            cost_penalty_optimizer = self.optim([self.beta], lr=self.hparams.lr)
 
             # Append Optimizer
             optimizers.append(cost_penalty_optimizer)
@@ -326,9 +336,9 @@ class SAC(LightningModule):
             expected_cost_values = costs + self.hparams.gamma * (next_cost_values)
             
             # Compute the Loss Function
-            q_loss1 = self.hparams.loss_function(action_values1, expected_action_values)
-            q_loss2 = self.hparams.loss_function(action_values2, expected_action_values)
-            q_cost_loss = self.hparams.loss_function(cost_values, expected_cost_values)
+            q_loss1 = self.loss_function(action_values1, expected_action_values)
+            q_loss2 = self.loss_function(action_values2, expected_action_values)
+            q_cost_loss = self.loss_function(cost_values, expected_cost_values)
             total_loss = q_loss1 + q_loss2 + q_cost_loss
             self.log('episode/Q-Loss', total_loss)
 
