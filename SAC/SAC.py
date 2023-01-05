@@ -232,7 +232,7 @@ class WCSAC(LightningModule):
             episode_cost += cost
             
             # Save Experience (with cost) in Replay Buffer
-            exp = (obs, action, reward, cost, done, next_obs)
+            exp = (obs, action, reward, cost, float(done), next_obs)
             self.buffer.append(exp)
         
             # Update State
@@ -325,15 +325,11 @@ class WCSAC(LightningModule):
             # Compute Next Cost Values
             next_cost_values = self.target_q_net_cost(next_states, target_actions)
 
-            # When episode is over (Done=True) we don't expect any new reward / cost -> (1-done)
-            next_action_values[dones] = 0.0
-            next_cost_values[dones] = 0.0
-            
-            # Construct the Target, Adjusting the Value with α * log(π) 
-            expected_action_values = rewards + self.hparams.gamma * (next_action_values - self.__alpha * target_log_probs)
+            # Construct the Target, Adjusting the Value with α * log(π)
+            expected_action_values = rewards + self.hparams.gamma * (1 - dones) * (next_action_values - self.__alpha * target_log_probs)
             
             # Construct Cost Target
-            expected_cost_values = costs + self.hparams.gamma * (next_cost_values)
+            expected_cost_values = costs + self.hparams.gamma * (1 - dones) * (next_cost_values)
             
             # Compute the Loss Function
             q_loss1 = self.loss_function(action_values1, expected_action_values)
