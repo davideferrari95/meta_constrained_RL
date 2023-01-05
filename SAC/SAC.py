@@ -357,7 +357,7 @@ class WCSAC(LightningModule):
 
             # Compute the Policy Loss (α * Entropy + β * Cost)
             policy_loss = (self.__alpha * log_probs - action_values + self.__beta * cost_values).mean()
-            self.log('episode/Policy Loss', policy_loss)
+            self.log('episode/Policy-Loss', policy_loss)
 
             return policy_loss
         
@@ -370,7 +370,7 @@ class WCSAC(LightningModule):
             # FIX: Compute the Alpha Loss
             alpha_loss = - self.log_alpha * (torch.mean(log_probs) + self.target_alpha)
             # alpha_loss = - self.alpha * (torch.mean(log_probs) + self.target_alpha)
-            self.log('episode/Alpha Loss', alpha_loss)
+            self.log('episode/Alpha-Loss', alpha_loss)
 
             return alpha_loss
         
@@ -383,7 +383,7 @@ class WCSAC(LightningModule):
             # FIX: Compute the Beta Loss
             beta_loss = self.beta * (self.cost_constraint - torch.mean(cost_values))
             # beta_loss = - self.log_beta * (self.cost_constraint - torch.mean(cost_values))
-            self.log('episode/Beta Loss', beta_loss)
+            self.log('episode/Beta-Loss', beta_loss)
 
             return beta_loss
 
