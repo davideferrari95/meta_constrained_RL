@@ -9,6 +9,34 @@ import numpy as np
 DEVICE = 'cuda:0' if torch.cuda.is_available() else 'cpu'
 
 
+# Neural Network Creation Function
+def mlp(input_dim, hidden_dim, output_dim, hidden_depth, hidden_mod=nn.ReLU(), output_mod=None):
+    
+    # No Hidden Layers
+    if hidden_depth == 0:
+        
+        # Only one Linear Layer
+        net = [nn.Linear(input_dim, output_dim)]
+    
+    else:
+        
+        # First Layer with ReLU Activation
+        net = [nn.Linear(input_dim, hidden_dim), hidden_mod]
+        
+        # Add the Hidden Layers
+        for i in range(hidden_depth - 1): 
+            net += [nn.Linear(hidden_dim, hidden_dim), hidden_mod]
+        
+        # Add the Output Layer
+        net.append(nn.Linear(hidden_dim, output_dim))
+    
+    if output_mod is not None:
+        net.append(output_mod)
+        
+    # Create a Sequential Neural Network
+    return nn.Sequential(*net)
+
+ 
 # Deep Q-Learning Neural Network
 class DQN(nn.Module):
     
@@ -20,15 +48,7 @@ class DQN(nn.Module):
         super().__init__()
         
         # Create a Sequential Neural Network
-        self.net = nn.Sequential(
-            
-            # Input Layer with input dimension equal to observation state + output action dimension
-            nn.Linear(obs_size + out_dims, hidden_size),
-            nn.ReLU(),
-            nn.Linear(hidden_size, hidden_size),
-            nn.ReLU(),
-            nn.Linear(hidden_size, 1)
-        )
+        self.net = mlp(obs_size + out_dims, hidden_size, output_dim=1, hidden_depth=2)
         
     def forward(self, state, action):
         
@@ -92,7 +112,7 @@ class GradientPolicy(nn.Module):
         log_prob = log_prob.sum(dim=-1, keepdim=True)
         
         # Probability of an Action in [0,1] -> Log in [-inf,0] -> Numerical Instability -> Trick Formula (Squashing Function)
-        log_prob -= (2 * (np.log(2) - action- F.softplus(-2 * action))).sum(dim=-1, keepdim=True)
+        log_prob -= (2 * (np.log(2) - action - F.softplus(-2 * action))).sum(dim=-1, keepdim=True)
 
         # Map the Output in [-1,+1] and Scale it to the Env Range
         action = torch.tanh(action) * self.max
