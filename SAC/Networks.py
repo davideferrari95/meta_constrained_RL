@@ -40,10 +40,6 @@ def mlp(input_dim, hidden_dim, output_dim, hidden_depth, hidden_mod=nn.ReLU(), o
 # Deep Q-Learning Neural Network
 class DQN(nn.Module):
     
-    # hidden_size: size of the hidden layer
-    # obs_size: dimension of observation of the state 
-    # out_dims: dimension of the action space of the environment
-    
     def __init__(self, hidden_size, obs_size, out_dims):
         super().__init__()
         
@@ -52,15 +48,18 @@ class DQN(nn.Module):
         
     def forward(self, state, action):
         
+        # Dimensional Check
+        assert state.size(0) == action.size(0)
+        
         # Convert state / action to Tensor if are numpy array
         if isinstance(state,  np.ndarray): state  = torch.from_numpy(state).to(DEVICE)
         if isinstance(action, np.ndarray): action = torch.from_numpy(action).to(DEVICE)
     
-        # Concatenate the Features of State and Action Horizontally
-        in_vector = torch.hstack((state, action))
+        # Concatenate the Features of State and Action
+        obs_action = torch.cat([state, action], dim=-1)
         
         # Pass the State-Action Pair through the Network
-        return self.net(in_vector.float())
+        return self.net(obs_action.float())
 
 
 # Safety Critic Network for estimating Long Term Costs (Mean and Variance)
@@ -73,25 +72,20 @@ class SafetyCritic(nn.Module):
         self.QC = mlp(obs_size + out_dims, hidden_size, 1, 2)
         self.VC = mlp(obs_size + out_dims, hidden_size, 1, 2)
 
-        # Instantiate the Output Variable
-        self.outputs = dict()
+    def forward(self, state, action):
 
-    def forward(self, obs, action):
+        # Dimensional Check
+        assert state.size(0) == action.size(0)
+
+        # Convert state / action to Tensor if are numpy array
+        if isinstance(state,  np.ndarray): state  = torch.from_numpy(state).to(DEVICE)
+        if isinstance(action, np.ndarray): action = torch.from_numpy(action).to(DEVICE)
         
-        assert obs.size(0) == action.size(0)
-
         # Concatenates the Sequence of Tensors in the Given Dimension
-        obs_action = torch.cat([obs, action], dim=-1)
+        obs_action = torch.cat([state, action], dim=-1)
         
         # Pass the State-Action Pair through the Networks
-        qc = self.QC(obs_action)
-        vc = self.VC(obs_action)
-
-        # Add the Result to the Output Dict
-        self.outputs["qc"] = qc
-        self.outputs["vc"] = vc
-
-        return qc, vc
+        return self.QC(obs_action), self.VC(obs_action)
 
 
 # Gaussian Policy Network
