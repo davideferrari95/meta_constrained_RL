@@ -1,7 +1,6 @@
 # Import RL Modules
-from SAC.Network import DQN, polyak_average, DEVICE
+from SAC.Networks import DQN, GradientPolicy, polyak_average, DEVICE
 from SAC.ReplayBuffer import ReplayBuffer, RLDataset
-from SAC.Policy import GradientPolicy
 from SAC.Environment import create_environment
 from SAC.Utils import AUTO
 
