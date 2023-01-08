@@ -63,6 +63,37 @@ class DQN(nn.Module):
         return self.net(in_vector.float())
 
 
+# Safety Critic Network for estimating Long Term Costs (Mean and Variance)
+class SafetyCritic(nn.Module):
+    
+    def __init__(self, hidden_size, obs_size, out_dims):
+        super().__init__()
+
+        # Create the 2 Cost Networks
+        self.QC = mlp(obs_size + out_dims, hidden_size, 1, 2)
+        self.VC = mlp(obs_size + out_dims, hidden_size, 1, 2)
+
+        # Instantiate the Output Variable
+        self.outputs = dict()
+
+    def forward(self, obs, action):
+        
+        assert obs.size(0) == action.size(0)
+
+        # Concatenates the Sequence of Tensors in the Given Dimension
+        obs_action = torch.cat([obs, action], dim=-1)
+        
+        # Pass the State-Action Pair through the Networks
+        qc = self.QC(obs_action)
+        vc = self.VC(obs_action)
+
+        # Add the Result to the Output Dict
+        self.outputs["qc"] = qc
+        self.outputs["vc"] = vc
+
+        return qc, vc
+
+
 # Gaussian Policy Network
 class GradientPolicy(nn.Module):
     
