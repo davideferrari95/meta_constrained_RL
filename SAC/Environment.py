@@ -47,7 +47,7 @@ def __apply_wrappers(env, record_video, folder, env_type):
         # Flatten the Dictionary in a Flatten Array
         env = gym.wrappers.FlattenObservation(env)
 
-  # FIX: Moviepy Log Removed
+  # FIX: MoviePy Log Removed
   # Record Environment Videos in the specified folder, trigger specifies which episode to record and which to ignore (1 in 50)
   if record_video: env = gym.wrappers.RecordVideo(env, video_folder=folder, episode_trigger=lambda x: x % 50 == 0)
   
