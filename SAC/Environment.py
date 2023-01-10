@@ -49,7 +49,7 @@ def __apply_wrappers(env, record_video, folder, env_type):
 
   # FIX: MoviePy Log Removed
   # Record Environment Videos in the specified folder, trigger specifies which episode to record and which to ignore (1 in 50)
-  if record_video: env = gym.wrappers.RecordVideo(env, video_folder=folder, episode_trigger=lambda x: x % 50 == 0)
+  if record_video: env = gym.wrappers.RecordVideo(env, video_folder=folder, episode_trigger=lambda x: x % 100 == 0)
   
   # Keep Track of the Reward the Agent Obtain and Save them into a Property
   env = gym.wrappers.RecordEpisodeStatistics(env)
