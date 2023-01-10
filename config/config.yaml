@@ -8,7 +8,6 @@ defaults:
 training_params:
 
   env:                Safexp-PointGoal1-v0
-  # env:                Safexp-PointGoal2-v0
   samples_per_epoch:  10_000
   epochs:             10_000
   patience:           2_000

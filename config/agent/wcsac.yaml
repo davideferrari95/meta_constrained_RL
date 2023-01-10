@@ -5,12 +5,12 @@ _target_: SAC.SAC.WCSAC
 env_name:           ${training_params.env}
 record_video:       ${utilities_params.record_video}
 capacity:           1e6
-batch_size:         512
+batch_size:         256
 hidden_size:        256
 gamma:              0.99
 epsilon:            0.05
 loss_function:      mse_loss
-optim:              AdamW
+optim:              Adam
 samples_per_epoch:  ${training_params.samples_per_epoch}
 tau:                ${training_params.tau}
 
@@ -23,6 +23,7 @@ critic_update_freq: 2
 actor_lr:           1e-3
 actor_betas:        [0.9, 0.999]
 actor_update_freq:  1
+log_std_bounds:     [-20, 2]
 
 # Entropy Coefficient
 alpha:              ${entropy_params.alpha}
