@@ -13,7 +13,7 @@ DEVICE = 'cuda:0' if torch.cuda.is_available() else 'cpu'
 def mlp(input_dim, hidden_dim, output_dim, hidden_depth, hidden_mod=nn.ReLU(), output_mod=None):
     
     # No Hidden Layers
-    if hidden_depth == 0:
+    if hidden_depth <= 0:
         
         # Only one Linear Layer
         net = [nn.Linear(input_dim, output_dim)]
@@ -112,25 +112,19 @@ class SafetyCritic(nn.Module):
 # Gaussian Policy Network
 class GradientPolicy(nn.Module):
     
-    def __init__(self, hidden_size, obs_size, out_dims, max):
+    def __init__(self, hidden_size, obs_size, action_dim, max, hidden_depth=2):
         super().__init__()
         
         self.max = torch.tensor(np.array(max), device=DEVICE)
         
         # Create the Network
-        self.net = nn.Sequential(
-            
-            nn.Linear(obs_size, hidden_size),
-            nn.ReLU(),
-            nn.Linear(hidden_size, hidden_size),
-            nn.ReLU()
-        )
+        self.net = mlp(obs_size, hidden_size, hidden_size, hidden_depth-1, output_mod=nn.ReLU())
         
         # Mean and Standard Deviation of the Gaussian Distribution
-        self.linear_mu  = nn.Linear(hidden_size, out_dims)
-        self.linear_std = nn.Linear(hidden_size, out_dims)
+        self.linear_mu  = nn.Linear(hidden_size, action_dim)
+        self.linear_std = nn.Linear(hidden_size, action_dim)
 
-    def forward(self, x):
+    def forward(self, x, reparametrization=False, mean=False):
     
         # Convert Observation (x) to Tensor if is a numpy array
         if isinstance(x, np.ndarray): x = torch.from_numpy(x).to(DEVICE)
@@ -149,7 +143,7 @@ class GradientPolicy(nn.Module):
         dist = Normal(mu, std)
         
         # Sample an Action from the Distribution
-        action = dist.rsample()
+        action = dist.rsample() if reparametrization else dist.sample()
         
         # Save the Logarithm of these Actions to use for Entropy Regularization
         log_prob = dist.log_prob(action)
@@ -170,7 +164,7 @@ class GradientPolicy(nn.Module):
 def polyak_average(net, target_net, tau=0.01):
     
     # For every parameter of the Q-Network and Target-Network
-    for qp, tp in zip(net.parameters(), target_net.parameters()):
+    for param, target_param in zip(net.parameters(), target_net.parameters()):
         
         # Polyak Average Function
-        tp.data.copy_(tau * qp.data + (1 - tau) * tp.data)
+        target_param.data.copy_(tau * param.data + (1 - tau) * target_param.data)

@@ -223,7 +223,7 @@ class WCSAC(LightningModule):
 
         # Reset Environment
         obs, _ = self.env.reset()
-        done = truncated = False
+        done, truncated = False, False
         episode_cost = 0.0
 
         while not done and not truncated:
@@ -267,13 +267,13 @@ class WCSAC(LightningModule):
         # Create an Iterator with the Parameters of the Q-Critic and the Safety-Critic
         critic_params = itertools.chain(self.q_critic.parameters(), self.safety_critic.parameters())
         
-        # We need 2 Separate Optimizers as we have 2 Neural Networks
+        # Critic and Actor Optimizers
         critic_optimizer = self.optim(critic_params, lr=self.hparams.critic_lr, betas=self.hparams.critic_betas)
-        policy_optimizer = self.optim(self.policy.parameters(), lr=self.hparams.actor_lr, betas=self.hparams.actor_betas)
+        actor_optimizer = self.optim(self.policy.parameters(), lr=self.hparams.actor_lr, betas=self.hparams.actor_betas)
         
         # Default Optimizers
-        optimizers = [critic_optimizer, policy_optimizer]
-        self.optimizers_list = ['critic_optimizer', 'policy_optimizer']
+        optimizers = [critic_optimizer, actor_optimizer]
+        self.optimizers_list = ['critic_optimizer', 'actor_optimizer']
         
         # Entropy Regularization Optimizer
         if self.hparams.alpha == AUTO:
@@ -387,13 +387,17 @@ class WCSAC(LightningModule):
             self.log('episode/Policy-Entropy', - new_log_probs.mean(), on_epoch=True)
             self.log('episode/Policy-Cost', torch.mean(actor_QC + self.pdf_cdf.cuda() * torch.sqrt(actor_VC)), on_epoch=True)
 
+            # Save Var for Alpha, Beta Updates
+            self.log_probs_Alpha = new_log_probs
+            self.CVaR_Beta = CVaR
+            
             return actor_loss
         
         # Update Alpha        
         elif 'alpha_optimizer' in self.optimizers_list and optimizer_idx == self.optimizers_list.index('alpha_optimizer'):
             
-            # Compute the Actions and the Log Probabilities
-            _, log_probs = self.policy(states)
+            # Get the Log Probabilities
+            log_probs = self.log_probs_Alpha
 
             # Compute the Alpha Loss
             alpha_loss = torch.mean(self.log_alpha.exp() * (- log_probs - self.target_alpha).detach())
@@ -404,13 +408,9 @@ class WCSAC(LightningModule):
         
         # Update Beta
         elif 'cost_penalty_optimizer' in self.optimizers_list and optimizer_idx == self.optimizers_list.index('cost_penalty_optimizer'):
-            
-            # Use Safety Critic to Evaluate the Actions Taken
-            current_QC, current_VC = self.safety_critic(states, actions)
-            current_VC = torch.clamp(current_VC, min=1e-8, max=1e8)
 
-            # CVaR (Conditional Value-at-Risk)
-            CVaR = current_QC + self.pdf_cdf.cuda() * torch.sqrt(current_VC)
+            # Get CVaR (Conditional Value-at-Risk)
+            CVaR = self.CVaR_Beta
 
             # Compute the Beta Loss
             beta_loss = torch.mean(self.log_beta.exp() * (self.target_cost - CVaR).detach())
