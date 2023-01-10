@@ -87,14 +87,22 @@ def _recursive_print(cfg, file=None, space='   ', term_print=True, save_file=Fal
         
         if arg == 'utilities_params':
             
-            # Compute Cost Usage
+            # Compute Usage Booleans
             use_costs = bool(cfg['cost_params']['fixed_cost_penalty'] or cfg['cost_params']['target_cost'] or cfg['cost_params']['cost_limit'])
-            
+            learn_alpha = True if cfg['entropy_params']['alpha'] == AUTO else False
+            learn_beta  = True if use_costs and cfg['cost_params']['fixed_cost_penalty'] is None else False
+        
             # Print Arguments
-            if term_print: print (colored(f'{space}   use_costs:', 'white', attrs=['bold']), f'\t  {use_costs}')
+            if term_print:
+                print(colored(f'\n{space}   use_costs:', 'white', attrs=['bold']), f'\t  {use_costs}')
+                print(colored(f'{space}   learn_alpha:', 'white', attrs=['bold']), f'\t  {learn_alpha}')
+                print(colored(f'{space}   learn_beta:',  'white', attrs=['bold']), f'\t  {learn_beta}')
             
             # Save Info Arguments
-            if save_file: file.write(f'{space}   use_costs:\t  {use_costs}\n')
+            if save_file:
+                file.write(f'{space}   use_costs:  \t  {use_costs}\n')
+                file.write(f'{space}   learn_alpha:\t  {learn_alpha}\n')
+                file.write(f'{space}   learn_beta: \t  {learn_beta}\n')
 
 
 def check_spells_error(cfg):

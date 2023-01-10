@@ -9,7 +9,6 @@ from SAC.Utils import AUTO
 import copy, itertools, random
 from termcolor import colored
 from typing import Union, Optional
-from math import pow
 
 # Import PyTorch
 import torch
@@ -44,6 +43,7 @@ class WCSAC(LightningModule):
     # actor_lr:             Learning Rate of Actor Network
     # actor_betas:          Coefficients for Computing Running Averages of Gradient
     # actor_update_freq:    Update Frequency of Actor Network
+    # log_std_bounds:       Constrain log_std Inside Bounds
     
     # Entropy Coefficient
     # alpha:                Entropy Regularization Coefficient  |  Set it to 'auto' to Automatically Learn
@@ -72,6 +72,7 @@ class WCSAC(LightningModule):
         # Critic and Actor Parameters:
         critic_lr=1e-3, critic_betas=[0.9, 0.999], critic_update_freq=2,
         actor_lr=1e-3,  actor_betas=[0.9, 0.999],  actor_update_freq=1,
+        log_std_bounds=[-20, 2],
         
         # Entropy Coefficient α, if AUTO -> Automatic Learning:
         alpha: Union[str, float]=AUTO,
@@ -150,8 +151,15 @@ class WCSAC(LightningModule):
     # Coefficient Initialization
     def __init_coefficients(self):
         
+        # Use Cost = False is All of the Cost Arguments are None
+        self.use_cost = bool(self.hparams.fixed_cost_penalty or self.hparams.target_cost or self.hparams.cost_limit)
+        
+        # Learn Alpha and Learn Beta
+        self.learn_alpha = True if self.hparams.alpha == AUTO else False
+        self.learn_beta  = True if self.use_cost and self.hparams.fixed_cost_penalty is None else False
+        
         # Automatically Learn Alpha
-        if self.hparams.alpha == AUTO:
+        if self.learn_alpha:
             
             # Automatically Set Target Entropy | else: Force Float Conversion -> target α (safety-gym = -2.0)
             if self.hparams.target_alpha in [None, AUTO]: self.target_alpha = - torch.prod(Tensor(self.env.action_space.shape)).item()
@@ -159,17 +167,14 @@ class WCSAC(LightningModule):
 
             # Instantiate Alpha, Log_Alpha
             alpha = torch.ones(1, device=DEVICE) * (float(self.hparams.init_alpha) if self.hparams.init_alpha is not None else 0.0)
-            self.log_alpha = torch.nn.Parameter(torch.log(torch.clip(alpha, 1e-8, 1e8)), requires_grad=True)
+            self.log_alpha = torch.tensor(torch.log(torch.clip(alpha, 1e-8, 1e8)), device=DEVICE, requires_grad=True)
             
-        # Use Cost = False is All of the Cost Arguments are None
-        self.use_cost = bool(self.hparams.fixed_cost_penalty or self.hparams.target_cost or self.hparams.cost_limit)
-
         # Automatically Compute Cost Penalty
-        if self.use_cost and self.hparams.fixed_cost_penalty is None:
+        if self.learn_beta:
            
             # Instantiate Beta and Log_Beta
             beta = torch.ones(1, device=DEVICE) * (float(self.hparams.init_beta) if self.hparams.init_beta is not None else 0.0)
-            self.log_beta = torch.nn.Parameter(torch.log(torch.clip(beta, 1e-8, 1e8)), requires_grad=True)
+            self.log_beta = torch.tensor(torch.log(torch.clip(beta, 1e-8, 1e8)), device=DEVICE, requires_grad=True)
            
             # Compute Cost Constraint
             if self.hparams.target_cost in [None, AUTO]:
@@ -184,7 +189,7 @@ class WCSAC(LightningModule):
                 
                 # COmpute Target Cost
                 gamma, max_len, cost_limit= self.hparams.gamma, self.max_episode_steps, self.hparams.cost_limit
-                self.target_cost = cost_limit * (1 - pow(gamma, max_len)) / (1 - gamma) / max_len
+                self.target_cost = cost_limit * (1 - gamma**max_len) / (1 - gamma) / max_len
         
         # Assert Risk Level in [0,1]
         assert 1 >= self.hparams.risk_level >= 0, f"risk_level Must be Between 0 and 1 (inclusive), Got: {self.hparams.risk_level}"
@@ -200,7 +205,7 @@ class WCSAC(LightningModule):
     def alpha(self):
         
         # Return 'log_alpha' if AUTO | else: Force Float Conversion -> α
-        if self.hparams.alpha == AUTO: return self.log_alpha.exp().detach()
+        if self.learn_alpha: return self.log_alpha.exp().detach()
         else: return float(self.hparams.alpha)
 
     @property
@@ -212,7 +217,7 @@ class WCSAC(LightningModule):
             return 0.0
         
         # Use Fixed Cost Penalty
-        if self.hparams.fixed_cost_penalty is not None:
+        if not self.learn_beta:
             return float(self.hparams.fixed_cost_penalty)
         
         # Else Return 'log_beta'
@@ -276,7 +281,7 @@ class WCSAC(LightningModule):
         self.optimizers_list = ['critic_optimizer', 'actor_optimizer']
         
         # Entropy Regularization Optimizer
-        if self.hparams.alpha == AUTO:
+        if self.learn_alpha:
             
             # Create Alpha Optimizer
             alpha_optimizer = self.optim([self.log_alpha], lr=self.hparams.alpha_lr, betas=self.hparams.alpha_betas)
@@ -286,14 +291,14 @@ class WCSAC(LightningModule):
             self.optimizers_list.append('alpha_optimizer')
 
         # Cost Penalty Optimizer
-        if self.use_cost and self.hparams.fixed_cost_penalty is None:
+        if self.learn_beta:
             
             # Create Beta Optimizer
-            cost_penalty_optimizer = self.optim([self.log_beta], lr=self.hparams.beta_lr * self.hparams.cost_lr_scale, betas=self.hparams.beta_betas)
+            beta_optimizer = self.optim([self.log_beta], lr=self.hparams.beta_lr * self.hparams.cost_lr_scale, betas=self.hparams.beta_betas)
 
             # Append Optimizer
-            optimizers.append(cost_penalty_optimizer)
-            self.optimizers_list.append('cost_penalty_optimizer')
+            optimizers.append(beta_optimizer)
+            self.optimizers_list.append('beta_optimizer')
 
         return optimizers
     
@@ -407,7 +412,7 @@ class WCSAC(LightningModule):
             return alpha_loss
         
         # Update Beta
-        elif 'cost_penalty_optimizer' in self.optimizers_list and optimizer_idx == self.optimizers_list.index('cost_penalty_optimizer'):
+        elif 'beta_optimizer' in self.optimizers_list and optimizer_idx == self.optimizers_list.index('beta_optimizer'):
 
             # Get CVaR (Conditional Value-at-Risk)
             CVaR = self.CVaR_Beta
