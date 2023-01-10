@@ -348,14 +348,14 @@ class WCSAC(LightningModule):
             target_VC = torch.clamp(target_VC, min=1e-8, max=1e+8)
             
             # Compute the Loss Functions
-            q_critic_loss = self.loss_function(current_Q1, target_Q) + self.loss_function(current_Q2, target_Q)
-            safety_critic_loss = self.loss_function(current_QC, target_QC) + \
+            q_critic_loss = self.loss_function(current_Q1.double(), target_Q.double()) + self.loss_function(current_Q2.double(), target_Q.double())
+            safety_critic_loss = self.loss_function(current_QC.double(), target_QC.double()) + \
                                 torch.mean(current_VC + target_VC - 2 * torch.sqrt(current_VC * target_VC))
             total_loss = q_critic_loss + safety_critic_loss
             
             # Log Critic Loss Functions
             self.log('episode/Q-Critic-Loss', q_critic_loss)
-            self.log('episode/Safety-Critic-Loss', total_loss)
+            self.log('episode/Safety-Critic-Loss', safety_critic_loss)
             self.log('episode/Total-Loss', total_loss)
 
             return total_loss
