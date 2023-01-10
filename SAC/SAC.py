@@ -9,6 +9,7 @@ from SAC.Utils import AUTO
 import copy, itertools, random
 from termcolor import colored
 from typing import Union, Optional
+import numpy as np
 
 # Import PyTorch
 import torch
@@ -28,7 +29,6 @@ class WCSAC(LightningModule):
     # batch_size:           Size of the Batch
     # hidden_size           Size of the Hidden Layer
     # gamma:                Discount Factor
-    # epsilon:              Epsilon = Prob. to Take a Random Action
     # loss_function:        Loss Function to Compute the Loss Value
     # optim:                Optimizer to Train the NN
     # samples_per_epoch:    How many Observation in a single Epoch
@@ -66,7 +66,7 @@ class WCSAC(LightningModule):
     def __init__(
         
         self, env_name, record_video=True, capacity=100_000, batch_size=512, hidden_size=256,
-        gamma=0.99, epsilon=0.05, loss_function='smooth_l1_loss', optim='AdamW', 
+        gamma=0.99, loss_function='smooth_l1_loss', optim='AdamW', 
         samples_per_epoch=10_000, tau=0.05,
         
         # Critic and Actor Parameters:
@@ -166,15 +166,15 @@ class WCSAC(LightningModule):
             else: self.target_alpha = float(self.hparams.target_alpha)
 
             # Instantiate Alpha, Log_Alpha
-            alpha = torch.ones(1, device=DEVICE) * (float(self.hparams.init_alpha) if self.hparams.init_alpha is not None else 0.0)
-            self.log_alpha = torch.tensor(torch.log(torch.clip(alpha, 1e-8, 1e8)), device=DEVICE, requires_grad=True)
+            alpha = float(self.hparams.init_alpha) if self.hparams.init_alpha is not None else 0.0
+            self.log_alpha = torch.tensor(np.log(np.clip(alpha, 1e-8, 1e8)), device=DEVICE, requires_grad=True)
             
         # Automatically Compute Cost Penalty
         if self.learn_beta:
            
             # Instantiate Beta and Log_Beta
-            beta = torch.ones(1, device=DEVICE) * (float(self.hparams.init_beta) if self.hparams.init_beta is not None else 0.0)
-            self.log_beta = torch.tensor(torch.log(torch.clip(beta, 1e-8, 1e8)), device=DEVICE, requires_grad=True)
+            beta = float(self.hparams.init_beta) if self.hparams.init_beta is not None else 0.0
+            self.log_beta = torch.tensor(np.log(np.clip(beta, 1e-8, 1e8)), device=DEVICE, requires_grad=True)
            
             # Compute Cost Constraint
             if self.hparams.target_cost in [None, AUTO]:
@@ -233,8 +233,8 @@ class WCSAC(LightningModule):
 
         while not done and not truncated:
 
-            # Select an Action using our Policy or Random Action (in the beginning or if random < epsilon)
-            if policy and random.random() > self.hparams.epsilon:
+            # Select an Action using our Policy (Random Action in the Beginning)
+            if policy:
                 
                 # Get only the Action, not the Log Probability
                 action, _ = policy(obs)

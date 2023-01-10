@@ -8,7 +8,6 @@ capacity:           1e6
 batch_size:         256
 hidden_size:        256
 gamma:              0.99
-epsilon:            0.05
 loss_function:      mse_loss
 optim:              Adam
 samples_per_epoch:  ${training_params.samples_per_epoch}
