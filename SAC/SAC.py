@@ -102,8 +102,8 @@ class WCSAC(LightningModule):
         self.max_episode_steps = self.env.spec.max_episode_steps
         
         # Action, Observation Dimension 
-        obs_size = self.env.observation_space.shape[0]
-        action_dims = self.env.action_space.shape[0]
+        obs_size = int(self.env.observation_space.shape[0])
+        action_dims = int(self.env.action_space.shape[0])
 
         # Get the Max Action Space Values
         max_action = self.env.action_space.high
@@ -115,7 +115,6 @@ class WCSAC(LightningModule):
         self.buffer = ReplayBuffer(capacity)
         
         # Create Target Networks
-        self.target_policy = copy.deepcopy(self.policy)
         self.target_q_critic = copy.deepcopy(self.q_critic)
         self.target_safety_critic = copy.deepcopy(self.safety_critic)
         
@@ -198,7 +197,7 @@ class WCSAC(LightningModule):
 
     @property
     # Alpha (Entropy Bonus) Computation Function
-    def __alpha(self): 
+    def alpha(self): 
         
         # Return 'log_alpha' if AUTO | else: Force Float Conversion -> α
         if self.hparams.alpha == AUTO: return self.log_alpha.exp().detach()
@@ -206,7 +205,7 @@ class WCSAC(LightningModule):
 
     @property
     # Beta (Cost Penalty) Computation Function 
-    def __beta(self):
+    def beta(self):
         
         # Cost Not Contribute to Policy Optimization
         if not self.use_cost: 
@@ -256,7 +255,7 @@ class WCSAC(LightningModule):
             obs = next_obs
         
         # Log Episode Cost
-        if policy: self.log('episode/Cost', episode_cost)
+        if policy: self.log('episode/Cost', episode_cost, on_epoch=True)
 
     def forward(self, x):
         
@@ -328,7 +327,7 @@ class WCSAC(LightningModule):
             current_QC, current_VC = self.safety_critic(states, actions)
             
             # Compute Next Action and Log Probabilities
-            next_actions, next_log_probs = self.target_policy(next_states)
+            next_actions, next_log_probs = self.policy(next_states)
             
             # Compute Next Action Values (* Unpack the Q1, Q2 Tuple) and Next Cost Values
             next_Q = torch.min(*self.target_q_critic(next_states, next_actions))
@@ -339,7 +338,7 @@ class WCSAC(LightningModule):
             next_VC    = torch.clamp(next_VC,    min=1e-8, max=1e+8)
             
             # Construct Q-Target
-            target_Q = (rewards + self.hparams.gamma * (1 - dones) * (next_Q - self.__alpha * next_log_probs)).detach()
+            target_Q = (rewards + self.hparams.gamma * (1 - dones) * (next_Q - self.alpha * next_log_probs)).detach()
             
             # Construct Cost Target
             target_QC = (costs + self.hparams.gamma * (1 - dones) * (next_QC)).detach()
@@ -354,9 +353,9 @@ class WCSAC(LightningModule):
             total_loss = q_critic_loss + safety_critic_loss
             
             # Log Critic Loss Functions
-            self.log('episode/Q-Critic-Loss', q_critic_loss)
-            self.log('episode/Safety-Critic-Loss', safety_critic_loss)
-            self.log('episode/Total-Loss', total_loss)
+            self.log('episode/Q-Critic-Loss', q_critic_loss, on_epoch=True)
+            self.log('episode/Safety-Critic-Loss', safety_critic_loss, on_epoch=True)
+            self.log('episode/Total-Loss', total_loss, on_epoch=True)
 
             return total_loss
 
@@ -367,7 +366,7 @@ class WCSAC(LightningModule):
             new_actions, new_log_probs = self.policy(states)
 
             # Use Critic Networks to Evaluate the New Actions Selected by the Policy
-            action_values = torch.min(*self.q_critic(states, new_actions))
+            actor_Q = torch.min(*self.q_critic(states, new_actions))
             actor_QC, actor_VC = self.safety_critic(states, new_actions)
             actor_VC = torch.clamp(actor_VC, min=1e-8, max=1e8)
 
@@ -380,15 +379,15 @@ class WCSAC(LightningModule):
             damp = (self.hparams.damp_scale * torch.mean(self.target_cost - CVaR)) if self.hparams.fixed_cost_penalty is None else 0.0
 
             # Compute the Policy Loss (α * Entropy + β * Cost)
-            policy_loss = torch.mean(self.__alpha * new_log_probs - action_values
-                        + (self.__beta - damp) * (actor_QC + self.pdf_cdf.cuda() * torch.sqrt(actor_VC)))
+            actor_loss = torch.mean(self.alpha * new_log_probs - actor_Q
+                        + (self.beta - damp) * (actor_QC + self.pdf_cdf.cuda() * torch.sqrt(actor_VC)))
             
             # Log Actor Loss Functions
-            self.log('episode/Policy-Loss', policy_loss)
-            self.log('episode/Policy-Entropy', - new_log_probs.mean())
-            self.log('episode/Policy-Cost', torch.mean(actor_QC + self.pdf_cdf.cuda() * torch.sqrt(actor_VC)))
+            self.log('episode/Policy-Loss', actor_loss, on_epoch=True)
+            self.log('episode/Policy-Entropy', - new_log_probs.mean(), on_epoch=True)
+            self.log('episode/Policy-Cost', torch.mean(actor_QC + self.pdf_cdf.cuda() * torch.sqrt(actor_VC)), on_epoch=True)
 
-            return policy_loss
+            return actor_loss
         
         # Update Alpha        
         elif 'alpha_optimizer' in self.optimizers_list and optimizer_idx == self.optimizers_list.index('alpha_optimizer'):
@@ -398,8 +397,8 @@ class WCSAC(LightningModule):
 
             # Compute the Alpha Loss
             alpha_loss = torch.mean(self.log_alpha.exp() * (- log_probs - self.target_alpha).detach())
-            self.log('episode/Alpha-Loss', alpha_loss)
-            self.log('episode/Alpha-Value', self.log_alpha.exp())
+            self.log('episode/Alpha-Loss', alpha_loss, on_epoch=True)
+            self.log('episode/Alpha-Value', self.log_alpha.exp(), on_epoch=True)
 
             return alpha_loss
         
@@ -415,8 +414,8 @@ class WCSAC(LightningModule):
 
             # Compute the Beta Loss
             beta_loss = torch.mean(self.log_beta.exp() * (self.target_cost - CVaR).detach())
-            self.log("episode/Beta-Loss", beta_loss)
-            self.log("episode/Beta-Value", self.log_beta.exp())
+            self.log("episode/Beta-Loss", beta_loss, on_epoch=True)
+            self.log("episode/Beta-Value", self.log_beta.exp(), on_epoch=True)
 
             return beta_loss
 
@@ -430,9 +429,5 @@ class WCSAC(LightningModule):
             polyak_average(self.q_critic, self.target_q_critic, tau=self.hparams.tau)
             polyak_average(self.safety_critic, self.target_safety_critic, tau=self.hparams.tau)
         
-        # Polyak Average Update of the Actor Networks
-        if self.current_epoch % self.hparams.actor_update_freq == 0:
-            polyak_average(self.policy, self.target_policy, tau=self.hparams.tau)
-        
         # Log Episode Return
-        self.log("episode/Return", self.env.return_queue[-1].item())
+        self.log("episode/Return", self.env.return_queue[-1].item(), on_epoch=True)
