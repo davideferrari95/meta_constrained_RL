@@ -11,7 +11,7 @@ class ReplayBuffer():
     def __init__(self, capacity):
         
         # deque data structure will automatically delete the oldest entry to make space for the new one
-        self.buffer = deque(maxlen=capacity)
+        self.buffer = deque(maxlen=int(capacity))
     
     def __len__(self):
         
