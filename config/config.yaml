@@ -11,11 +11,11 @@ training_params:
   # env:                Safexp-PointGoal2-v0
   samples_per_epoch:  10_000
   epochs:             10_000
-  patience:           1_000
+  patience:           2_000
   tau:                0.005
 
 utilities_params:
 
-  early_stopping:     True
+  early_stopping:     False
   record_video:       True
   fast_dev_run:       False

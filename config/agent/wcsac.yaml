@@ -4,13 +4,12 @@ _target_: SAC.SAC.WCSAC
 # SAC Parameters
 env_name:           ${training_params.env}
 record_video:       ${utilities_params.record_video}
-capacity:           100_000
+capacity:           1e6
 batch_size:         512
 hidden_size:        256
 gamma:              0.99
 epsilon:            0.05
-loss_function:      smooth_l1_loss
-# loss_function:      mse_loss
+loss_function:      mse_loss
 optim:              AdamW
 samples_per_epoch:  ${training_params.samples_per_epoch}
 tau:                ${training_params.tau}
