@@ -7,20 +7,38 @@ record_video:       ${utilities_params.record_video}
 capacity:           100_000
 batch_size:         512
 hidden_size:        256
-lr:                 0.001
 gamma:              0.99
-loss_function:      smooth_l1_loss
-optim:              AdamW
 epsilon:            0.05
+loss_function:      smooth_l1_loss
+# loss_function:      mse_loss
+optim:              AdamW
 samples_per_epoch:  ${training_params.samples_per_epoch}
 tau:                ${training_params.tau}
+
+# Critic
+critic_lr:          1e-3
+critic_betas:       [0.9, 0.999]
+critic_update_freq: 2
+
+# Actor
+actor_lr:           1e-3
+actor_betas:        [0.9, 0.999]
+actor_update_freq:  1
 
 # Entropy Coefficient
 alpha:              ${entropy_params.alpha}
 init_alpha:         ${entropy_params.init_alpha}
 target_alpha:       ${entropy_params.target_alpha}
+alpha_betas:        ${entropy_params.alpha_betas}
+alpha_lr:           ${entropy_params.alpha_lr}
 
 # Cost Constraints
 fixed_cost_penalty: ${cost_params.fixed_cost_penalty}
-cost_constraint:    ${cost_params.cost_constraint}
+init_beta:          ${cost_params.init_beta}
 cost_limit:         ${cost_params.cost_limit}
+target_cost:        ${cost_params.target_cost}
+beta_betas:         ${cost_params.beta_betas}
+beta_lr:            ${cost_params.beta_lr}
+cost_lr_scale:      ${cost_params.cost_lr_scale}
+risk_level:         ${cost_params.risk_level}
+damp_scale:         ${cost_params.damp_scale}

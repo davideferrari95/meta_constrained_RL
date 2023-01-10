@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Optional, Union
+from typing import Optional, Union, List
 
 @dataclass
 class TrainingParams:
@@ -14,15 +14,23 @@ class TrainingParams:
 class EntropyParams:
 
   alpha:              Union[str, float]
-  target_alpha:       Union[str, float]
   init_alpha:         Optional[float]
+  target_alpha:       Union[str, float]
+  alpha_betas:        List[float]
+  alpha_lr:           float
 
 @dataclass
 class CostParams:
 
   fixed_cost_penalty: Optional[float]
-  cost_constraint:    Optional[float]
+  init_beta:          Optional[float]
   cost_limit:         Optional[float]
+  target_cost:        Union[str, float]
+  beta_betas:         List[float]
+  beta_lr:            float
+  cost_lr_scale:      float
+  risk_level:         float
+  damp_scale:         float
 
 @dataclass
 class UtilitiesParams:

@@ -1,5 +1,6 @@
 # Import RL Modules
-from SAC.Networks import DQN, GradientPolicy, polyak_average, DEVICE
+from SAC.Networks import DoubleQCritic, SafetyCritic, GradientPolicy
+from SAC.Networks import polyak_average, DEVICE
 from SAC.ReplayBuffer import ReplayBuffer, RLDataset
 from SAC.Environment import create_environment
 from SAC.Utils import AUTO
@@ -13,6 +14,7 @@ from math import pow
 # Import PyTorch
 import torch
 import torch.nn.functional as F
+import torch.distributions as TD
 from torch import Tensor
 from torch.utils.data import DataLoader
 from pytorch_lightning import LightningModule
@@ -20,50 +22,82 @@ from pytorch_lightning import LightningModule
 # Create SAC Algorithm
 class WCSAC(LightningModule):
     
+    # SAC Parameters
     # env_name:             Environment Name
     # record_video:         Record Video with RecordVideo Wrapper
     # capacity:             ReplayBuffer Capacity
     # batch_size:           Size of the Batch
-    # lr:                   Learning Rate
     # hidden_size           Size of the Hidden Layer
     # gamma:                Discount Factor
+    # epsilon:              Epsilon = Prob. to Take a Random Action
     # loss_function:        Loss Function to Compute the Loss Value
     # optim:                Optimizer to Train the NN
-    # epsilon:              Epsilon = Prob. to Take a Random Action
     # samples_per_epoch:    How many Observation in a single Epoch
     # tau:                  How fast we apply the Polyak Average Update
     
+    # Critic Parameters
+    # critic_lr:            Learning Rate of Critic Network
+    # critic_betas:         Coefficients for Computing Running Averages of Gradient
+    # critic_update_freq:   Update Frequency of Critic Network
+    
+    # Actor Parameters
+    # actor_lr:             Learning Rate of Actor Network
+    # actor_betas:          Coefficients for Computing Running Averages of Gradient
+    # actor_update_freq:    Update Frequency of Actor Network
+    
+    # Entropy Coefficient
     # alpha:                Entropy Regularization Coefficient  |  Set it to 'auto' to Automatically Learn
     # init_alpha:           Initial Value of α [Optional]       |  When Learning Automatically α
     # target_alpha:         Target Entropy                      |  When Learning Automatically α, Set it to 'auto' to Automatically Compute Target    
+    # alpha_betas:          Coefficients for Computing Running Averages of Gradient
+    # alpha_lr:             Learning Rate of Alpha Coefficient
     
+    # Cost Constraints
     # fixed_cost_penalty:   Cost Penalty Coefficient                    |  Set it to 'auto' to Automatically Learn
-    # cost_constraint:      Adjust Cost Penalty to Maintain this Cost   |  When 'fixed_cost_penalty' is None
-    # cost_limit:           Compute an Approximate Cost Constraint      |  When 'cost_constraint' is None
+    # init_beta:            Initial Value of β [Optional]               |  When Learning Automatically β
+    # cost_limit:           Compute an Approximate Cost Constraint      |  When 'target_cost' is None
+    # target_cost:          Adjust Cost Penalty to Maintain this Cost   |  When 'fixed_cost_penalty' is None
+    # beta_betas:           Coefficients for Computing Running Averages of Gradient
+    # beta_lr:              Learning Rate of Beta Coefficient
+    # cost_lr_scale:        Scale Learning Rate of Safety Weight Optimizer
+    # risk_level:           Risk Averse = 0, Risk Neutral = 1
+    # damp_scale:           Damp Impact of Safety Constraint in Actor Update
 
     def __init__(
         
         self, env_name, record_video=True, capacity=100_000, batch_size=512, hidden_size=256,
-        lr=1e-3, gamma=0.99, loss_function='smooth_l1_loss', optim='AdamW', 
-        epsilon=0.05, samples_per_epoch=10_000, tau=0.05,
-                 
+        gamma=0.99, epsilon=0.05, loss_function='smooth_l1_loss', optim='AdamW', 
+        samples_per_epoch=10_000, tau=0.05,
+        
+        # Critic and Actor Parameters:
+        critic_lr=1e-3, critic_betas=[0.9, 0.999], critic_update_freq=2,
+        actor_lr=1e-3,  actor_betas=[0.9, 0.999],  actor_update_freq=1,
+        
         # Entropy Coefficient α, if AUTO -> Automatic Learning:
         alpha: Union[str, float]=AUTO,
         init_alpha: Optional[float]=None,
         target_alpha: Union[str, float]=AUTO,
+        alpha_betas=[0.9, 0.999],
+        alpha_lr=1e-3,
         
         # Cost Constraints:
         fixed_cost_penalty: Optional[float]=None,
-        cost_constraint: Optional[float]=None,
-        cost_limit: Optional[float]=None
-        
+        init_beta: Optional[float]=None,
+        target_cost: Optional[float]=None,
+        cost_limit: Optional[float]=None,
+        beta_betas=[0.9, 0.999],
+        beta_lr=1e-3,
+        cost_lr_scale=1,
+        risk_level=0.5,
+        damp_scale=10
+    
     ):
 
         super().__init__()
 
         # Create Environment
         self.env = create_environment(env_name, record_video)
-        
+
         # Get max_episode_steps from Environment -> For Safety-Gym = 1000
         self.max_episode_steps = self.env.spec.max_episode_steps
         
@@ -74,20 +108,16 @@ class WCSAC(LightningModule):
         # Get the Max Action Space Values
         max_action = self.env.action_space.high
 
-        # Create NN (Critic 1,2), Policy (Actor) and Replay Buffer
-        self.q_net1 = DQN(hidden_size, obs_size, action_dims).to(DEVICE)
-        self.q_net2 = DQN(hidden_size, obs_size, action_dims).to(DEVICE)
+        # Create Policy (Actor), Q-Critic, Safety-Critic and Replay Buffer
         self.policy = GradientPolicy(hidden_size, obs_size, action_dims, max_action).to(DEVICE)
+        self.q_critic = DoubleQCritic(hidden_size, obs_size, action_dims).to(DEVICE)
+        self.safety_critic = SafetyCritic(hidden_size, obs_size, action_dims).to(DEVICE)
         self.buffer = ReplayBuffer(capacity)
         
-        # Create Cost NN
-        self.q_net_cost = DQN(hidden_size, obs_size, action_dims).to(DEVICE)
-
         # Create Target Networks
-        self.target_q_net1 = copy.deepcopy(self.q_net1)
-        self.target_q_net2 = copy.deepcopy(self.q_net2)
         self.target_policy = copy.deepcopy(self.policy)
-        self.target_q_net_cost = copy.deepcopy(self.q_net_cost)
+        self.target_q_critic = copy.deepcopy(self.q_critic)
+        self.target_safety_critic = copy.deepcopy(self.safety_critic)
         
         # Instantiate Loss Function and Optimizer
         self.loss_function = getattr(torch.nn.functional, loss_function)
@@ -97,7 +127,7 @@ class WCSAC(LightningModule):
         self.save_hyperparameters()
         
         # Initialize Entropy Coefficient (Alpha) and Constraint Coefficient (Beta)
-        self.__init_coefficients(alpha, init_alpha, target_alpha, fixed_cost_penalty, cost_constraint, cost_limit)
+        self.__init_coefficients()
 
         # Fill the ReplayBuffer
         self.__collect_experience()
@@ -119,50 +149,31 @@ class WCSAC(LightningModule):
         print(colored('\n\nEnd Collecting Experience\n\n','yellow'))
     
     # Coefficient Initialization
-    def __init_coefficients(
-        
-        self,
-        
-        # Entropy Coefficient α, if 'auto' -> Automatic Learning:
-        alpha: Union[str, float]=AUTO,
-        init_alpha: Optional[float]=None,
-        target_alpha: Union[str, float]=AUTO,
-                  
-        # Cost Constraints:
-        fixed_cost_penalty: Optional[float]=None,
-        cost_constraint: Optional[float]=None,
-        cost_limit: Optional[float]=None
-    
-    ):
+    def __init_coefficients(self):
         
         # Automatically Learn Alpha
-        if alpha == AUTO:
+        if self.hparams.alpha == AUTO:
             
             # Automatically Set Target Entropy | else: Force Float Conversion -> target α (safety-gym = -2.0)
-            if target_alpha == AUTO: self.target_alpha = - torch.prod(Tensor(self.env.action_space.shape)).item()
-            else: self.target_alpha = float(target_alpha)
+            if self.hparams.target_alpha in [None, AUTO]: self.target_alpha = - torch.prod(Tensor(self.env.action_space.shape)).item()
+            else: self.target_alpha = float(self.hparams.target_alpha)
 
-            # FIX: Instantiate Alpha, Log_Alpha
-            alpha = torch.ones(1, device=DEVICE) * (float(init_alpha) if init_alpha is not None else 0.0)
-            self.log_alpha = torch.nn.Parameter(torch.log(F.softplus(alpha)), requires_grad=True)
-            # alpha_ = torch.ones(1, device=DEVICE) * (float(init_alpha) if init_alpha is not None else 0.0)
-            # self.alpha = torch.nn.Parameter(F.softplus(alpha_), requires_grad=True)
-            # self.log_alpha = torch.log(self.alpha)
-        
+            # Instantiate Alpha, Log_Alpha
+            alpha = torch.ones(1, device=DEVICE) * (float(self.hparams.init_alpha) if self.hparams.init_alpha is not None else 0.0)
+            self.log_alpha = torch.nn.Parameter(torch.log(torch.clip(alpha, 1e-8, 1e8)), requires_grad=True)
+            
         # Use Cost = False is All of the Cost Arguments are None
-        self.use_cost = bool(fixed_cost_penalty or cost_constraint or cost_limit)
+        self.use_cost = bool(self.hparams.fixed_cost_penalty or self.hparams.target_cost or self.hparams.cost_limit)
 
         # Automatically Compute Cost Penalty
-        if self.use_cost and fixed_cost_penalty is None:
-            
-            # FIX: Instantiate Beta and Log_Beta
-            self.beta = torch.nn.Parameter(F.softplus(torch.zeros(1, device=DEVICE)), requires_grad=True)
-            self.log_beta = torch.log(self.beta)
-            # beta = torch.zeros(1, device=DEVICE)
-            # self.log_beta = torch.nn.Parameter(torch.log(F.softplus(beta)), requires_grad=True)
-            
+        if self.use_cost and self.hparams.fixed_cost_penalty is None:
+           
+            # Instantiate Beta and Log_Beta
+            beta = torch.ones(1, device=DEVICE) * (float(self.hparams.init_beta) if self.hparams.init_beta is not None else 0.0)
+            self.log_beta = torch.nn.Parameter(torch.log(torch.clip(beta, 1e-8, 1e8)), requires_grad=True)
+           
             # Compute Cost Constraint
-            if cost_constraint is None:
+            if self.hparams.target_cost in [None, AUTO]:
                 
                 ''' 
                 Convert assuming equal cost accumulated each step
@@ -172,17 +183,25 @@ class WCSAC(LightningModule):
                 It's worth checking empirical total undiscounted costs to see if they match. 
                 '''
                 
-                # FIX: a ** b = pow(a,b)
-                gamma, max_len = self.hparams.gamma, self.max_episode_steps
-                self.cost_constraint = cost_limit * (1 - pow(gamma, max_len)) / (1 - gamma) / max_len
+                # COmpute Target Cost
+                gamma, max_len, cost_limit= self.hparams.gamma, self.max_episode_steps, self.hparams.cost_limit
+                self.target_cost = cost_limit * (1 - pow(gamma, max_len)) / (1 - gamma) / max_len
+        
+        # Assert Risk Level in [0,1]
+        assert 1 >= self.hparams.risk_level >= 0, f"risk_level Must be Between 0 and 1 (inclusive), Got: {self.hparams.risk_level}"
+        
+        # Compute PDF (Probability Density Function), CDF (Cumulative Distribution Function)
+        normal = TD.normal.Normal(torch.tensor([0.0]), torch.tensor([1.0]))
+        
+        # Pre-Compute CVaR (Conditional Value-at-Risk) for Standard Normal Distribution
+        self.pdf_cdf = (normal.log_prob(normal.icdf(torch.tensor(self.hparams.risk_level))).exp() / self.hparams.risk_level).cuda()
 
     @property
     # Alpha (Entropy Bonus) Computation Function
     def __alpha(self): 
         
-        # FIX: Return 'log_alpha' / 'alpha' if AUTO | else: Force Float Conversion -> α
+        # Return 'log_alpha' if AUTO | else: Force Float Conversion -> α
         if self.hparams.alpha == AUTO: return self.log_alpha.exp().detach()
-        # if self.hparams.alpha == AUTO: return self.alpha.detach()
         else: return float(self.hparams.alpha)
 
     @property
@@ -197,9 +216,8 @@ class WCSAC(LightningModule):
         if self.hparams.fixed_cost_penalty is not None:
             return float(self.hparams.fixed_cost_penalty)
         
-        # FIX: Else Return 'log_beta' / 'beta'
-        # return self.log_beta.exp().detach()
-        return self.beta.detach()
+        # Else Return 'log_beta'
+        return self.log_beta.exp().detach()
 
     @torch.no_grad()
     def play_episode(self, policy=None):
@@ -247,23 +265,22 @@ class WCSAC(LightningModule):
     
     def configure_optimizers(self):
         
-        # Create an Iterator with the Parameters of the Critic Q-Networks and the Q-Cost
-        q_net_params = itertools.chain(self.q_net1.parameters(), self.q_net2.parameters(), self.q_net_cost.parameters())
+        # Create an Iterator with the Parameters of the Q-Critic and the Safety-Critic
+        critic_params = itertools.chain(self.q_critic.parameters(), self.safety_critic.parameters())
         
         # We need 2 Separate Optimizers as we have 2 Neural Networks
-        q_net_optimizer  = self.optim(q_net_params,  lr=self.hparams.lr)
-        policy_optimizer = self.optim(self.policy.parameters(), lr=self.hparams.lr)
+        critic_optimizer = self.optim(critic_params, lr=self.hparams.critic_lr, betas=self.hparams.critic_betas)
+        policy_optimizer = self.optim(self.policy.parameters(), lr=self.hparams.actor_lr, betas=self.hparams.actor_betas)
         
         # Default Optimizers
-        optimizers = [q_net_optimizer, policy_optimizer]
-        self.optimizers_list = ['q_net_optimizer', 'policy_optimizer']
+        optimizers = [critic_optimizer, policy_optimizer]
+        self.optimizers_list = ['critic_optimizer', 'policy_optimizer']
         
         # Entropy Regularization Optimizer
         if self.hparams.alpha == AUTO:
             
-            # FIX: Create Alpha Optimizer
-            alpha_optimizer = self.optim([self.log_alpha], lr=self.hparams.lr)
-            # alpha_optimizer = self.optim([self.alpha], lr=self.hparams.lr)
+            # Create Alpha Optimizer
+            alpha_optimizer = self.optim([self.log_alpha], lr=self.hparams.alpha_lr, betas=self.hparams.alpha_betas)
 
             # Append Optimizer
             optimizers.append(alpha_optimizer)
@@ -272,9 +289,8 @@ class WCSAC(LightningModule):
         # Cost Penalty Optimizer
         if self.use_cost and self.hparams.fixed_cost_penalty is None:
             
-            # FIX: Create Beta Optimizer
-            # cost_penalty_optimizer = self.optim([self.log_beta], lr=self.hparams.lr)
-            cost_penalty_optimizer = self.optim([self.beta], lr=self.hparams.lr)
+            # Create Beta Optimizer
+            cost_penalty_optimizer = self.optim([self.log_beta], lr=self.hparams.beta_lr * self.hparams.cost_lr_scale, betas=self.hparams.beta_betas)
 
             # Append Optimizer
             optimizers.append(cost_penalty_optimizer)
@@ -305,58 +321,72 @@ class WCSAC(LightningModule):
         # Update Q-Networks
         if optimizer_idx == 0:
             
-            # Compute the Action-Value Pair
-            action_values1 = self.q_net1(states, actions)
-            action_values2 = self.q_net2(states, actions)
+            # Get Current Action-Value Estimates from the Double-Q Critic
+            current_Q1, current_Q2 = self.q_critic(states, actions)
             
-            # Compute the Cost
-            cost_values = self.q_net_cost(states, actions)
+            # Get Current Cost Estimate from the Safety Critic
+            current_QC, current_VC = self.safety_critic(states, actions)
             
             # Compute Next Action and Log Probabilities
-            target_actions, target_log_probs = self.target_policy(next_states)
+            next_actions, next_log_probs = self.target_policy(next_states)
             
-            # Compute Next Action Values
-            next_action_values = torch.min(
-                self.target_q_net1(next_states, target_actions),
-                self.target_q_net2(next_states, target_actions)
-            )
-            
-            # Compute Next Cost Values
-            next_cost_values = self.target_q_net_cost(next_states, target_actions)
+            # Compute Next Action Values (* Unpack the Q1, Q2 Tuple) and Next Cost Values
+            next_Q = torch.min(*self.target_q_critic(next_states, next_actions))
+            next_QC, next_VC = self.target_safety_critic(next_states, next_actions)
 
-            # Construct the Target, Adjusting the Value with α * log(π)
-            expected_action_values = rewards + self.hparams.gamma * (1 - dones) * (next_action_values - self.__alpha * target_log_probs)
+            # Clamp VC in [1e-8, 1e+8]
+            current_VC = torch.clamp(current_VC, min=1e-8, max=1e+8)
+            next_VC    = torch.clamp(next_VC,    min=1e-8, max=1e+8)
+            
+            # Construct Q-Target
+            target_Q = (rewards + self.hparams.gamma * (1 - dones) * (next_Q - self.__alpha * next_log_probs)).detach()
             
             # Construct Cost Target
-            expected_cost_values = costs + self.hparams.gamma * (1 - dones) * (next_cost_values)
+            target_QC = (costs + self.hparams.gamma * (1 - dones) * (next_QC)).detach()
+            target_VC = (costs**2 - current_QC**2 + 2 * self.hparams.gamma * costs * next_QC
+                        + self.hparams.gamma**2 * next_VC + self.hparams.gamma**2 * next_QC**2).detach()
+            target_VC = torch.clamp(target_VC, min=1e-8, max=1e+8)
             
-            # Compute the Loss Function
-            q_loss1 = self.loss_function(action_values1, expected_action_values)
-            q_loss2 = self.loss_function(action_values2, expected_action_values)
-            q_cost_loss = self.loss_function(cost_values, expected_cost_values)
-            total_loss = q_loss1 + q_loss2 + q_cost_loss
-            self.log('episode/Q-Loss', total_loss)
+            # Compute the Loss Functions
+            q_critic_loss = self.loss_function(current_Q1, target_Q) + self.loss_function(current_Q2, target_Q)
+            safety_critic_loss = self.loss_function(current_QC, target_QC) + \
+                                torch.mean(current_VC + target_VC - 2 * torch.sqrt(current_VC * target_VC))
+            total_loss = q_critic_loss + safety_critic_loss
+            
+            # Log Critic Loss Functions
+            self.log('episode/Q-Critic-Loss', q_critic_loss)
+            self.log('episode/Safety-Critic-Loss', total_loss)
+            self.log('episode/Total-Loss', total_loss)
 
             return total_loss
 
         # Update the Policy
         elif optimizer_idx == 1:
 
-            # Compute the Actions and the Log Probabilities
-            actions, log_probs = self.policy(states)
+            # Compute the Updated Actions and the Log Probabilities
+            new_actions, new_log_probs = self.policy(states)
 
-            # Use Q-Networks to Evaluate the Actions Selected by the Policy
-            action_values = torch.min(
-                self.q_net1(states, actions),
-                self.q_net2(states, actions)
-            )
-            
-            # Compute the Cost
-            cost_values = self.q_net_cost(states, actions)
+            # Use Critic Networks to Evaluate the New Actions Selected by the Policy
+            action_values = torch.min(*self.q_critic(states, new_actions))
+            actor_QC, actor_VC = self.safety_critic(states, new_actions)
+            actor_VC = torch.clamp(actor_VC, min=1e-8, max=1e8)
+
+            # Use Safety Critic to Evaluate the Actions Taken
+            current_QC, current_VC = self.safety_critic(states, actions)
+            current_VC = torch.clamp(current_VC, min=1e-8, max=1e8)
+
+            # CVaR (Conditional Value-at-Risk) + Damp -> Impact of Safety Constraint in Policy Update
+            CVaR = current_QC + self.pdf_cdf.cuda() * torch.sqrt(current_VC)
+            damp = (self.hparams.damp_scale * torch.mean(self.target_cost - CVaR)) if self.hparams.fixed_cost_penalty is None else 0.0
 
             # Compute the Policy Loss (α * Entropy + β * Cost)
-            policy_loss = (self.__alpha * log_probs - action_values + self.__beta * cost_values).mean()
+            policy_loss = torch.mean(self.__alpha * new_log_probs - action_values
+                        + (self.__beta - damp) * (actor_QC + self.pdf_cdf.cuda() * torch.sqrt(actor_VC)))
+            
+            # Log Actor Loss Functions
             self.log('episode/Policy-Loss', policy_loss)
+            self.log('episode/Policy-Entropy', - new_log_probs.mean())
+            self.log('episode/Policy-Cost', torch.mean(actor_QC + self.pdf_cdf.cuda() * torch.sqrt(actor_VC)))
 
             return policy_loss
         
@@ -366,23 +396,27 @@ class WCSAC(LightningModule):
             # Compute the Actions and the Log Probabilities
             _, log_probs = self.policy(states)
 
-            # FIX: Compute the Alpha Loss
-            alpha_loss = - self.log_alpha * (torch.mean(log_probs) + self.target_alpha)
-            # alpha_loss = - self.alpha * (torch.mean(log_probs) + self.target_alpha)
+            # Compute the Alpha Loss
+            alpha_loss = torch.mean(self.log_alpha.exp() * (- log_probs - self.target_alpha).detach())
             self.log('episode/Alpha-Loss', alpha_loss)
+            self.log('episode/Alpha-Value', self.log_alpha.exp())
 
             return alpha_loss
         
         # Update Beta
         elif 'cost_penalty_optimizer' in self.optimizers_list and optimizer_idx == self.optimizers_list.index('cost_penalty_optimizer'):
             
-            # Compute the Cost
-            cost_values = self.q_net_cost(states, actions)
+            # Use Safety Critic to Evaluate the Actions Taken
+            current_QC, current_VC = self.safety_critic(states, actions)
+            current_VC = torch.clamp(current_VC, min=1e-8, max=1e8)
 
-            # FIX: Compute the Beta Loss
-            beta_loss = self.beta * (self.cost_constraint - torch.mean(cost_values))
-            # beta_loss = - self.log_beta * (self.cost_constraint - torch.mean(cost_values))
-            self.log('episode/Beta-Loss', beta_loss)
+            # CVaR (Conditional Value-at-Risk)
+            CVaR = current_QC + self.pdf_cdf.cuda() * torch.sqrt(current_VC)
+
+            # Compute the Beta Loss
+            beta_loss = torch.mean(self.log_beta.exp() * (self.target_cost - CVaR).detach())
+            self.log("episode/Beta-Loss", beta_loss)
+            self.log("episode/Beta-Value", self.log_beta.exp())
 
             return beta_loss
 
@@ -391,11 +425,14 @@ class WCSAC(LightningModule):
         # Play Episode
         self.play_episode(policy=self.policy)
         
-        # Polyak Average Update of the Networks
-        polyak_average(self.q_net1, self.target_q_net1, tau=self.hparams.tau)
-        polyak_average(self.q_net2, self.target_q_net2, tau=self.hparams.tau)
-        polyak_average(self.q_net_cost, self.target_q_net_cost, tau=self.hparams.tau)
-        polyak_average(self.policy, self.target_policy, tau=self.hparams.tau)
+        # Polyak Average Update of the Critic Networks
+        if self.current_epoch % self.hparams.critic_update_freq == 0:
+            polyak_average(self.q_critic, self.target_q_critic, tau=self.hparams.tau)
+            polyak_average(self.safety_critic, self.target_safety_critic, tau=self.hparams.tau)
+        
+        # Polyak Average Update of the Actor Networks
+        if self.current_epoch % self.hparams.actor_update_freq == 0:
+            polyak_average(self.policy, self.target_policy, tau=self.hparams.tau)
         
         # Log Episode Return
         self.log("episode/Return", self.env.return_queue[-1].item())

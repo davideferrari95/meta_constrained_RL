@@ -38,13 +38,17 @@ def mlp(input_dim, hidden_dim, output_dim, hidden_depth, hidden_mod=nn.ReLU(), o
 
  
 # Deep Q-Learning Neural Network
-class DQN(nn.Module):
+class DoubleQCritic(nn.Module):
     
-    def __init__(self, hidden_size, obs_size, out_dims):
+    def __init__(self, hidden_size, obs_size, action_dim, hidden_depth=2):
         super().__init__()
         
         # Create a Sequential Neural Network
-        self.net = mlp(obs_size + out_dims, hidden_size, output_dim=1, hidden_depth=2)
+        self.Q1 = mlp(obs_size + action_dim, hidden_size, 1, hidden_depth)
+        self.Q2 = mlp(obs_size + action_dim, hidden_size, 1, hidden_depth)
+
+        # Output Dict
+        self.outputs = dict()
         
     def forward(self, state, action):
         
@@ -58,19 +62,29 @@ class DQN(nn.Module):
         # Concatenate the Features of State and Action
         obs_action = torch.cat([state, action], dim=-1)
         
-        # Pass the State-Action Pair through the Network
-        return self.net(obs_action.float())
+        # Pass the State-Action Pair through the Networks
+        q1 = self.Q1(obs_action)
+        q2 = self.Q2(obs_action)
+
+        # Add in the Output Dict
+        self.outputs["q1"] = q1
+        self.outputs["q2"] = q2
+
+        return q1, q2
 
 
 # Safety Critic Network for estimating Long Term Costs (Mean and Variance)
 class SafetyCritic(nn.Module):
     
-    def __init__(self, hidden_size, obs_size, out_dims):
+    def __init__(self, hidden_size, obs_size, action_dim, hidden_depth=2):
         super().__init__()
 
         # Create the 2 Cost Networks
-        self.QC = mlp(obs_size + out_dims, hidden_size, 1, 2)
-        self.VC = mlp(obs_size + out_dims, hidden_size, 1, 2)
+        self.QC = mlp(obs_size + action_dim, hidden_size, 1, hidden_depth)
+        self.VC = mlp(obs_size + action_dim, hidden_size, 1, hidden_depth)
+
+        # Output Dict
+        self.outputs = dict()
 
     def forward(self, state, action):
 
@@ -85,7 +99,14 @@ class SafetyCritic(nn.Module):
         obs_action = torch.cat([state, action], dim=-1)
         
         # Pass the State-Action Pair through the Networks
-        return self.QC(obs_action), self.VC(obs_action)
+        qc = self.QC(obs_action)
+        vc = self.VC(obs_action)
+
+        # Add in the Output Dict
+        self.outputs["qc"] = qc
+        self.outputs["vc"] = vc
+
+        return qc, vc
 
 
 # Gaussian Policy Network

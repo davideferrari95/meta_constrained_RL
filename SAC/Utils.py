@@ -88,7 +88,7 @@ def _recursive_print(cfg, file=None, space='   ', term_print=True, save_file=Fal
         if arg == 'utilities_params':
             
             # Compute Cost Usage
-            use_costs = bool(cfg['cost_params']['fixed_cost_penalty'] or cfg['cost_params']['cost_constraint'] or cfg['cost_params']['cost_limit'])
+            use_costs = bool(cfg['cost_params']['fixed_cost_penalty'] or cfg['cost_params']['target_cost'] or cfg['cost_params']['cost_limit'])
             
             # Print Arguments
             if term_print: print (colored(f'{space}   use_costs:', 'white', attrs=['bold']), f'\t  {use_costs}')

@@ -1,0 +1,9 @@
+fixed_cost_penalty: null
+init_beta:          0.6931
+cost_limit:         15
+target_cost:        null
+beta_betas:         [0.9, 0.999]
+beta_lr:            1e-3
+cost_lr_scale:      1
+risk_level:         0.5
+damp_scale:         10

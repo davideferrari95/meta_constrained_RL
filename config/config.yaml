@@ -1,27 +1,18 @@
 defaults:
 
   - agent: wcsac
+  - entropy_params: default_entropy
+  - cost_params: default_cost
   - _self_
 
 training_params:
 
-  env:                Safexp-PointGoal2-v0
+  env:                Safexp-PointGoal1-v0
+  # env:                Safexp-PointGoal2-v0
   samples_per_epoch:  10_000
   epochs:             10_000
   patience:           1_000
-  tau:                0.995
-
-entropy_params:
-
-  alpha:              AUTO
-  init_alpha:         null
-  target_alpha:       AUTO
-
-cost_params:
-
-  fixed_cost_penalty: null
-  cost_constraint:    null
-  cost_limit:         25
+  tau:                0.005
 
 utilities_params:
 
