@@ -197,7 +197,7 @@ class WCSAC(LightningModule):
 
     @property
     # Alpha (Entropy Bonus) Computation Function
-    def alpha(self): 
+    def alpha(self):
         
         # Return 'log_alpha' if AUTO | else: Force Float Conversion -> α
         if self.hparams.alpha == AUTO: return self.log_alpha.exp().detach()
