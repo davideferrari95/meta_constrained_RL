@@ -10,7 +10,9 @@ DEVICE = 'cuda:0' if torch.cuda.is_available() else 'cpu'
 
 
 # Neural Network Creation Function
-def mlp(input_dim, hidden_dim, output_dim, hidden_depth, hidden_mod=nn.ReLU(), output_mod=None):
+def mlp(input_dim:int, hidden_dim:int, output_dim:int, hidden_depth:int, hidden_mod=nn.ReLU(), output_mod=None):
+    
+    ''' Neural Network Creation Function '''
     
     # No Hidden Layers
     if hidden_depth <= 0:
@@ -49,6 +51,7 @@ class DoubleQCritic(nn.Module):
 
         # Output Dict
         self.outputs = dict()
+        self.apply(weight_init)
         
     def forward(self, state, action):
         
@@ -76,6 +79,8 @@ class DoubleQCritic(nn.Module):
 # Safety Critic Network for estimating Long Term Costs (Mean and Variance)
 class SafetyCritic(nn.Module):
     
+    ''' Safety Critic Network for estimating Long Term Costs (Mean and Variance) '''    
+    
     def __init__(self, hidden_size, obs_size, action_dim, hidden_depth=2):
         super().__init__()
 
@@ -85,6 +90,7 @@ class SafetyCritic(nn.Module):
 
         # Output Dict
         self.outputs = dict()
+        self.apply(weight_init)
 
     def forward(self, state, action):
 
@@ -109,8 +115,10 @@ class SafetyCritic(nn.Module):
         return qc, vc
 
 
-# Gaussian Policy Network
+# Diagonal Gaussian Policy Network
 class GradientPolicy(nn.Module):
+    
+    ''' Diagonal Gaussian Policy Network '''
     
     def __init__(self, hidden_size, obs_size, action_dim, max, hidden_depth=2):
         super().__init__()
@@ -168,3 +176,15 @@ def polyak_average(net, target_net, tau=0.01):
         
         # Polyak Average Function
         target_param.data.copy_(tau * param.data + (1 - tau) * target_param.data)
+
+# Custom Weight Init for Conv2D and Linear layers
+def weight_init(m):
+    
+    ''' Custom Weight Init for Conv2D and Linear layers '''
+    
+    if isinstance(m, nn.Linear):
+
+        # Fills the Input Tensor with a (semi) Orthogonal Matrix 
+        nn.init.orthogonal_(m.weight.data)
+
+        if hasattr(m.bias, "data"): m.bias.data.fill_(0.0)
