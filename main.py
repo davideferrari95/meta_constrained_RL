@@ -3,8 +3,8 @@ from SAC.SAC import WCSAC
 
 # Import PyTorch Lightning
 from pytorch_lightning import Trainer, loggers as pl_loggers
-from pytorch_lightning.callbacks import EarlyStopping
-from SAC.LightningCallbacks import PrintCallback
+from pytorch_lightning.callbacks import EarlyStopping, DeviceStatsMonitor, ModelCheckpoint
+from SAC.LightningCallbacks import PrintCallback, OverrideEpochStepCallback
 
 # Import Utilities
 from SAC.Utils import FOLDER, AUTO, print_arguments, check_spells_error
@@ -32,8 +32,11 @@ def main(cfg: Params):
                                     samples_per_epoch = TP.samples_per_epoch if not UP.fast_dev_run else 1)
 
     # Instantiate Default Callbacks
-    callbacks = [PrintCallback()]
+    callbacks = [PrintCallback(), OverrideEpochStepCallback(), DeviceStatsMonitor()]
 
+    # Model Checkpoint Callback
+    # callbacks.append(ModelCheckpoint())
+    
     # Optional Callbacks
     if UP.early_stopping: callbacks.append(EarlyStopping(monitor='episode/Return', mode='max', patience=TP.patience, verbose=True))
 
