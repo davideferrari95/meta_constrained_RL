@@ -1,5 +1,5 @@
 # Import RL Modules
-from SAC.Networks import DoubleQCritic, SafetyCritic, GradientPolicy
+from SAC.Networks import DoubleQCritic, SafetyCritic, DiagGaussianPolicy
 from SAC.Networks import polyak_average, DEVICE
 from SAC.ReplayBuffer import ReplayBuffer, RLDataset
 from SAC.Environment import create_environment
@@ -107,12 +107,12 @@ class WCSAC(LightningModule):
         action_dims = int(self.env.action_space.shape[0])
 
         # Get the Max Action Space Values
-        max_action = self.env.action_space.high
-
+        action_range = [self.env.action_space.low, self.env.action_space.high]
+        
         # Create Policy (Actor), Q-Critic, Safety-Critic and Replay Buffer
-        self.policy = GradientPolicy(hidden_size, obs_size, action_dims, max_action).to(DEVICE)
-        self.q_critic = DoubleQCritic(hidden_size, obs_size, action_dims).to(DEVICE)
-        self.safety_critic = SafetyCritic(hidden_size, obs_size, action_dims).to(DEVICE)
+        self.policy = DiagGaussianPolicy(obs_size, hidden_size, action_dims, action_range, log_std_bounds=log_std_bounds).to(DEVICE)
+        self.q_critic = DoubleQCritic(obs_size, hidden_size, action_dims).to(DEVICE)
+        self.safety_critic = SafetyCritic(obs_size, hidden_size, action_dims).to(DEVICE)
         self.buffer = ReplayBuffer(capacity)
         
         # Create Target Networks
@@ -131,22 +131,6 @@ class WCSAC(LightningModule):
 
         # Fill the ReplayBuffer
         self.__collect_experience()
-        
-    # Method for Filling the ReplayBuffer
-    def __collect_experience(self):
-        
-        print(colored('\n\nStart Collecting Experience\n\n','yellow'))
-
-        # While Buffer is Filling
-        while len(self.buffer) < self.hparams.samples_per_epoch:
-
-            if round(len(self.buffer), -2) % 500 == 0:
-                print(f"{round(len(self.buffer), -2)} samples in Experience Buffer. Filling...")
-
-            # Method that Play the Environment
-            self.play_episode()
-
-        print(colored('\n\nEnd Collecting Experience\n\n','yellow'))
     
     # Coefficient Initialization
     def __init_coefficients(self):
@@ -223,6 +207,22 @@ class WCSAC(LightningModule):
         # Else Return 'log_beta'
         return self.log_beta.exp().detach()
 
+    # Method for Filling the ReplayBuffer
+    def __collect_experience(self):
+        
+        print(colored('\n\nStart Collecting Experience\n\n','yellow'))
+
+        # While Buffer is Filling
+        while len(self.buffer) < self.hparams.samples_per_epoch:
+
+            if round(len(self.buffer), -2) % 500 == 0:
+                print(f"{round(len(self.buffer), -2)} samples in Experience Buffer. Filling...")
+
+            # Method that Play the Environment
+            self.play_episode()
+
+        print(colored('\n\nEnd Collecting Experience\n\n','yellow'))
+
     @torch.no_grad()
     def play_episode(self, policy=None):
 
@@ -238,7 +238,7 @@ class WCSAC(LightningModule):
                 
                 # Get only the Action, not the Log Probability
                 action, _ = policy(obs)
-                action = action.cpu().numpy()
+                action = action.cpu().detach().numpy()
             
             # Sample from the Action Space
             else: action = self.env.action_space.sample()
@@ -332,7 +332,7 @@ class WCSAC(LightningModule):
             current_QC, current_VC = self.safety_critic(states, actions)
             
             # Compute Next Action and Log Probabilities
-            next_actions, next_log_probs = self.policy(next_states)
+            next_actions, next_log_probs = self.policy(next_states, reparametrization=True)
             
             # Compute Next Action Values (* Unpack the Q1, Q2 Tuple) and Next Cost Values
             next_Q = torch.min(*self.target_q_critic(next_states, next_actions))
@@ -368,7 +368,7 @@ class WCSAC(LightningModule):
         elif optimizer_idx == 1:
 
             # Compute the Updated Actions and the Log Probabilities
-            new_actions, new_log_probs = self.policy(states)
+            new_actions, new_log_probs = self.policy(states, reparametrization=True)
 
             # Use Critic Networks to Evaluate the New Actions Selected by the Policy
             actor_Q = torch.min(*self.q_critic(states, new_actions))
