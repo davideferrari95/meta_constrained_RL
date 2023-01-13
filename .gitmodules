@@ -51,20 +51,20 @@
 	url = https://github.com/davideferrari95/safety-gym.git
 
 [submodule "wcsac-lagrangian"]
-	path = Examples/WCSAC/wcsac\ lagrangian\ [PyTorch]
+	path = "Examples/WCSAC/wcsac lagrangian [PyTorch]"
 	url = git@github.com:davideferrari95/wcsac.git
 	branch = sac-lagrangian
 
 [submodule "wcsac"]
-	path = Examples/WCSAC/wcsac\ [PyTorch]
+	path = "Examples/WCSAC/wcsac [PyTorch]"
 	url = git@github.com:davideferrari95/wcsac.git
 	branch = wcsac
 
 [submodule "wcsac+"]
-	path = Examples/WCSAC/wcsac+\ [PyTorch]
+	path = "Examples/WCSAC/wcsac+ [PyTorch]"
 	url = git@github.com:davideferrari95/wcsac.git
 	branch = wcsac+
 
 [submodule "WCSAC"]
-	path = Examples/WCSAC/WCSAC\ [Original]
+	path = "Examples/WCSAC/WCSAC [Original]"
 	url = https://github.com/AlgTUDelft/WCSAC.git
