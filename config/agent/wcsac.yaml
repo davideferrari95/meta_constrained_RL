@@ -2,42 +2,42 @@
 _target_: SAC.SAC.WCSAC
 
 # SAC Parameters
-env_name:           ${training_params.env}
-record_video:       ${utilities_params.record_video}
-capacity:           1e6
-batch_size:         256
-hidden_size:        256
-gamma:              0.99
-loss_function:      mse_loss
-optim:              Adam
-samples_per_epoch:  ${training_params.samples_per_epoch}
-tau:                ${training_params.tau}
+env_name:            ${training_params.env}
+record_video:        ${utilities_params.record_video}
+capacity:            1e6
+batch_size:          512
+hidden_size:         512
+gamma:               0.99
+loss_function:       mse_loss
+optim:               Adam
+samples_per_epoch:   ${training_params.samples_per_epoch}
+tau:                 ${training_params.tau}
 
 # Critic
-critic_lr:          1e-3
-critic_betas:       [0.9, 0.999]
-critic_update_freq: 2
+critic_lr:           1e-3
+critic_betas:        [0.9, 0.999]
+critic_update_freq:  2
 
 # Actor
-actor_lr:           1e-3
-actor_betas:        [0.9, 0.999]
-actor_update_freq:  1
-log_std_bounds:     [-20, 2]
+actor_lr:            1e-3
+actor_betas:         [0.9, 0.999]
+actor_update_freq:   1
+log_std_bounds:      [-20, 2]
 
 # Entropy Coefficient
-alpha:              ${entropy_params.alpha}
-init_alpha:         ${entropy_params.init_alpha}
-target_alpha:       ${entropy_params.target_alpha}
-alpha_betas:        ${entropy_params.alpha_betas}
-alpha_lr:           ${entropy_params.alpha_lr}
+alpha:               ${entropy_params.alpha}
+init_alpha:          ${entropy_params.init_alpha}
+target_alpha:        ${entropy_params.target_alpha}
+alpha_betas:         ${entropy_params.alpha_betas}
+alpha_lr:            ${entropy_params.alpha_lr}
 
 # Cost Constraints
-fixed_cost_penalty: ${cost_params.fixed_cost_penalty}
-init_beta:          ${cost_params.init_beta}
-cost_limit:         ${cost_params.cost_limit}
-target_cost:        ${cost_params.target_cost}
-beta_betas:         ${cost_params.beta_betas}
-beta_lr:            ${cost_params.beta_lr}
-cost_lr_scale:      ${cost_params.cost_lr_scale}
-risk_level:         ${cost_params.risk_level}
-damp_scale:         ${cost_params.damp_scale}
+fixed_cost_penalty:  ${cost_params.fixed_cost_penalty}
+init_beta:           ${cost_params.init_beta}
+cost_limit:          ${cost_params.cost_limit}
+target_cost:         ${cost_params.target_cost}
+beta_betas:          ${cost_params.beta_betas}
+beta_lr:             ${cost_params.beta_lr}
+cost_lr_scale:       ${cost_params.cost_lr_scale}
+risk_level:          ${cost_params.risk_level}
+damp_scale:          ${cost_params.damp_scale}
