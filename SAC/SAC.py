@@ -38,12 +38,14 @@ class WCSAC(LightningModule):
     # critic_lr:            Learning Rate of Critic Network
     # critic_betas:         Coefficients for Computing Running Averages of Gradient
     # critic_update_freq:   Update Frequency of Critic Network
+    # critic_hidden_depth:  Number of Hidden Layers (-1) of Critic Networks
     
     # Actor Parameters
     # actor_lr:             Learning Rate of Actor Network
     # actor_betas:          Coefficients for Computing Running Averages of Gradient
     # actor_update_freq:    Update Frequency of Actor Network
     # log_std_bounds:       Constrain log_std Inside Bounds
+    # actor_hidden_depth:   Number of Hidden Layers (-1) of Actor Network
     
     # Entropy Coefficient
     # alpha:                Entropy Regularization Coefficient  |  Set it to 'auto' to Automatically Learn
@@ -72,7 +74,7 @@ class WCSAC(LightningModule):
         # Critic and Actor Parameters:
         critic_lr=1e-3, critic_betas=[0.9, 0.999], critic_update_freq=2,
         actor_lr=1e-3,  actor_betas=[0.9, 0.999],  actor_update_freq=1,
-        log_std_bounds=[-20, 2],
+        log_std_bounds=[-20, 2], critic_hidden_depth=2, actor_hidden_depth=2,
         
         # Entropy Coefficient α, if AUTO -> Automatic Learning:
         alpha: Union[str, float]=AUTO,
@@ -110,9 +112,9 @@ class WCSAC(LightningModule):
         action_range = [self.env.action_space.low, self.env.action_space.high]
         
         # Create Policy (Actor), Q-Critic, Safety-Critic and Replay Buffer
-        self.policy = DiagGaussianPolicy(obs_size, hidden_size, action_dims, action_range, log_std_bounds=log_std_bounds).to(DEVICE)
-        self.q_critic = DoubleQCritic(obs_size, hidden_size, action_dims).to(DEVICE)
-        self.safety_critic = SafetyCritic(obs_size, hidden_size, action_dims).to(DEVICE)
+        self.policy = DiagGaussianPolicy(obs_size, hidden_size, action_dims, action_range, actor_hidden_depth, log_std_bounds).to(DEVICE)
+        self.q_critic = DoubleQCritic(obs_size, hidden_size, action_dims, critic_hidden_depth).to(DEVICE)
+        self.safety_critic = SafetyCritic(obs_size, hidden_size, action_dims, critic_hidden_depth).to(DEVICE)
         self.buffer = ReplayBuffer(capacity)
         
         # Create Target Networks
