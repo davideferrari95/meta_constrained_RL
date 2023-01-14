@@ -32,11 +32,14 @@ def main(cfg: Params):
                                     samples_per_epoch = TP.samples_per_epoch if not UP.fast_dev_run else 1)
 
     # Instantiate Default Callbacks
-    callbacks = [PrintCallback(), OverrideEpochStepCallback(), DeviceStatsMonitor()]
+    callbacks = [PrintCallback(), DeviceStatsMonitor()]
 
     # Model Checkpoint Callback
     # callbacks.append(ModelCheckpoint())
     
+    # Override Epochs Callback
+    # callbacks.append(OverrideEpochStepCallback())
+
     # Optional Callbacks
     if UP.early_stopping: callbacks.append(EarlyStopping(monitor='episode/Return', mode='max', patience=TP.patience, verbose=True))
 
