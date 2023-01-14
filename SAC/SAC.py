@@ -362,6 +362,11 @@ class WCSAC(LightningModule):
             self.log('episode/Safety-Critic-Loss', safety_critic_loss, on_epoch=True)
             self.log('episode/Total-Loss', total_loss, on_epoch=True)
 
+            # Polyak Average Update of the Critic Networks
+            if self.global_step % self.hparams.critic_update_freq == 0:
+                polyak_average(self.q_critic, self.target_q_critic, tau=self.hparams.tau)
+                polyak_average(self.safety_critic, self.target_safety_critic, tau=self.hparams.tau)
+
             return total_loss
 
         # Update the Policy
@@ -428,11 +433,6 @@ class WCSAC(LightningModule):
         
         # Play Episode
         self.play_episode(policy=self.policy)
-        
-        # Polyak Average Update of the Critic Networks
-        if self.current_epoch % self.hparams.critic_update_freq == 0:
-            polyak_average(self.q_critic, self.target_q_critic, tau=self.hparams.tau)
-            polyak_average(self.safety_critic, self.target_safety_critic, tau=self.hparams.tau)
         
         # Log Episode Return
         self.log("episode/Return", self.env.return_queue[-1].item(), on_epoch=True)
