@@ -116,6 +116,7 @@ class WCSAC(LightningModule):
         self.buffer = ReplayBuffer(capacity)
         
         # Create Target Networks
+        self.target_policy = copy.deepcopy(self.policy)
         self.target_q_critic = copy.deepcopy(self.q_critic)
         self.target_safety_critic = copy.deepcopy(self.safety_critic)
         
@@ -401,6 +402,10 @@ class WCSAC(LightningModule):
             self.log_probs_Alpha = new_log_probs
             self.CVaR_Beta = CVaR
             
+            # Polyak Average Update of the Actor Network
+            if self.global_step % self.hparams.actor_update_freq == 0:
+                polyak_average(self.policy, self.target_policy, tau=self.hparams.tau)
+
             return actor_loss
         
         # Update Alpha        
@@ -432,7 +437,7 @@ class WCSAC(LightningModule):
     def training_epoch_end(self, training_step_outputs):
         
         # Play Episode
-        self.play_episode(policy=self.policy)
+        self.play_episode(policy=self.target_policy)
         
         # Log Episode Return
         self.log("episode/Return", self.env.return_queue[-1].item(), on_epoch=True)
