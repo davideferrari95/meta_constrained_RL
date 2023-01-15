@@ -32,7 +32,10 @@ def main(cfg: Params):
                                     samples_per_epoch = TP.samples_per_epoch if not UP.fast_dev_run else 1)
 
     # Instantiate Default Callbacks
-    callbacks = [PrintCallback(), DeviceStatsMonitor()]
+    callbacks = [PrintCallback()]
+
+    # Device Stats Monitoring
+    # callbacks.append(DeviceStatsMonitor())
 
     # Model Checkpoint Callback
     # callbacks.append(ModelCheckpoint())

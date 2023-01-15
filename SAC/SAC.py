@@ -311,7 +311,7 @@ class WCSAC(LightningModule):
         dataset = RLDataset(self.buffer, self.hparams.samples_per_epoch)
         
         # Create a DataLoader -> Fetch the Data from Dataset into Training Process with some Optimization
-        dataloader = DataLoader(dataset=dataset, batch_size=self.hparams.batch_size, num_workers=16)
+        dataloader = DataLoader(dataset=dataset, batch_size=self.hparams.batch_size, num_workers=16, pin_memory=True)
         
         return dataloader
     

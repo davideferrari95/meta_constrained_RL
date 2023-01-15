@@ -5,7 +5,7 @@ _target_: SAC.SAC.WCSAC
 env_name:            ${training_params.env}
 record_video:        ${utilities_params.record_video}
 capacity:            1e6
-batch_size:          512
+batch_size:          2048
 hidden_size:         512
 gamma:               0.99
 loss_function:       mse_loss
@@ -17,14 +17,14 @@ tau:                 ${training_params.tau}
 critic_lr:           1e-3
 critic_betas:        [0.9, 0.999]
 critic_update_freq:  2
-critic_hidden_depth: 2
+critic_hidden_depth: 4
 
 # Actor
 actor_lr:            1e-3
 actor_betas:         [0.9, 0.999]
 actor_update_freq:   1
 log_std_bounds:      [-20, 2]
-actor_hidden_depth:  2
+actor_hidden_depth:  4
 
 # Entropy Coefficient
 alpha:               ${entropy_params.alpha}
