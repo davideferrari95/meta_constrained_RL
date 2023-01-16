@@ -4,7 +4,7 @@ from typing import Optional, Union, List
 @dataclass
 class TrainingParams:
     
-  env:                str
+  env:                Union[str, List[str]]
   samples_per_epoch:  int
   epochs:             int
   patience:           int

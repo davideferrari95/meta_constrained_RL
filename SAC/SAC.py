@@ -103,6 +103,7 @@ class WCSAC(LightningModule):
 
         # Get max_episode_steps from Environment -> For Safety-Gym = 1000
         self.max_episode_steps = self.env.spec.max_episode_steps
+        assert self.max_episode_steps is not None, (f'self.env.spec.max_episode_steps = None')
         
         # Action, Observation Dimension 
         obs_size = int(self.env.observation_space.shape[0])

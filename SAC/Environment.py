@@ -18,13 +18,20 @@ def create_environment(name, record_video=True, render_mode='rgb_array') -> gym.
 
 def __create_environment(name, record_video, render_mode='rgb_array'):
     
-    # Build the Environment
-    try: env = gym.make(name, render_mode=render_mode)
-    except:
-      
-      # Not-Standard Render Mode 
-      try: env = gym.make(name, render=True)
-      except: env = gym.make(name)
+    """ Create Gym Environment """
+  
+    # Custom Environment Creation
+    if 'custom' in name: env = __make_custom_env(name, render_mode)
+
+    else:
+
+      # Build the Environment
+      try: env = gym.make(name, render_mode=render_mode)
+      except:
+        
+        # Not-Standard Render Mode
+        try: env = gym.make(name, render=True)
+        except: env = gym.make(name)
     
     # Check Environment Type (GOAL, STANDARD...)
     ENV_TYPE = __check_environment_type(env)
@@ -34,18 +41,88 @@ def __create_environment(name, record_video, render_mode='rgb_array'):
     
     return env
 
+
+def __make_custom_env(name, render_mode='rgb_array'):
+    
+  """ Custom environments used in the paper (taken from the official implementation) """
+  
+  from safety_gym.envs.engine import Engine
+  from gym import register
+  
+  # Build Static Custom Environment
+  if "static" in name:
+        
+    config1 = {
+      "placements_extents": [-1.5, -1.5, 1.5, 1.5],
+      "robot_base": "xmls/point.xml",
+      "task": "goal",
+      "goal_size": 0.3,
+      "goal_keepout": 0.305,
+      "goal_locations": [(1.1, 1.1)],
+      "observe_goal_lidar": True,
+      "observe_hazards": True,
+      "constrain_hazards": True,
+      "lidar_max_dist": 3,
+      "lidar_num_bins": 16,
+      "hazards_num": 1,
+      "hazards_size": 0.7,
+      "hazards_keepout": 0.705,
+      "hazards_locations": [(0, 0)],
+    }
+    
+    register(
+      id="StaticEnv-v0",
+      entry_point="safety_gym.envs.safety_mujoco:Engine",
+      max_episode_steps=1000,
+      kwargs={"config": config1},
+    )
+      
+    env = gym.make("StaticEnv-v0", render_mode=render_mode)
+  
+  # Build Dynamic Custom Environment
+  elif "dynamic" in name:
+      
+    config2 = {
+      "placements_extents": [-1.5, -1.5, 1.5, 1.5],
+      "robot_base": "xmls/point.xml",
+      "task": "goal",
+      "goal_size": 0.3,
+      "goal_keepout": 0.305,
+      "observe_goal_lidar": True,
+      "observe_hazards": True,
+      "constrain_hazards": True,
+      "lidar_max_dist": 3,
+      "lidar_num_bins": 16,
+      "hazards_num": 3,
+      "hazards_size": 0.3,
+      "hazards_keepout": 0.305,
+    }
+    
+    register(
+      id="DynamicEnv-v0",
+      entry_point="safety_gym.envs.safety_mujoco:Engine",
+      max_episode_steps=1000,
+      kwargs={"config": config2},
+    )
+    
+    env = gym.make("DynamicEnv-v0", render_mode=render_mode)
+    
+  else: raise Exception(f"{name} Environment Not Implemented")    
+
+  return env
+
 def __apply_wrappers(env, record_video, folder, env_type):
       
   # Apply Specific Wrappers form GOAl Environments
   if env_type == GOAL_ENV:
         
-        print('/n/nGOAL Environment/n/n')
-        
-        # Filter Out the Achieved Goal
-        env = gym.wrappers.FilterObservation(env, ['observation', 'desired_goal'])
-        
-        # Flatten the Dictionary in a Flatten Array
-        env = gym.wrappers.FlattenObservation(env)
+    print('/n/nGOAL Environment/n/n')
+    
+    # Filter Out the Achieved Goal
+    env = gym.wrappers.FilterObservation(env, ['observation', 'desired_goal'])
+    
+    # Flatten the Dictionary in a Flatten Array
+    env = gym.wrappers.FlattenObservation(env)
 
   # FIX: MoviePy Log Removed
   # Record Environment Videos in the specified folder, trigger specifies which episode to record and which to ignore (1 in 50)
