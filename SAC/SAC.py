@@ -148,10 +148,10 @@ class SAC(LightningModule):
         if self.use_cost and fixed_cost_penalty is None:
             
             # FIX: Instantiate Beta and Log_Beta
-            self.beta = torch.nn.Parameter(F.softplus(torch.zeros(1, device=DEVICE)), requires_grad=True)
-            self.log_beta = torch.log(self.beta)
-            # beta = torch.zeros(1, device=DEVICE)
-            # self.log_beta = torch.nn.Parameter(torch.log(F.softplus(beta)), requires_grad=True)
+            # self.beta = torch.nn.Parameter(F.softplus(torch.zeros(1, device=DEVICE)), requires_grad=True)
+            # self.log_beta = torch.log(self.beta)
+            beta = torch.zeros(1, device=DEVICE)
+            self.log_beta = torch.nn.Parameter(torch.log(F.softplus(beta)), requires_grad=True)
             
             # Compute Cost Constraint
             if cost_constraint is None:
@@ -190,8 +190,8 @@ class SAC(LightningModule):
             return float(self.hparams.fixed_cost_penalty)
         
         # FIX: Else Return 'log_beta' / 'beta'
-        # return self.log_beta.exp().detach()
-        return self.beta.detach()
+        return self.log_beta.exp().detach()
+        # return self.beta.detach()
 
     @torch.no_grad()
     def play_episode(self, policy=None):
@@ -265,8 +265,8 @@ class SAC(LightningModule):
         if self.use_cost and self.hparams.fixed_cost_penalty is None:
             
             # FIX: Create Beta Optimizer
-            # cost_penalty_optimizer = self.hparams.optim([self.log_beta], lr=self.hparams.lr)
-            cost_penalty_optimizer = self.hparams.optim([self.beta], lr=self.hparams.lr)
+            cost_penalty_optimizer = self.hparams.optim([self.log_beta], lr=self.hparams.lr)
+            # cost_penalty_optimizer = self.hparams.optim([self.beta], lr=self.hparams.lr)
 
             # Append Optimizer
             optimizers.append(cost_penalty_optimizer)
@@ -333,6 +333,11 @@ class SAC(LightningModule):
             total_loss = q_loss1 + q_loss2 + q_cost_loss
             self.log('episode/Q-Loss', total_loss)
 
+            # Polyak Average Update of the Critic Networks
+            polyak_average(self.q_net1, self.target_q_net1, tau=self.hparams.tau)
+            polyak_average(self.q_net2, self.target_q_net2, tau=self.hparams.tau)
+            polyak_average(self.q_net_cost, self.target_q_net_cost, tau=self.hparams.tau)        
+
             return total_loss
 
         # Update the Policy
@@ -353,6 +358,9 @@ class SAC(LightningModule):
             # Compute the Policy Loss (α * Entropy + β * Cost)
             policy_loss = (self.__alpha * log_probs - action_values + self.__beta * cost_values).mean()
             self.log('episode/Policy Loss', policy_loss)
+
+            # Polyak Average Update of the Policy Network
+            polyak_average(self.policy, self.target_policy, tau=self.hparams.tau)
 
             return policy_loss
         
@@ -376,8 +384,8 @@ class SAC(LightningModule):
             cost_values = self.q_net_cost(states, actions)
 
             # FIX: Compute the Beta Loss
-            beta_loss = self.beta * (self.cost_constraint - torch.mean(cost_values))
-            # beta_loss = - self.log_beta * (self.cost_constraint - torch.mean(cost_values))
+            beta_loss = - self.log_beta * (self.cost_constraint - torch.mean(cost_values))
+            # beta_loss = self.beta * (self.cost_constraint - torch.mean(cost_values))
             self.log('episode/Beta Loss', beta_loss)
 
             return beta_loss
@@ -386,12 +394,6 @@ class SAC(LightningModule):
         
         # Play Episode
         self.play_episode(policy=self.policy)
-        
-        # Polyak Average Update of the Networks
-        polyak_average(self.q_net1, self.target_q_net1, tau=self.hparams.tau)
-        polyak_average(self.q_net2, self.target_q_net2, tau=self.hparams.tau)
-        polyak_average(self.q_net_cost, self.target_q_net_cost, tau=self.hparams.tau)
-        polyak_average(self.policy, self.target_policy, tau=self.hparams.tau)
         
         # Log Episode Return
         self.log("episode/Return", self.env.return_queue[-1].item())
