@@ -3,7 +3,9 @@ _target_: SAC.SAC.WCSAC
 
 # SAC Parameters
 env_name:            ${training_params.env}
+seed:                ${training_params.seed}
 record_video:        ${utilities_params.record_video}
+record_epochs:       ${utilities_params.record_epochs}
 capacity:            1e6
 batch_size:          2048
 hidden_size:         512

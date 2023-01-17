@@ -5,6 +5,7 @@ from typing import Optional, Union, List
 class TrainingParams:
     
   env:                Union[str, List[str]]
+  seed:               int
   samples_per_epoch:  int
   epochs:             int
   patience:           int
@@ -37,6 +38,7 @@ class UtilitiesParams:
 
   early_stopping:     bool
   record_video:       bool
+  record_epochs:      int
   fast_dev_run:       bool
 
 @dataclass

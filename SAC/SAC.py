@@ -3,7 +3,7 @@ from SAC.Networks import DoubleQCritic, SafetyCritic, DiagGaussianPolicy
 from SAC.Networks import polyak_average, DEVICE
 from SAC.ReplayBuffer import ReplayBuffer, RLDataset
 from SAC.Environment import create_environment
-from SAC.Utils import AUTO
+from SAC.Utils import set_seed_everywhere, AUTO
 
 # Import Utilities
 import copy, itertools, random
@@ -24,7 +24,9 @@ class WCSAC(LightningModule):
     
     # SAC Parameters
     # env_name:             Environment Name
+    # seed:                 Seeding Environment and Torch Network
     # record_video:         Record Video with RecordVideo Wrapper
+    # record_epochs:        Record Video Every n Epochs
     # capacity:             ReplayBuffer Capacity
     # batch_size:           Size of the Batch
     # hidden_size           Size of the Hidden Layer
@@ -67,9 +69,9 @@ class WCSAC(LightningModule):
 
     def __init__(
         
-        self, env_name, record_video=True, capacity=100_000, batch_size=512, hidden_size=256,
-        gamma=0.99, loss_function='smooth_l1_loss', optim='AdamW', 
-        samples_per_epoch=10_000, tau=0.05,
+        self, env_name, seed=-1, record_video=True, record_epochs=100, capacity=100_000,
+        batch_size=512, hidden_size=256, loss_function='smooth_l1_loss', optim='AdamW', 
+        samples_per_epoch=10_000,  gamma=0.99, tau=0.05,
         
         # Critic and Actor Parameters:
         critic_lr=1e-3, critic_betas=[0.9, 0.999], critic_update_freq=2,
@@ -97,9 +99,13 @@ class WCSAC(LightningModule):
     ):
 
         super().__init__()
+        
+        # Setting Manual Seed
+        assert seed != -1, f"Seed Must be Provided, Got Default Seed: {seed}"
+        set_seed_everywhere(seed)
 
         # Create Environment
-        self.env = create_environment(env_name, record_video)
+        self.env = create_environment(env_name, seed, record_video, record_epochs)
 
         # Get max_episode_steps from Environment -> For Safety-Gym = 1000
         self.max_episode_steps = self.env.spec.max_episode_steps

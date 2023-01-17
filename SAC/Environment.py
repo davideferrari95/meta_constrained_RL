@@ -13,36 +13,36 @@ GOAL_ENV = 'GOAL_ENV'
 STANDARD_ENV = 'STANDARD_ENV'
 
 # Create Single Environment
-def create_environment(name, record_video=True, render_mode='rgb_array') -> gym.Env:
-  return __create_environment(name, record_video, render_mode)
-
-def __create_environment(name, record_video, render_mode='rgb_array'):
+def create_environment(name, seed=-1, record_video=True, record_epochs=100, render_mode='rgb_array') -> gym.Env: #():
     
-    """ Create Gym Environment """
+  """ Create Gym Environment """
   
-    # Custom Environment Creation
-    if 'custom' in name: env = __make_custom_env(name, render_mode)
+  # Custom Environment Creation
+  if 'custom' in name: env = __make_custom_env(name, render_mode)
 
-    else:
+  else:
 
-      # Build the Environment
-      try: env = gym.make(name, render_mode=render_mode)
-      except:
-        
-        # Not-Standard Render Mode
-        try: env = gym.make(name, render=True)
-        except: env = gym.make(name)
-    
-    # Check Environment Type (GOAL, STANDARD...)
-    ENV_TYPE = __check_environment_type(env)
-    
-    # Apply Wrappers
-    env = __apply_wrappers(env, record_video, folder=VIDEO_FOLDER, env_type=ENV_TYPE)
-    
-    return env
+    # Build the Environment
+    try: env = gym.make(name, render_mode=render_mode)
+    except:
+      
+      # Not-Standard Render Mode
+      try: env = gym.make(name, render=True)
+      except: env = gym.make(name)
+  
+  # Check Environment Type (GOAL, STANDARD...)
+  ENV_TYPE = __check_environment_type(env)
+  
+  # Apply Wrappers
+  env = __apply_wrappers(env, record_video, record_epochs, folder=VIDEO_FOLDER, env_type=ENV_TYPE)
+  
+  # Apply Seed
+  env.seed(seed)
+  
+  return env
 
 
-def __make_custom_env(name, render_mode='rgb_array'):
+def __make_custom_env(name, render_mode='rgb_array') -> gym.Env: #():
     
   """ Custom environments used in the paper (taken from the official implementation) """
   
@@ -111,8 +111,10 @@ def __make_custom_env(name, render_mode='rgb_array'):
 
   return env
 
-def __apply_wrappers(env, record_video, folder, env_type):
-      
+def __apply_wrappers(env, record_video, record_epochs, folder, env_type) -> gym.Env: #():
+  
+  """ Apply Gym Wrappers """
+  
   # Apply Specific Wrappers form GOAl Environments
   if env_type == GOAL_ENV:
         
@@ -125,8 +127,8 @@ def __apply_wrappers(env, record_video, folder, env_type):
     env = gym.wrappers.FlattenObservation(env)
 
   # FIX: MoviePy Log Removed
-  # Record Environment Videos in the specified folder, trigger specifies which episode to record and which to ignore (1 in 50)
-  if record_video: env = gym.wrappers.RecordVideo(env, video_folder=folder, episode_trigger=lambda x: x % 100 == 0)
+  # Record Environment Videos in the specified folder, trigger specifies which episode to record and which to ignore (1 in record_epochs)
+  if record_video: env = gym.wrappers.RecordVideo(env, video_folder=folder, episode_trigger=lambda x: x % record_epochs == 0)
   
   # Keep Track of the Reward the Agent Obtain and Save them into a Property
   env = gym.wrappers.RecordEpisodeStatistics(env)

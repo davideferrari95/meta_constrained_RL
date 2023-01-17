@@ -1,6 +1,7 @@
-import os
+import os, random, omegaconf
+import torch
+import numpy as np
 from termcolor import colored
-import omegaconf
 
 # Utils
 AUTO = 'auto'
@@ -119,3 +120,19 @@ def check_spells_error(cfg):
         elif type(cfg[arg]) is str and (cfg[arg]).lower() in ['auto']: cfg[arg] = AUTO
 
     return cfg
+
+
+def set_seed_everywhere(seed):
+    
+    """ Apply Seeding Everywhere """
+    
+    # Apply Manual Seed to Torch Networks
+    torch.manual_seed(seed)
+    
+    # Apply Manual Seed in Cuda 
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+    
+    # Apply Seeding in Numpy and Random
+    np.random.seed(seed)
+    random.seed(seed)
