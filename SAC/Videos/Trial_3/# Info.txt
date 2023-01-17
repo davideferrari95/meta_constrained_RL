@@ -1,0 +1,75 @@
+Arguments:
+
+   agent:
+
+      class:		  SAC.SAC.WCSAC
+      env_name:	  ['custom', 'static']
+      record_video:	  True
+      capacity:	  1000000.0
+      batch_size:	  2048
+      hidden_size:	  512
+      gamma:		  0.99
+      loss_function:	  mse_loss
+      optim:		  Adam
+      samples_per_epoch: 10000
+      tau:		  0.005
+      critic_lr:	  0.001
+      critic_betas:	  [0.9, 0.999]
+      critic_update_freq:2
+      critic_hidden_depth:4
+      actor_lr:	  0.001
+      actor_betas:	  [0.9, 0.999]
+      actor_update_freq: 1
+      log_std_bounds:	  [-20, 2]
+      actor_hidden_depth:4
+      alpha:		  auto
+      init_alpha:	  0.6931
+      target_alpha:	  auto
+      alpha_betas:	  [0.9, 0.999]
+      alpha_lr:	  0.001
+      fixed_cost_penalty:None
+      init_beta:	  0.6931
+      cost_limit:	  15
+      target_cost:	  None
+      beta_betas:	  [0.9, 0.999]
+      beta_lr:		  0.001
+      cost_lr_scale:	  1
+      risk_level:	  0.1
+      damp_scale:	  10
+
+   entropy_params:
+
+      alpha:		  auto
+      init_alpha:	  0.6931
+      target_alpha:	  auto
+      alpha_betas:	  [0.9, 0.999]
+      alpha_lr:	  0.001
+
+   cost_params:
+
+      fixed_cost_penalty:None
+      init_beta:	  0.6931
+      cost_limit:	  15
+      target_cost:	  None
+      beta_betas:	  [0.9, 0.999]
+      beta_lr:		  0.001
+      cost_lr_scale:	  1
+      risk_level:	  0.1
+      damp_scale:	  10
+
+   training_params:
+
+      env:		  ['custom', 'static']
+      samples_per_epoch: 10000
+      epochs:		  10000
+      patience:	  2000
+      tau:		  0.005
+
+   utilities_params:
+
+      early_stopping:	  True
+      record_video:	  True
+      fast_dev_run:	  False
+      use_costs:  	  True
+      learn_alpha:	  True
+      learn_beta: 	  True

@@ -1,0 +1,71 @@
+agent:
+  _target_: SAC.SAC.WCSAC
+  env_name: ${training_params.env}
+  record_video: ${utilities_params.record_video}
+  capacity: 1000000.0
+  batch_size: 2048
+  hidden_size: 512
+  gamma: 0.99
+  loss_function: mse_loss
+  optim: AdamW
+  samples_per_epoch: ${training_params.samples_per_epoch}
+  tau: ${training_params.tau}
+  critic_lr: 0.001
+  critic_betas:
+  - 0.9
+  - 0.999
+  critic_update_freq: 2
+  critic_hidden_depth: 4
+  actor_lr: 0.001
+  actor_betas:
+  - 0.9
+  - 0.999
+  actor_update_freq: 1
+  log_std_bounds:
+  - -20
+  - 2
+  actor_hidden_depth: 4
+  alpha: ${entropy_params.alpha}
+  init_alpha: ${entropy_params.init_alpha}
+  target_alpha: ${entropy_params.target_alpha}
+  alpha_betas: ${entropy_params.alpha_betas}
+  alpha_lr: ${entropy_params.alpha_lr}
+  fixed_cost_penalty: ${cost_params.fixed_cost_penalty}
+  init_beta: ${cost_params.init_beta}
+  cost_limit: ${cost_params.cost_limit}
+  target_cost: ${cost_params.target_cost}
+  beta_betas: ${cost_params.beta_betas}
+  beta_lr: ${cost_params.beta_lr}
+  cost_lr_scale: ${cost_params.cost_lr_scale}
+  risk_level: ${cost_params.risk_level}
+  damp_scale: ${cost_params.damp_scale}
+entropy_params:
+  alpha: AUTO
+  init_alpha: 0.6931
+  target_alpha: AUTO
+  alpha_betas:
+  - 0.9
+  - 0.999
+  alpha_lr: 0.001
+cost_params:
+  fixed_cost_penalty: null
+  init_beta: 0.6931
+  cost_limit: 15
+  target_cost: null
+  beta_betas:
+  - 0.9
+  - 0.999
+  beta_lr: 0.001
+  cost_lr_scale: 1
+  risk_level: 0.1
+  damp_scale: 10
+training_params:
+  env: Safexp-PointGoal1-v0
+  samples_per_epoch: 10000
+  epochs: 10000
+  patience: 2000
+  tau: 0.005
+utilities_params:
+  early_stopping: true
+  record_video: true
+  fast_dev_run: false

@@ -1,0 +1,43 @@
+env_name: Safexp-PointGoal1-v0
+record_video: true
+capacity: 1000000.0
+batch_size: 2048
+hidden_size: 512
+gamma: 0.99
+loss_function: mse_loss
+optim: AdamW
+samples_per_epoch: 10000
+tau: 0.005
+critic_lr: 0.001
+critic_betas:
+- 0.9
+- 0.999
+critic_update_freq: 2
+actor_lr: 0.001
+actor_betas:
+- 0.9
+- 0.999
+actor_update_freq: 1
+log_std_bounds:
+- -20
+- 2
+critic_hidden_depth: 4
+actor_hidden_depth: 4
+alpha: auto
+init_alpha: 0.6931
+target_alpha: auto
+alpha_betas:
+- 0.9
+- 0.999
+alpha_lr: 0.001
+fixed_cost_penalty: null
+init_beta: 0.6931
+target_cost: null
+cost_limit: 5
+beta_betas:
+- 0.9
+- 0.999
+beta_lr: 0.001
+cost_lr_scale: 1
+risk_level: 0.05
+damp_scale: 10

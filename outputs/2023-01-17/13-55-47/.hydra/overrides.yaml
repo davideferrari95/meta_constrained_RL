@@ -1,0 +1,4 @@
+- agent.loss_function=smooth_l1_loss
+- agent.optim=AdamW
+- cost_params.cost_limit=5
+- cost_params.risk_level=0.05
