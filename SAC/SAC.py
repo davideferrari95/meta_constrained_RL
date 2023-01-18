@@ -183,7 +183,7 @@ class WCSACP(LightningModule):
                 It's worth checking empirical total undiscounted costs to see if they match. 
                 '''
                 
-                # COmpute Target Cost
+                # Compute Target Cost
                 gamma, max_len, cost_limit= self.hparams.gamma, self.max_episode_steps, self.hparams.cost_limit
                 self.target_cost = cost_limit * (1 - gamma**max_len) / (1 - gamma) / max_len
         
