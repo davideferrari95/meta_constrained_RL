@@ -3,6 +3,7 @@ from SAC.SAC import WCSACP
 
 # Import PyTorch Lightning
 from pytorch_lightning import Trainer, loggers as pl_loggers
+from pytorch_lightning.profiler import AdvancedProfiler, SimpleProfiler
 from pytorch_lightning.callbacks import EarlyStopping, DeviceStatsMonitor, ModelCheckpoint
 from SAC.LightningCallbacks import PrintCallback, OverrideEpochStepCallback
 
@@ -46,6 +47,10 @@ def main(cfg: Params):
     # Optional Callbacks
     if UP.early_stopping: callbacks.append(EarlyStopping(monitor='episode/Return', mode='max', patience=TP.patience, verbose=True))
 
+    # Python Profiler: Summary of All the Calls Made During Training
+    # profiler = AdvancedProfiler()
+    profiler = SimpleProfiler()
+
     # Create Trainer Module
     trainer = Trainer(
         
@@ -58,6 +63,9 @@ def main(cfg: Params):
         
         # Additional Callbacks
         callbacks = callbacks,
+
+        # Use Python Profiler
+        profiler = profiler,
         
         # Custom TensorBoard Logger
         logger = pl_loggers.TensorBoardLogger(save_dir=f'{FOLDER}/Logs/'),
