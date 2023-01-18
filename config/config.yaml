@@ -1,6 +1,6 @@
 defaults:
 
-  - agent: wcsac
+  - agent: wcsac+
   - entropy_params: default_entropy
   - cost_params: default_cost
   - _self_
