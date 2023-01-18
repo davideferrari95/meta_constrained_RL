@@ -1,5 +1,5 @@
-# WCSAC Algorithm Class
-_target_: SAC.SAC.WCSAC
+# WCSACP Algorithm Class
+_target_: SAC.SAC.WCSACP
 
 # SAC Parameters
 env_name:            ${training_params.env}
@@ -10,8 +10,8 @@ capacity:            1e6
 batch_size:          2048
 hidden_size:         512
 gamma:               0.99
-loss_function:       mse_loss
-optim:               Adam
+loss_function:       smooth_l1_loss
+optim:               AdamW
 samples_per_epoch:   ${training_params.samples_per_epoch}
 tau:                 ${training_params.tau}
 
@@ -27,6 +27,8 @@ actor_betas:         [0.9, 0.999]
 actor_update_freq:   1
 log_std_bounds:      [-20, 2]
 actor_hidden_depth:  4
+epsilon:             ${training_params.epsilon}
+smooth_lambda:       ${training_params.smooth_lambda}
 
 # Entropy Coefficient
 alpha:               ${entropy_params.alpha}

@@ -1,5 +1,5 @@
 # Import WCSAC Algorithm
-from SAC.SAC import WCSAC
+from SAC.SAC import WCSACP
 
 # Import PyTorch Lightning
 from pytorch_lightning import Trainer, loggers as pl_loggers

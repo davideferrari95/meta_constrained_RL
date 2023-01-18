@@ -176,7 +176,7 @@ class DiagGaussianPolicy(nn.Module):
         # Get Log Probability Distribution of the Taken Action
         log_prob = dist.log_prob(action).sum(dim=-1, keepdim=True)
 
-        return action, log_prob
+        return action, log_prob, dist
 
 # Gradient Policy Network
 class GradientPolicy(nn.Module):

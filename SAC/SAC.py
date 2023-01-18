@@ -20,7 +20,7 @@ from torch.utils.data import DataLoader
 from pytorch_lightning import LightningModule
 
 # Create SAC Algorithm
-class WCSAC(LightningModule):
+class WCSACP(LightningModule):
     
     # SAC Parameters
     # env_name:             Environment Name
@@ -35,7 +35,9 @@ class WCSAC(LightningModule):
     # optim:                Optimizer to Train the NN
     # samples_per_epoch:    How many Observation in a single Epoch
     # tau:                  How fast we apply the Polyak Average Update
-    
+    # epsilon:              Radius of Perturbation Set β(s,ε)
+    # smooth_lambda:        Smoothness Regularization Coefficient
+
     # Critic Parameters
     # critic_lr:            Learning Rate of Critic Network
     # critic_betas:         Coefficients for Computing Running Averages of Gradient
@@ -71,7 +73,7 @@ class WCSAC(LightningModule):
         
         self, env_name, seed=-1, record_video=True, record_epochs=100, capacity=100_000,
         batch_size=512, hidden_size=256, loss_function='smooth_l1_loss', optim='AdamW', 
-        samples_per_epoch=10_000,  gamma=0.99, tau=0.05,
+        samples_per_epoch=10_000,  gamma=0.99, tau=0.05, epsilon=0.1, smooth_lambda=0.01,
         
         # Critic and Actor Parameters:
         critic_lr=1e-3, critic_betas=[0.9, 0.999], critic_update_freq=2,
@@ -247,7 +249,7 @@ class WCSAC(LightningModule):
             if policy:
                 
                 # Get only the Action, not the Log Probability
-                action, _ = policy(obs)
+                action, _, _ = policy(obs)
                 action = action.cpu().detach().numpy()
             
             # Sample from the Action Space
@@ -342,7 +344,7 @@ class WCSAC(LightningModule):
             current_QC, current_VC = self.safety_critic(states, actions)
             
             # Compute Next Action and Log Probabilities
-            next_actions, next_log_probs = self.policy(next_states, reparametrization=True)
+            next_actions, next_log_probs, _ = self.policy(next_states, reparametrization=True)
             
             # Compute Next Action Values (* Unpack the Q1, Q2 Tuple) and Next Cost Values
             next_Q = torch.min(*self.target_q_critic(next_states, next_actions))
@@ -383,7 +385,17 @@ class WCSAC(LightningModule):
         elif optimizer_idx == 1:
 
             # Compute the Updated Actions and the Log Probabilities
-            new_actions, new_log_probs = self.policy(states, reparametrization=True)
+            new_actions, new_log_probs, dist = self.policy(states, reparametrization=True)
+
+            # Compute Noise -> Actor Smoothing
+            noise_dist = TD.multivariate_normal.MultivariateNormal(loc=torch.zeros(states.shape[1]), covariance_matrix=torch.eye(states.shape[1]))
+            noise = noise_dist.rsample(torch.randn(states.shape[0]).shape)
+            noise = torch.norm(noise, p=2, dim=1).view(states.shape[0], 1)
+            noise = noise * self.hparams.epsilon * torch.rand(1)
+            
+            # Compute Smooth Loss
+            _, _, smooth_dist = self.policy(states + noise.cuda())
+            smooth_loss = torch.mean(0.5 * (TD.kl.kl_divergence(dist, smooth_dist) + TD.kl.kl_divergence(smooth_dist, dist)))
 
             # Use Critic Networks to Evaluate the New Actions Selected by the Policy
             actor_Q = torch.min(*self.q_critic(states, new_actions))
@@ -399,13 +411,15 @@ class WCSAC(LightningModule):
             damp = (self.hparams.damp_scale * torch.mean(self.target_cost - CVaR)) if self.hparams.fixed_cost_penalty is None else 0.0
 
             # Compute the Policy Loss (α * Entropy + β * Cost)
-            actor_loss = torch.mean(self.alpha * new_log_probs - actor_Q
-                        + (self.beta - damp) * (actor_QC + self.pdf_cdf.cuda() * torch.sqrt(actor_VC)))
+            actor_loss = torch.mean(self.alpha * new_log_probs - actor_Q \
+                        + (self.beta - damp) * (actor_QC + self.pdf_cdf.cuda() * torch.sqrt(actor_VC))) \
+                        + self.hparams.smooth_lambda * smooth_loss
             
             # Log Actor Loss Functions
             self.log('episode/Policy-Loss', actor_loss, on_epoch=True)
             self.log('episode/Policy-Entropy', - new_log_probs.mean(), on_epoch=True)
             self.log('episode/Policy-Cost', torch.mean(actor_QC + self.pdf_cdf.cuda() * torch.sqrt(actor_VC)), on_epoch=True)
+            self.log('episode/Policy_Smooth_Loss', smooth_loss, on_epoch=True)
 
             # Save Var for Alpha, Beta Updates
             self.log_probs_Alpha = new_log_probs

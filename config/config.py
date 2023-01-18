@@ -10,6 +10,8 @@ class TrainingParams:
   epochs:             int
   patience:           int
   tau:                float
+  epsilon:            float
+  smooth_lambda:      float
 
 @dataclass
 class EntropyParams:
