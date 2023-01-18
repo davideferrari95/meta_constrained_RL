@@ -6,9 +6,9 @@
 #### Create the Automatic Hydra Activator
 
 - Create a `bash` script `hydra_activate.sh`
-- Copy the script in the `etc/conda/activate.d` folder of the desired conda environment.
+- Copy the script in the `~/(CONDA_FOLDER)/envs/(ENV_NAME)/etc/conda/activate.d` folder of the desired conda environment.
 
-    `touch ~/miniconda3/envs/**my_env**/etc/conda/activate.d/hydra_activate.sh`
+    `touch ~/(CONDA_FOLDER)/envs/(ENV_NAME)/etc/conda/activate.d/hydra_activate.sh`
 
 #### Add new Scripts to the Automatic Hydra Activator
 
