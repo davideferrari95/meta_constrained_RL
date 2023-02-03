@@ -10,12 +10,16 @@ from SAC.LightningCallbacks import PrintCallback, OverrideEpochStepCallback
 # Import Utilities
 from SAC.Utils import FOLDER, AUTO, print_arguments, check_spells_error
 
-# Import Hydra, Parameters Configuration File
+# Import Parent Folders
+import sys
+sys.path.append('../config')
+
+# Import Hydra and Parameters Configuration File
 import hydra
-from config.config import Params
+from config import Params
 
 # Hydra Decorator to Load Configuration Files
-@hydra.main(config_path='config', config_name='config', version_base=None)
+@hydra.main(config_path=f'{FOLDER}/config', config_name='config', version_base=None)
 def main(cfg: Params):
     
     # Check for 'None' or 'Null' Strings -> None

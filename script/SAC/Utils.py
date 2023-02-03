@@ -1,4 +1,4 @@
-import os, random, omegaconf
+import os, random, omegaconf, sys
 import torch
 import numpy as np
 from termcolor import colored
@@ -7,7 +7,7 @@ from termcolor import colored
 AUTO = 'auto'
 
 # Project Folder (ROOT Project Location)
-FOLDER = f'{os.path.dirname(__file__)}/../'
+FOLDER = os.path.abspath(os.path.join(os.path.dirname(__file__),"../.."))
 
 # Check Video Folder and Return /Videos/Trial_{n}
 def check_video_folder(folder):

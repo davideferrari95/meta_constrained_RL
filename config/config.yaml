@@ -26,4 +26,4 @@ utilities_params:
 
 hydra:  
   run:
-    dir: data/outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}
+    dir: ../data/outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}
