@@ -106,6 +106,9 @@ class WCSACP(LightningModule):
         assert seed != -1, f"Seed Must be Provided, Got Default Seed: {seed}"
         set_seed_everywhere(seed)
 
+        # Properly Utilize Tensor Cores of the CUDA device ('NVIDIA RTX A4000 Laptop GPU')
+        torch.set_float32_matmul_precision('high')
+
         # Create Environment
         self.env = create_environment(env_name, seed, record_video, record_epochs)
 
