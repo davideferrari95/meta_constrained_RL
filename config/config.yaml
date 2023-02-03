@@ -19,6 +19,11 @@ training_params:
 utilities_params:
 
   early_stopping:     True
+  use_profiler:       False
   record_video:       True
   record_epochs:      100
   fast_dev_run:       False
+
+hydra:  
+  run:
+    dir: data/outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}

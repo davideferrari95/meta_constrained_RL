@@ -6,9 +6,8 @@ from termcolor import colored
 # Utils
 AUTO = 'auto'
 
-# Project Folder
-FOLDER = f'{os.path.dirname(__file__)}/'
-
+# Project Folder (ROOT Project Location)
+FOLDER = f'{os.path.dirname(__file__)}/../'
 
 # Check Video Folder and Return /Videos/Trial_{n}
 def check_video_folder(folder):
@@ -16,10 +15,10 @@ def check_video_folder(folder):
     # Check Existing Video Folders
     n = 0
     while True:
-        if not os.path.exists(f'{folder}/Videos/Trial_{n}'): break
+        if not os.path.exists(f'{folder}/data/videos/Trial_{n}'): break
         else: n += 1
         
-    return f'{folder}/Videos/Trial_{n}'
+    return f'{folder}/data/videos/Trial_{n}'
 
 VIDEO_FOLDER = check_video_folder(FOLDER)
 

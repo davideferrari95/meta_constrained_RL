@@ -12,9 +12,9 @@ eggs/
 .vscode/*
 
 # Videos, Logs, Hydra outputs
-SAC/Logs/*
-SAC/Videos/*
-outputs/*
+data/logs/*
+data/videos/*
+data/outputs/*
 
 # TODO List
 TODO.todo

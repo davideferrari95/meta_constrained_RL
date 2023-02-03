@@ -39,6 +39,7 @@ class CostParams:
 class UtilitiesParams:
 
   early_stopping:     bool
+  use_profiler:       bool
   record_video:       bool
   record_epochs:      int
   fast_dev_run:       bool

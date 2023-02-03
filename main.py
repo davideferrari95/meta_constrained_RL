@@ -3,7 +3,7 @@ from SAC.SAC import WCSACP
 
 # Import PyTorch Lightning
 from pytorch_lightning import Trainer, loggers as pl_loggers
-from pytorch_lightning.profiler import AdvancedProfiler, SimpleProfiler
+from pytorch_lightning.profilers import AdvancedProfiler, SimpleProfiler
 from pytorch_lightning.callbacks import EarlyStopping, DeviceStatsMonitor, ModelCheckpoint
 from SAC.LightningCallbacks import PrintCallback, OverrideEpochStepCallback
 
@@ -49,7 +49,7 @@ def main(cfg: Params):
 
     # Python Profiler: Summary of All the Calls Made During Training
     # profiler = AdvancedProfiler()
-    profiler = SimpleProfiler()
+    profiler = SimpleProfiler() if UP.use_profiler else None
 
     # Create Trainer Module
     trainer = Trainer(
@@ -68,7 +68,7 @@ def main(cfg: Params):
         profiler = profiler,
         
         # Custom TensorBoard Logger
-        logger = pl_loggers.TensorBoardLogger(save_dir=f'{FOLDER}/Logs/'),
+        logger = pl_loggers.TensorBoardLogger(save_dir=f'{FOLDER}/data/logs/'),
         
         # Developer Test Mode
         fast_dev_run = UP.fast_dev_run
