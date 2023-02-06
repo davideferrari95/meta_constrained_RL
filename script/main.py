@@ -12,11 +12,11 @@ from SAC.Utils import FOLDER, AUTO, print_arguments, check_spells_error
 
 # Import Parent Folders
 import sys
-sys.path.append('../config')
+sys.path.append(FOLDER)
 
 # Import Hydra and Parameters Configuration File
 import hydra
-from config import Params
+from config.config import Params
 
 # Hydra Decorator to Load Configuration Files
 @hydra.main(config_path=f'{FOLDER}/config', config_name='config', version_base=None)
