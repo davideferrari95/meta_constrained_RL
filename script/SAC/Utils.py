@@ -22,7 +22,6 @@ def check_video_folder(folder):
 
 VIDEO_FOLDER = check_video_folder(FOLDER)
 
-
 # Print and Save Arguments
 def print_arguments(cfg, term_print = True, save_file = False):
     
@@ -43,7 +42,6 @@ def print_arguments(cfg, term_print = True, save_file = False):
     
     # Close Save File
     if save_file: file.close()
-
 
 def _recursive_print(cfg, file=None, space='   ', term_print=True, save_file=False):
     
@@ -104,7 +102,6 @@ def _recursive_print(cfg, file=None, space='   ', term_print=True, save_file=Fal
                 file.write(f'{space}   learn_alpha:\t  {learn_alpha}\n')
                 file.write(f'{space}   learn_beta: \t  {learn_beta}\n')
 
-
 def check_spells_error(cfg):
     
     for arg in cfg:
@@ -120,7 +117,6 @@ def check_spells_error(cfg):
 
     return cfg
 
-
 def set_seed_everywhere(seed):
     
     """ Apply Seeding Everywhere """
@@ -135,3 +131,44 @@ def set_seed_everywhere(seed):
     # Apply Seeding in Numpy and Random
     np.random.seed(seed)
     random.seed(seed)
+
+def print_float_array(text, list_of_floats, decimal_number=4):
+    
+    list_of_float = [((f'{item:.0f}') if item * 10 % 10 == 0 
+                    else (f'{item:.{decimal_number}f}')) 
+                    for item in list_of_floats]
+    
+    print(f'{text} [', end='')
+    print(*list_of_float, sep=", ", end=']\n')
+    
+def is_between(value, min_value, max_value):
+    
+    ''' Is Between Two Numbers '''
+    
+    assert min_value < max_value, f'Min Value > Max Value'
+    
+    return min_value <= value <= max_value
+
+def is_between_180(value, min_angle, max_angle, extern_angle=False):
+    
+    ''' Is Between Two Angles in a +- 180 Circumference '''
+    
+    if not extern_angle: return is_between(value, min_angle, max_angle)
+    else: return is_between(value, -180, min_angle) or is_between(value, max_angle, 180)
+
+def get_index(vec1, vec2):
+
+    ''' Check if Vector 1 is Contained in Vector 2 and Return the Index '''
+    
+    assert len(vec1) <= len(vec2), f'Vector 1 Must be <= Vector 2'
+    
+    # If Array are Equal Return 0
+    if np.array_equal(vec1, vec2[:len(vec1)]): return 0
+    
+    # Slice the Bigger Array
+    for i in range(1, len(vec2) - len(vec1) + 1):
+        
+        # Return the Slicing Index if Array are Equal
+        if np.array_equal(vec1, vec2[i:i+len(vec1)]): return i
+    
+    return None
