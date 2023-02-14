@@ -4,6 +4,7 @@ from SAC.Networks import polyak_average, DEVICE
 from SAC.ReplayBuffer import ReplayBuffer, RLDataset
 from SAC.Environment import create_environment, custom_environment_config
 from SAC.Utils import set_seed_everywhere, AUTO
+from SAC.SafetyController import SafetyController, Odometry
 
 # Import Utilities
 import copy, itertools
@@ -128,6 +129,9 @@ class WCSACP(LightningModule):
         # Create Environment
         config = custom_environment_config(lidar_num_bins, lidar_max_dist, lidar_type, lidar_exp_gain) if 'custom' in env_name else None
         self.env = create_environment(env_name, config, seed, record_video, record_epochs)
+
+        # Initialize Safety Controller
+        self.safety_controller = SafetyController(lidar_num_bins, lidar_max_dist, lidar_type, lidar_exp_gain)
 
         # Get max_episode_steps from Environment -> For Safety-Gym = 1000
         self.max_episode_steps = self.env.spec.max_episode_steps
@@ -259,9 +263,12 @@ class WCSACP(LightningModule):
     def play_episode(self, policy=None):
 
         # Reset Environment
-        obs, _ = self.env.reset()
+        obs, info = self.env.reset()
         done, truncated = False, False
         episode_cost = 0.0
+        
+        # Initialize Odometry
+        odometry = Odometry()
 
         while not done and not truncated:
 
@@ -275,21 +282,37 @@ class WCSACP(LightningModule):
             # Sample from the Action Space
             else: action = self.env.action_space.sample()
 
-            # Execute Action on the Environment
-            next_obs, reward, done, truncated, info = self.env.step(action)
+            # Check if Policy Action is Safe
+            unsafe_lidar, safe_action = SafetyController.check_safe_action(action, info['sorted_obs'])
             
-            # Get Cumulative Cost from the Info Dict 
-            cost = info.get('cost', 0)
-
-            # Update Episode Cost
+            # Execute Safe Action on the Environment
+            next_obs, reward, done, truncated, next_info = self.env.step(safe_action)
+            
+            # Update Odometry
+            x, y, θ = odometry.update_odometry(
+                accelerometer = next_info['sorted_obs']['accelerometer'],
+                velocimeter   = next_info['sorted_obs']['velocimeter'], 
+                gyroscope     = next_info['sorted_obs']['gyro'])
+            
+            # Get Cumulative Cost | Update Episode Cost 
+            cost = next_info.get('cost', 0)
             episode_cost += cost
             
-            # Save Experience (with cost) in Replay Buffer
-            exp = (obs, action, reward, cost, float(done), next_obs)
-            self.buffer.append(exp)
+            # Save Safe Experience in Replay Buffer
+            safe_exp = (obs, safe_action, reward, cost, float(done), next_obs)
+            self.buffer.append(safe_exp)
+            
+            # Save Unsafe Experience in Replay Buffer
+            if np.not_equal(safe_action, action).any(): 
+                
+                unsafe_exp = SafetyController.simulate_unsafe_action(obs, info['sorted_obs'], unsafe_lidar, action)
+                self.buffer.append(unsafe_exp)
         
-            # Update State
-            obs = next_obs
+            # Print Observation
+            if SafetyController.debug_print: SafetyController.observation_print(safe_action, reward, done, truncated, next_info)
+            
+            # Update Observations
+            obs, info = next_obs, next_info
         
         # Log Episode Cost
         if policy: self.log('episode/Cost', episode_cost, on_epoch=True)
