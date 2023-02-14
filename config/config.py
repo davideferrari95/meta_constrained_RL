@@ -4,7 +4,6 @@ from typing import Optional, Union, List
 @dataclass
 class TrainingParams:
     
-  env:                Union[str, List[str]]
   seed:               int
   samples_per_epoch:  int
   epochs:             int
@@ -36,6 +35,15 @@ class CostParams:
   damp_scale:         float
 
 @dataclass
+class EnvironmentParams:
+
+  env:                Union[str, List[str]]
+  lidar_num_bins:     int
+  lidar_max_dist:     Optional[float]
+  lidar_exp_gain:     float
+  lidar_type:         str
+
+@dataclass
 class UtilitiesParams:
 
   early_stopping:     bool
@@ -47,8 +55,9 @@ class UtilitiesParams:
 @dataclass
 class Params:
     
-    agent:              classmethod
-    training_params:    TrainingParams
-    entropy_params:     EntropyParams
-    cost_params:        CostParams
-    utilities_params:   UtilitiesParams
+  agent:              classmethod
+  training_params:    TrainingParams
+  entropy_params:     EntropyParams
+  cost_params:        CostParams
+  environment_params: EnvironmentParams
+  utilities_params:   UtilitiesParams

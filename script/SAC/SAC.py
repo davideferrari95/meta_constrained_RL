@@ -2,7 +2,7 @@
 from SAC.Networks import DoubleQCritic, SafetyCritic, DiagGaussianPolicy
 from SAC.Networks import polyak_average, DEVICE
 from SAC.ReplayBuffer import ReplayBuffer, RLDataset
-from SAC.Environment import create_environment
+from SAC.Environment import create_environment, custom_environment_config
 from SAC.Utils import set_seed_everywhere, AUTO
 
 # Import Utilities
@@ -21,6 +21,8 @@ from pytorch_lightning import LightningModule
 
 # Create SAC Algorithm
 class WCSACP(LightningModule):
+    
+    '''
     
     # SAC Parameters
     # env_name:             Environment Name
@@ -68,7 +70,15 @@ class WCSACP(LightningModule):
     # cost_lr_scale:        Scale Learning Rate of Safety Weight Optimizer
     # risk_level:           Risk Averse = 0, Risk Neutral = 1
     # damp_scale:           Damp Impact of Safety Constraint in Actor Update
+    
+    # Environment Parameters
+    # lidar_num_bins:       Number of Lidar Dots
+    # lidar_max_dist:       Maximum distance for lidar sensitivity (if None, exponential distance)
+    # lidar_exp_gain:       Scaling factor for distance in exponential distance lidar
+    # lidar_type:           Type of Lidar Sensor | 'pseudo', 'natural', see self.obs_lidar()
 
+    '''
+    
     def __init__(
         
         self, env_name, seed=-1, record_video=True, record_epochs=100, capacity=100_000,
@@ -96,8 +106,14 @@ class WCSACP(LightningModule):
         beta_lr=1e-3,
         cost_lr_scale=1,
         risk_level=0.5,
-        damp_scale=10
-    
+        damp_scale=10,
+        
+        # Environment Parameters:
+        lidar_num_bins = 16,
+        lidar_max_dist = None,
+        lidar_exp_gain = 1.0,
+        lidar_type = 'pseudo'
+
     ):
 
         super().__init__()
@@ -110,7 +126,8 @@ class WCSACP(LightningModule):
         torch.set_float32_matmul_precision('high')
 
         # Create Environment
-        self.env = create_environment(env_name, seed, record_video, record_epochs)
+        config = custom_environment_config(lidar_num_bins, lidar_max_dist, lidar_type, lidar_exp_gain) if 'custom' in env_name else None
+        self.env = create_environment(env_name, config, seed, record_video, record_epochs)
 
         # Get max_episode_steps from Environment -> For Safety-Gym = 1000
         self.max_episode_steps = self.env.spec.max_episode_steps

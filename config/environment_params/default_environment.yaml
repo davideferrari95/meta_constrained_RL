@@ -1,0 +1,5 @@
+env:                ['custom','FixedHazardEnv']
+lidar_num_bins:     16
+lidar_max_dist:     null
+lidar_exp_gain:     1.0
+lidar_type:         'pseudo'
