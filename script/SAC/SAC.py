@@ -131,7 +131,7 @@ class WCSACP(LightningModule):
         self.env = create_environment(env_name, config, seed, record_video, record_epochs)
 
         # Initialize Safety Controller
-        self.safety_controller = SafetyController(lidar_num_bins, lidar_max_dist, lidar_type, lidar_exp_gain)
+        self.SafetyController = SafetyController(lidar_num_bins, lidar_max_dist, lidar_type, lidar_exp_gain)
 
         # Get max_episode_steps from Environment -> For Safety-Gym = 1000
         self.max_episode_steps = self.env.spec.max_episode_steps
@@ -283,7 +283,7 @@ class WCSACP(LightningModule):
             else: action = self.env.action_space.sample()
 
             # Check if Policy Action is Safe
-            unsafe_lidar, safe_action = SafetyController.check_safe_action(action, info['sorted_obs'])
+            unsafe_lidar, safe_action = self.SafetyController.check_safe_action(action, info['sorted_obs'])
             
             # Execute Safe Action on the Environment
             next_obs, reward, done, truncated, next_info = self.env.step(safe_action)
@@ -305,11 +305,11 @@ class WCSACP(LightningModule):
             # Save Unsafe Experience in Replay Buffer
             if np.not_equal(safe_action, action).any(): 
                 
-                unsafe_exp = SafetyController.simulate_unsafe_action(obs, info['sorted_obs'], unsafe_lidar, action)
+                unsafe_exp = self.SafetyController.simulate_unsafe_action(obs, info['sorted_obs'], unsafe_lidar, action)
                 self.buffer.append(unsafe_exp)
         
             # Print Observation
-            if SafetyController.debug_print: SafetyController.observation_print(safe_action, reward, done, truncated, next_info)
+            if self.SafetyController.debug_print: self.SafetyController.observation_print(safe_action, reward, done, truncated, next_info)
             
             # Update Observations
             obs, info = next_obs, next_info
