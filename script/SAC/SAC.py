@@ -6,7 +6,7 @@ from SAC.Environment import create_environment
 from SAC.Utils import set_seed_everywhere, AUTO
 
 # Import Utilities
-import copy, itertools, random
+import copy, itertools
 from termcolor import colored
 from typing import Union, Optional
 import numpy as np
