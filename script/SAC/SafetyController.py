@@ -280,7 +280,7 @@ class SafetyController():
         return (obs, unsafe_action, unsafe_reward, unsafe_cost, float(done), unsafe_obs)
     
     def observation_print(self, action, reward, done, truncated, info):
-            
+        
         # Print Observation
         print(f'\n\nObservation Space: \n')
         
