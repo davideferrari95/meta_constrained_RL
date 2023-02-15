@@ -4,7 +4,7 @@ from SAC.Networks import polyak_average, DEVICE
 from SAC.ReplayBuffer import ReplayBuffer, RLDataset
 from SAC.Environment import create_environment, custom_environment_config
 from SAC.Utils import set_seed_everywhere, AUTO
-from SAC.SafetyController import SafetyController, Odometry
+from SAC.SafetyController import SafetyController
 
 # Import Utilities
 import copy, itertools
@@ -267,9 +267,6 @@ class WCSACP(LightningModule):
         done, truncated = False, False
         episode_cost = 0.0
         
-        # Initialize Odometry
-        odometry = Odometry()
-
         while not done and not truncated:
 
             # Select an Action using our Policy (Random Action in the Beginning)
@@ -287,12 +284,6 @@ class WCSACP(LightningModule):
             
             # Execute Safe Action on the Environment
             next_obs, reward, done, truncated, next_info = self.env.step(safe_action)
-            
-            # Update Odometry
-            x, y, θ = odometry.update_odometry(
-                accelerometer = next_info['sorted_obs']['accelerometer'],
-                velocimeter   = next_info['sorted_obs']['velocimeter'], 
-                gyroscope     = next_info['sorted_obs']['gyro'])
             
             # Get Cumulative Cost | Update Episode Cost 
             cost = next_info.get('cost', 0)
