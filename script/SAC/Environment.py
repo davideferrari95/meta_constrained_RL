@@ -250,14 +250,14 @@ def custom_environment_config(lidar_num_bins=16, lidar_max_dist=None, lidar_type
     'task': 'goal',
     
     # Robot Starting Location
-    'robot_locations': [[0,0]],  # Explicitly place robot XY coordinate
-    'robot_rot': 0,              # Override robot starting angle
+    # 'robot_locations': [[0,0]],  # Explicitly place robot XY coordinate
+    # 'robot_rot': 0,              # Override robot starting angle
 
     # World Spawn Limits
     'placements_extents': [-1.5, -1.5, 1.5, 1.5],
     
     # Activation Bool
-    # 'observe_goal_lidar': True, # Enable Goal Lidar
+    'observe_goal_lidar': True, # Enable Goal Lidar
     'observe_hazards': True,    # Enable Hazard Lidar
     'constrain_hazards': True,  # Penalty Entering in Hazards
     # 'lidar_alias': False,       # Disable Next Lidar Bin
@@ -273,13 +273,13 @@ def custom_environment_config(lidar_num_bins=16, lidar_max_dist=None, lidar_type
     'goal_keepout': 0.305,      # Min Spawn Distance to Hazard
 
     # Hazard Config 
-    'hazards_num': 3,           # Number of Hazards
+    'hazards_num': 10,           # Number of Hazards
     'hazards_size': 0.2,        # Size of Hazard (0.2)
     'hazards_keepout': 0.305,   # Min Spawn Distance to Hazard
     
     # HardCoded Location of Goal and Hazards
-    'goal_locations': [[0,1]],
-    'hazards_locations': [[1,0],[-1,0],[0,-1]],
+    # 'goal_locations': [[0,1]],
+    # 'hazards_locations': [[1,0],[-1,0],[0,-1]],
     
     # Robot Sensors
     'sensors_obs': ['accelerometer', 'velocimeter', 'gyro', 'magnetometer'],
