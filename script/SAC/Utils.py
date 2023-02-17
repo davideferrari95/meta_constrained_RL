@@ -71,7 +71,7 @@ def _recursive_print(cfg, file=None, space='   ', term_print=True, save_file=Fal
                 
             # Get Tabulation Length
             length = (len('class') if arg == '_target_' else len(arg)) + len(space)
-            tab = '' if length >= 24 else '   ' if length >= 22 else '\t  ' if length >= 14 else '\t\t  ' if length >= 8 else '\t\t\t  '
+            tab = '\t' if length >= 22 else '\t\t' if length >= 14 else '\t\t\t' if length >= 8 else '\t\t\t\t'
             
             # Print Arguments
             if term_print: print (('\n' if new_line else ''), colored((f'{space[:-1]}{arg_name}:'), 
@@ -92,15 +92,15 @@ def _recursive_print(cfg, file=None, space='   ', term_print=True, save_file=Fal
         
             # Print Arguments
             if term_print:
-                print(colored(f'\n{space}   use_costs:', 'white', attrs=['bold']), f'\t  {use_costs}')
-                print(colored(f'{space}   learn_alpha:', 'white', attrs=['bold']), f'\t  {learn_alpha}')
-                print(colored(f'{space}   learn_beta:',  'white', attrs=['bold']), f'\t  {learn_beta}')
+                print(colored(f'\n{space}   use_costs:', 'white', attrs=['bold']), f'\t\t{use_costs}')
+                print(colored(f'{space}   learn_alpha:', 'white', attrs=['bold']), f'\t\t{learn_alpha}')
+                print(colored(f'{space}   learn_beta:',  'white', attrs=['bold']), f'\t\t{learn_beta}')
             
             # Save Info Arguments
             if save_file:
-                file.write(f'{space}   use_costs:  \t  {use_costs}\n')
-                file.write(f'{space}   learn_alpha:\t  {learn_alpha}\n')
-                file.write(f'{space}   learn_beta: \t  {learn_beta}\n')
+                file.write(f'{space}   use_costs:  \t\t{use_costs}\n')
+                file.write(f'{space}   learn_alpha:\t\t{learn_alpha}\n')
+                file.write(f'{space}   learn_beta: \t\t{learn_beta}\n')
 
 def check_spells_error(cfg):
     
