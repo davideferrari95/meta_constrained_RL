@@ -94,18 +94,21 @@ class SafetyController():
         ''' Get Unsafe Lidar Bins '''
     
         # Get Hazard, Vases... Lidar
-        if 'hazards_lidar' in obs.keys(): hazard_lidar = obs['hazards_lidar']
-        # if 'vases_lidar'   in obs.keys(): vases_lidar  = obs['vases_lidar']
+        hazard_lidar   = obs['hazards_lidar']  if 'hazards_lidar'  in obs.keys() else np.zeros(self.lidar_num_bins)
+        vases_lidar    = obs['vases_lidar']    if 'vases_lidar'    in obs.keys() else np.zeros(self.lidar_num_bins)
+        pillars_lidar  = obs['pillars_lidar']  if 'pillars_lidar'  in obs.keys() else np.zeros(self.lidar_num_bins)
+        gremlins_lidar = obs['gremlins_lidar'] if 'gremlins_lidar' in obs.keys() else np.zeros(self.lidar_num_bins)
         
-        # TODO: Sum all the Lidar
+        # Sum all the Lidar
+        lidar_max = np.maximum(np.maximum(hazard_lidar, vases_lidar), np.maximum(pillars_lidar, gremlins_lidar))
         
         # Obstacle Real Distance || hazard_lidar = np.exp(-self.lidar_exp_gain * dist)
         # real_dist = [(- np.log(dist) if dist > 0.0001 else -1) for dist in hazard_lidar]
         
         # Get Unsafe Lidar (Value-Index) Tuple
         unsafe_lidar = [{'Value':lidar, 'Index':idx[0]} for idx, lidar 
-                        in np.ndenumerate(hazard_lidar) if lidar > threshold]
-        
+                        in np.ndenumerate(lidar_max) if lidar > threshold]
+                
         for bin in unsafe_lidar:
             
             # Get Unsafe Lidar Index
@@ -129,8 +132,6 @@ class SafetyController():
         
         # Get Unsafe Lidar Bins Vector
         unsafe_lidar = self.get_unsafe_lidar_bins(obs, threshold)
-        
-        # TODO: Linear Threshold != Angular Threshold ?
         
         # All Lidar are Safe -> All Actions are Safe -> Return Input Action
         if unsafe_lidar == []: return unsafe_lidar, action
