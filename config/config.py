@@ -42,6 +42,7 @@ class EnvironmentParams:
   lidar_max_dist:     Optional[float]
   lidar_exp_gain:     float
   lidar_type:         str
+  safety_threshold:   float
 
 @dataclass
 class UtilitiesParams:

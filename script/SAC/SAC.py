@@ -77,6 +77,7 @@ class WCSACP(LightningModule):
     # lidar_max_dist:       Maximum distance for lidar sensitivity (if None, exponential distance)
     # lidar_exp_gain:       Scaling factor for distance in exponential distance lidar
     # lidar_type:           Type of Lidar Sensor | 'pseudo', 'natural', see self.obs_lidar()
+    # safety_threshold:     Lidar Threshold to Trigger Safe Action Control
 
     '''
     
@@ -113,7 +114,8 @@ class WCSACP(LightningModule):
         lidar_num_bins = 16,
         lidar_max_dist = None,
         lidar_exp_gain = 1.0,
-        lidar_type = 'pseudo'
+        lidar_type = 'pseudo',
+        safety_threshold = 0.5
 
     ):
 
@@ -131,7 +133,12 @@ class WCSACP(LightningModule):
         self.env = create_environment(env_name, config, seed, record_video, record_epochs)
 
         # Initialize Safety Controller
-        self.SafetyController = SafetyController(lidar_num_bins, lidar_max_dist, lidar_type, lidar_exp_gain)
+        self.SafetyController = SafetyController(
+            lidar_num_bins=lidar_num_bins, 
+            lidar_max_dist=lidar_max_dist,
+            lidar_exp_gain=lidar_exp_gain,
+            lidar_type=lidar_type,
+            debug_print=False)
 
         # Get max_episode_steps from Environment -> For Safety-Gym = 1000
         self.max_episode_steps = self.env.spec.max_episode_steps
@@ -265,7 +272,7 @@ class WCSACP(LightningModule):
         # Reset Environment
         obs, info = self.env.reset()
         done, truncated = False, False
-        episode_cost = 0.0
+        episode_cost, hazards_violation = 0.0, 0.0
         
         while not done and not truncated:
 
@@ -280,33 +287,37 @@ class WCSACP(LightningModule):
             else: action = self.env.action_space.sample()
 
             # Check if Policy Action is Safe
-            unsafe_lidar, safe_action = self.SafetyController.check_safe_action(action, info['sorted_obs'])
+            unsafe_lidar, safe_action = self.SafetyController.check_safe_action(action, info['sorted_obs'], self.hparams.safety_threshold)
             
             # Execute Safe Action on the Environment
             next_obs, reward, done, truncated, next_info = self.env.step(safe_action)
             
             # Get Cumulative Cost | Update Episode Cost 
             cost = next_info.get('cost', 0)
+            cost_hazards = next_info.get('cost_hazards', 0)
             episode_cost += cost
+            hazards_violation += cost_hazards
             
             # Save Safe Experience in Replay Buffer
             safe_exp = (obs, safe_action, reward, cost, float(done), next_obs)
             self.buffer.append(safe_exp)
             
-            # Save Unsafe Experience in Replay Buffer
+            # Check if Safe Action != Action
             if np.not_equal(safe_action, action).any(): 
                 
+                # Save Unsafe Experience in Replay Buffer
                 unsafe_exp = self.SafetyController.simulate_unsafe_action(obs, info['sorted_obs'], unsafe_lidar, action)
                 self.buffer.append(unsafe_exp)
         
-            # Print Observation
-            if self.SafetyController.debug_print: self.SafetyController.observation_print(safe_action, reward, done, truncated, next_info)
+                # Print Observation
+                if self.SafetyController.debug_print: self.SafetyController.observation_print(safe_action, reward, done, truncated, next_info)
             
             # Update Observations
             obs, info = next_obs, next_info
         
         # Log Episode Cost
         if policy: self.log('episode/Cost', episode_cost, on_epoch=True)
+        if policy: self.log('episode/Hazard_Violations', hazards_violation, on_epoch=True)
 
     def forward(self, x):
         

@@ -53,3 +53,4 @@ lidar_num_bins:      ${environment_params.lidar_num_bins}
 lidar_max_dist:      ${environment_params.lidar_max_dist}
 lidar_exp_gain:      ${environment_params.lidar_exp_gain}
 lidar_type:          ${environment_params.lidar_type}
+safety_threshold:    ${environment_params.safety_threshold}
