@@ -248,20 +248,29 @@ def custom_environment_config(lidar_num_bins=16, lidar_max_dist=None, lidar_type
     # Task Configuration
     'robot_base': 'xmls/point.xml',
     'task': 'goal',
-    
-    # Robot Starting Location
-    # 'robot_locations': [[0,0]],  # Explicitly place robot XY coordinate
-    # 'robot_rot': 0,              # Override robot starting angle
 
+    # Rewards    
+    'reward_distance': 2.0,       # Dense reward multiplied by the distance moved to the goal
+    'reward_goal': 5.0,           # Sparse reward for being inside the goal area
+    
     # World Spawn Limits
-    'placements_extents': [-1.5, -1.5, 1.5, 1.5],
+    'placements_extents': [-2, -2, 2, 2],
     
     # Activation Bool
-    'observe_goal_lidar': True, # Enable Goal Lidar
-    'observe_hazards': True,    # Enable Hazard Lidar
-    'constrain_hazards': True,  # Penalty Entering in Hazards
-    # 'lidar_alias': False,       # Disable Next Lidar Bin
-
+    'observe_goal_lidar': True,     # Enable Goal Lidar
+    'observe_buttons': False,       # Lidar observation of button object positions
+    'observe_hazards': True,        # Enable Hazard Lidar
+    'observe_vases': False,         # Observe the vector from agent to vases
+    'observe_pillars': False,       # Lidar observation of pillar object positions
+    'observe_gremlins': False,      # Gremlins are observed with lidar-like space
+    'observe_walls': False,         # Observe the walls with a lidar space
+    
+    'constrain_hazards': True,      # Penalty Entering in Hazards
+    'constrain_vases': False,       # Constrain robot from touching objects
+    'constrain_pillars': False,     # Immovable obstacles in the environment
+    'constrain_gremlins': False,    # Moving objects that must be avoided
+    'constrain_buttons': False,     # Penalize pressing incorrect buttons
+    
     # Lidar Config
     'lidar_num_bins': lidar_num_bins,  # Number of Lidar Dots
     'lidar_max_dist': lidar_max_dist,  # Maximum distance for lidar sensitivity (if None, exponential distance)
@@ -273,10 +282,21 @@ def custom_environment_config(lidar_num_bins=16, lidar_max_dist=None, lidar_type
     'goal_keepout': 0.305,      # Min Spawn Distance to Hazard
 
     # Hazard Config 
-    'hazards_num': 10,           # Number of Hazards
+    'hazards_num': 8,           # Number of Hazards
     'hazards_size': 0.2,        # Size of Hazard (0.2)
     'hazards_keepout': 0.305,   # Min Spawn Distance to Hazard
+    'hazards_cost': 1.0,        # Cost (per step) for violating the constraint
     
+    # Vases Config
+    'vases_num': 0,                 # Number of vases in the world
+    'vases_contact_cost': 1.0,      # Cost (per step) for being in contact with a vase
+    'vases_displace_cost': 0.0,     # Cost (per step) per meter of displacement for a vase
+    'vases_velocity_cost': 1.0,     # Cost (per step) per m/s of velocity for a vase
+
+    # Robot Starting Location
+    # 'robot_locations': [[0,0]],  # Explicitly place robot XY coordinate
+    # 'robot_rot': 0,              # Override robot starting angle
+
     # HardCoded Location of Goal and Hazards
     # 'goal_locations': [[0,1]],
     # 'hazards_locations': [[1,0],[-1,0],[0,-1]],
