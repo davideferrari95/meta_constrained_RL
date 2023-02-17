@@ -71,7 +71,7 @@ def _recursive_print(cfg, file=None, space='   ', term_print=True, save_file=Fal
                 
             # Get Tabulation Length
             length = (len('class') if arg == '_target_' else len(arg)) + len(space)
-            tab = '' if length >= 24 else ' ' if length >= 23 else '\t  ' if length >= 14 else '\t\t  ' if length >= 8 else '\t\t\t  '
+            tab = '' if length >= 24 else '   ' if length >= 22 else '\t  ' if length >= 14 else '\t\t  ' if length >= 8 else '\t\t\t  '
             
             # Print Arguments
             if term_print: print (('\n' if new_line else ''), colored((f'{space[:-1]}{arg_name}:'), 
