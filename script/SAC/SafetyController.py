@@ -45,14 +45,16 @@ class SafetyController():
     
     ''' Safety Controller Class to Avoid Constraint Collision '''    
 
-    def __init__(self, lidar_num_bins:int=16, lidar_max_dist:float=None, lidar_exp_gain:float=1.0, lidar_type:str='pseudo', debug_print=False):
+    def __init__(self, lidar_num_bins:int=16, lidar_max_dist:float=None, 
+                 lidar_exp_gain:float=1.0, lidar_type:str='pseudo', 
+                 debug_print=False):
         
         # Environment Parameters
-        self.lidar_num_bins = lidar_num_bins    # Number of Lidar Dots
-        self.lidar_max_dist = lidar_max_dist    # Maximum distance for lidar sensitivity (if None, exponential distance)
-        self.lidar_exp_gain = lidar_exp_gain    # Scaling factor for distance in exponential distance lidar
-        self.lidar_type     = lidar_type        # 'pseudo', 'natural', see self.obs_lidar()
-        self.debug_print    = debug_print       # Debug Terminal Print
+        self.lidar_num_bins   = lidar_num_bins    # Number of Lidar Dots
+        self.lidar_max_dist   = lidar_max_dist    # Maximum distance for lidar sensitivity (if None, exponential distance)
+        self.lidar_exp_gain   = lidar_exp_gain    # Scaling factor for distance in exponential distance lidar
+        self.lidar_type       = lidar_type        # 'pseudo', 'natural', see self.obs_lidar()
+        self.debug_print      = debug_print       # Debug Terminal Print
         
         # Move Compute Lidar Bin Position in Env Initialization
         self.lidar_bin_position = self.compute_lidar_bin_position()
@@ -114,14 +116,14 @@ class SafetyController():
             bin['Area']  = self.lidar_bin_position[idx]['Area']
         
         # Print Unsafe Lidar Bins
-        if self.debug_print:
+        if self.debug_print and unsafe_lidar != []:
             print('\n\nUnsafe Lidar:\n')
             for bin in unsafe_lidar: print(f'\tIndex: {bin["Index"]} \t|\t Value: {bin["Value"]:.8f} \t|\t Angle: {bin["Angle"]:.2f} \t|\t Area: [{bin["Area"][0]:.2f}, {bin["Area"][1]:.2f}]')
             # print_float_array('\nHazard Lidar Real:', real_dist, decimal_number=3)
         
         return unsafe_lidar
 
-    def check_safe_action(self, action, obs, threshold=0.6):
+    def check_safe_action(self, action, obs, threshold=0.5):
     
         ''' Check if Action is Safe and Eventually Return a Safe One Instead '''
         
