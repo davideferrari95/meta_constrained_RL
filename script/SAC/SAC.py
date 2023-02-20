@@ -3,8 +3,8 @@ from SAC.Networks import DoubleQCritic, SafetyCritic, DiagGaussianPolicy
 from SAC.Networks import polyak_average, DEVICE
 from SAC.ReplayBuffer import ReplayBuffer, RLDataset
 from SAC.Environment import create_environment, custom_environment_config
-from SAC.Utils import set_seed_everywhere, AUTO
-from SAC.SafetyController import SafetyController
+from SAC.Utils import set_seed_everywhere, AUTO, CostMonitor
+from SAC.SafetyController import SafetyController, Odometry
 
 # Import Utilities
 import copy, itertools
@@ -272,7 +272,10 @@ class WCSACP(LightningModule):
         # Reset Environment
         obs, info = self.env.reset()
         done, truncated = False, False
-        episode_cost, hazards_violation = 0.0, 0.0
+
+        # Initialize Odometry and Cost Monitor
+        odometry = Odometry()
+        monitor = CostMonitor()
         
         while not done and not truncated:
 
@@ -292,11 +295,15 @@ class WCSACP(LightningModule):
             # Execute Safe Action on the Environment
             next_obs, reward, done, truncated, next_info = self.env.step(safe_action)
             
+            # TODO: Penalize if Robot Get Stuck in Position
+            x, y, θ = odometry.update_odometry(next_info)
+            if odometry.stay_in_position(x,y,θ): reward -= 0.05
+            
             # Get Cumulative Cost | Update Episode Cost 
-            cost = next_info.get('cost', 0)
-            cost_hazards = next_info.get('cost_hazards', 0)
-            episode_cost += cost
-            hazards_violation += cost_hazards
+            cost = monitor.compute_cost(next_info)
+            
+            # Add Cost to Reward
+            # reward -= cost
             
             # Save Safe Experience in Replay Buffer
             safe_exp = (obs, safe_action, reward, cost, float(done), next_obs)
@@ -316,8 +323,9 @@ class WCSACP(LightningModule):
             obs, info = next_obs, next_info
         
         # Log Episode Cost
-        if policy: self.log('episode/Cost', episode_cost, on_epoch=True)
-        if policy: self.log('episode/Hazard_Violations', hazards_violation, on_epoch=True)
+        if policy: self.log('Cost/Episode-Cost', monitor.get_episode_cost)
+        if policy: self.log('Cost/Hazards-Violations', monitor.get_hazards_violation)
+        if policy: self.log('Cost/Vases-Violations', monitor.get_vases_violation)
 
     def forward(self, x):
         
@@ -415,9 +423,9 @@ class WCSACP(LightningModule):
             total_loss = q_critic_loss + safety_critic_loss
             
             # Log Critic Loss Functions
-            self.log('episode/Q-Critic-Loss', q_critic_loss, on_epoch=True)
-            self.log('episode/Safety-Critic-Loss', safety_critic_loss, on_epoch=True)
-            self.log('episode/Total-Loss', total_loss, on_epoch=True)
+            self.log('Critic/Q-Critic-Loss', q_critic_loss, on_epoch=True)
+            self.log('Critic/Safety-Critic-Loss', safety_critic_loss, on_epoch=True)
+            self.log('Critic/Total-Loss', total_loss, on_epoch=True)
 
             # Polyak Average Update of the Critic Networks
             if self.global_step % self.hparams.critic_update_freq == 0:
@@ -461,10 +469,10 @@ class WCSACP(LightningModule):
                         + self.hparams.smooth_lambda * smooth_loss
             
             # Log Actor Loss Functions
-            self.log('episode/Policy-Loss', actor_loss, on_epoch=True)
-            self.log('episode/Policy-Entropy', - new_log_probs.mean(), on_epoch=True)
-            self.log('episode/Policy-Cost', torch.mean(actor_QC + self.pdf_cdf.cuda() * torch.sqrt(actor_VC)), on_epoch=True)
-            self.log('episode/Policy_Smooth_Loss', smooth_loss, on_epoch=True)
+            self.log('Actor/Policy-Loss', actor_loss, on_epoch=True)
+            self.log('Actor/Policy-Entropy', - new_log_probs.mean(), on_epoch=True)
+            self.log('Actor/Policy-Cost', torch.mean(actor_QC + self.pdf_cdf.cuda() * torch.sqrt(actor_VC)), on_epoch=True)
+            self.log('Actor/Policy-Smooth_Loss', smooth_loss, on_epoch=True)
 
             # Save Var for Alpha, Beta Updates
             self.log_probs_Alpha = new_log_probs
@@ -484,8 +492,8 @@ class WCSACP(LightningModule):
 
             # Compute the Alpha Loss
             alpha_loss = torch.mean(self.log_alpha.exp() * (- log_probs - self.target_alpha).detach())
-            self.log('episode/Alpha-Loss', alpha_loss, on_epoch=True)
-            self.log('episode/Alpha-Value', self.log_alpha.exp(), on_epoch=True)
+            self.log('Alpha-Beta/Alpha-Loss', alpha_loss)
+            self.log('Alpha-Beta/Alpha-Value', self.log_alpha.exp())
 
             return alpha_loss
         
@@ -497,8 +505,8 @@ class WCSACP(LightningModule):
 
             # Compute the Beta Loss
             beta_loss = torch.mean(self.log_beta.exp() * (self.target_cost - CVaR).detach())
-            self.log("episode/Beta-Loss", beta_loss, on_epoch=True)
-            self.log("episode/Beta-Value", self.log_beta.exp(), on_epoch=True)
+            self.log("Alpha-Beta/Beta-Loss", beta_loss)
+            self.log("Alpha-Beta/Beta-Value", self.log_beta.exp())
 
             return beta_loss
 

@@ -14,7 +14,12 @@ class Odometry():
         # BUG: Mujoco Step-Time = 0.002 ? -> x10 Factor Somewhere 
         self.dt = 0.02
     
-    def update_odometry(self, accelerometer, velocimeter, gyroscope):
+    def update_odometry(self, new_observation):
+        
+        # Get Sensors
+        accelerometer = new_observation['sorted_obs']['accelerometer']
+        velocimeter   = new_observation['sorted_obs']['velocimeter']
+        gyroscope     = new_observation['sorted_obs']['gyro']
         
         # Robot Sensors
         acc, vel, gyro = accelerometer, velocimeter, gyroscope
@@ -36,6 +41,12 @@ class Odometry():
         self.θ = self.θ + self.dθ * self.dt
 
         return self.x, self.y, self.θ % np.radians(360)
+    
+    def stay_in_position(self, x, y, θ): 
+        
+        # TODO:
+
+        return False
 
     def odometry_print(self):
     
@@ -230,7 +241,7 @@ class SafetyController():
     def simulate_unsafe_action(self, obs, sorted_obs, unsafe_lidar, unsafe_action):
         
         # Hard-Coded Reward and Cost
-        unsafe_reward, unsafe_cost, done = -0.25, 0.5, False
+        unsafe_reward, unsafe_cost, done = -0.1, 0.1, False
         
         # Initialize Observations
         lidar = np.copy(sorted_obs['hazards_lidar']).astype(np.float32)

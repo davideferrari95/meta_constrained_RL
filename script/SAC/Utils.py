@@ -172,3 +172,42 @@ def get_index(vec1, vec2):
         if np.array_equal(vec1, vec2[i:i+len(vec1)]): return i
     
     return None
+
+class CostMonitor():
+    
+    ''' Class that Monitors the safety-gym Environment Violation, Cost and Reward '''
+    
+    # Violations, Cost, Reward
+    hazards_violation, vases_violation = 0, 0
+    episode_cost = 0.0
+    
+    def __init__(self):
+        
+        pass
+    
+    def compute_cost(self, info_dict):
+        
+        # Get Cumulative Cost | Update Episode Cost 
+        cost = info_dict.get('cost', 0)
+        self.episode_cost += cost
+            
+        # Single Cost Components
+        cost_hazards = info_dict.get('cost_hazards', 0)
+        cost_vases = info_dict.get('cost_vases', 0)
+                    
+        # Episode Cost Components
+        self.hazards_violation += cost_hazards
+        self.vases_violation += cost_vases
+        
+        return cost
+
+    def get_episode_cost(self):
+        return self.episode_cost
+    
+    def get_hazards_violation(self):
+        return self.hazards_violation
+    
+    def get_vases_violation(self):
+        return self.vases_violation
+    
+    
