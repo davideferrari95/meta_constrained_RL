@@ -1,5 +1,17 @@
 from SAC.Utils import print_float_array, is_between_180, get_index
+from dataclasses import dataclass
+
 import numpy as np
+import math
+
+@dataclass
+class Pose:
+    
+    ''' Pose XYθ Dataclass '''
+    
+    x: float
+    y: float
+    θ: float
 
 class Odometry():
 
@@ -13,7 +25,10 @@ class Odometry():
         
         # BUG: Mujoco Step-Time = 0.002 ? -> x10 Factor Somewhere 
         self.dt = 0.02
-    
+
+        # Position Memory Buffer
+        self.positions = []
+
     def update_odometry(self, new_observation):
         
         # Get Sensors
@@ -39,13 +54,34 @@ class Odometry():
         self.x = self.x + self.dx * self.dt
         self.y = self.y + self.dy * self.dt
         self.θ = self.θ + self.dθ * self.dt
+        
+        # Save Pose in Memory Buffer
+        self.positions.append(Pose(self.x, self.y, self.θ))
 
         return self.x, self.y, self.θ % np.radians(360)
     
-    def stay_in_position(self, x, y, θ): 
+    def stuck_in_position(self, n:int=100, threshold:float=0.1): 
         
-        # TODO:
-
+        '''
+        Return True if Robot is Stuck in Position
+        n: Number of Past Position to Check
+        threshold: Threshold Distance to Have Pos Changes
+        '''
+        
+        # Wait at Least n Positions
+        if len(self.positions) < n: return False
+        
+        # Position -> Tuple (Pos, Prev_Pos)
+        positions = [(self.positions[i], self.positions[i-1]) 
+                     for i in range(len(self.positions)-n, len(self.positions))]
+        
+        # Compute the Distance Array
+        dist = np.array([math.sqrt((pose.x - prev_pose.x) ** 2 + (pose.y - prev_pose.y) ** 2)
+                        for pose, prev_pose in positions])
+        
+        # Return True if All Distance < `threshold`
+        if (dist < threshold).all(): return True
+            
         return False
 
     def odometry_print(self):
