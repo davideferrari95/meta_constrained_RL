@@ -177,13 +177,12 @@ class CostMonitor():
     
     ''' Class that Monitors the safety-gym Environment Violation, Cost and Reward '''
     
-    # Violations, Cost, Reward
-    hazards_violation, vases_violation = 0, 0
-    episode_cost = 0.0
-    
     def __init__(self):
         
-        pass
+        # Violations, Cost, Reward
+        self.hazards_violation, self.vases_violation = 0.0, 0.0
+        self.episode_cost = 0.0
+        self.robot_stuck = 0.0
     
     def compute_cost(self, info_dict):
         
@@ -210,4 +209,5 @@ class CostMonitor():
     def get_vases_violation(self):
         return self.vases_violation
     
-    
+    def get_robot_stuck(self):
+        return self.robot_stuck
