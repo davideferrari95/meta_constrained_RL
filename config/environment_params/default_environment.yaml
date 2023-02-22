@@ -1,6 +1,10 @@
 env:                ['custom','FixedHazardEnv']
-lidar_num_bins:     16
+lidar_num_bins:     32
 lidar_max_dist:     null
 lidar_exp_gain:     1.0
 lidar_type:         'pseudo'
+reward_distance:    1.0
+reward_goal:        5.0
+stuck_threshold:    0.01
+stuck_penalty:      0.1
 safety_threshold:   0.6

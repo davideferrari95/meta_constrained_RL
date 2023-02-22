@@ -77,6 +77,10 @@ class WCSACP(LightningModule):
     # lidar_max_dist:       Maximum distance for lidar sensitivity (if None, exponential distance)
     # lidar_exp_gain:       Scaling factor for distance in exponential distance lidar
     # lidar_type:           Type of Lidar Sensor | 'pseudo', 'natural', see self.obs_lidar()
+    # reward_distance:      Dense reward multiplied by the distance moved to the goal
+    # reward_goal:          Sparse reward for being inside the goal area
+    # stuck_threshold:      Threshold Distance to Trigger Stuck Pos Changes
+    # stuck_penalty:        Reward Penalty if Robot Get Stuck in Position
     # safety_threshold:     Lidar Threshold to Trigger Safe Action Control
 
     '''
@@ -115,6 +119,10 @@ class WCSACP(LightningModule):
         lidar_max_dist = None,
         lidar_exp_gain = 1.0,
         lidar_type = 'pseudo',
+        reward_distance = 1,
+        reward_goal = 5.0,
+        stuck_threshold = 0.01,
+        stuck_penalty = 0.5,
         safety_threshold = 0.5
 
     ):
@@ -129,7 +137,7 @@ class WCSACP(LightningModule):
         torch.set_float32_matmul_precision('high')
 
         # Create Environment
-        config = custom_environment_config(lidar_num_bins, lidar_max_dist, lidar_type, lidar_exp_gain) if 'custom' in env_name else None
+        config = custom_environment_config(lidar_num_bins, lidar_max_dist, lidar_type, lidar_exp_gain, reward_distance, reward_goal) if 'custom' in env_name else None
         self.env = create_environment(env_name, config, seed, record_video, record_epochs)
 
         # Initialize Safety Controller
@@ -295,9 +303,12 @@ class WCSACP(LightningModule):
             # Execute Safe Action on the Environment
             next_obs, reward, done, truncated, next_info = self.env.step(safe_action)
             
-            # TODO: Penalize if Robot Get Stuck in Position
-            x, y, θ = odometry.update_odometry(next_info)
-            if odometry.stay_in_position(x,y,θ): reward -= 0.05
+            # Penalize if Robot Get Stuck in Position
+            odometry.update_odometry(next_info)
+            if odometry.stuck_in_position(n=50, threshold=self.hparams.stuck_threshold): 
+                
+                monitor.robot_stuck += 1
+                reward -= self.hparams.stuck_penalty
             
             # Get Cumulative Cost | Update Episode Cost 
             cost = monitor.compute_cost(next_info)
@@ -323,9 +334,10 @@ class WCSACP(LightningModule):
             obs, info = next_obs, next_info
         
         # Log Episode Cost
-        if policy: self.log('Cost/Episode-Cost', monitor.get_episode_cost)
-        if policy: self.log('Cost/Hazards-Violations', monitor.get_hazards_violation)
-        if policy: self.log('Cost/Vases-Violations', monitor.get_vases_violation)
+        if policy: self.log('Cost/Episode-Cost', monitor.get_episode_cost())
+        if policy: self.log('Cost/Hazards-Violations', monitor.get_hazards_violation())
+        if policy: self.log('Cost/Vases-Violations', monitor.get_vases_violation())
+        if policy: self.log('Cost/Robot-Stuck', monitor.get_robot_stuck())
 
     def forward(self, x):
         

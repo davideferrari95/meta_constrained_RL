@@ -12,7 +12,19 @@ import mujoco_py
 GOAL_ENV = 'GOAL_ENV'
 STANDARD_ENV = 'STANDARD_ENV'
 
-def custom_environment_config(lidar_num_bins=16, lidar_max_dist=None, lidar_type='pseudo', lidar_exp_gain=1.0) -> dict: #():
+def custom_environment_config(
+  
+  # Lidar Parameters:
+  lidar_num_bins=16,
+  lidar_max_dist=None, 
+  lidar_type='pseudo',
+  lidar_exp_gain=1.0,
+  
+  # Reward Parameters:
+  reward_distance=1.0,
+  reward_goal=5.0
+  
+  ) -> dict: #():
   
   ''' Return the Safety-Gym Configuration Dictionary '''
   
@@ -21,6 +33,8 @@ def custom_environment_config(lidar_num_bins=16, lidar_max_dist=None, lidar_type
   # lidar_max_dist = None      # Maximum distance for lidar sensitivity (if None, exponential distance)
   # lidar_exp_gain = 1.0       # Scaling factor for distance in exponential distance lidar
   # lidar_type = 'pseudo'      # 'pseudo', 'natural', see self.obs_lidar()
+  # reward_distance = 1.0      # Dense reward multiplied by the distance moved to the goal
+  # reward_goal = 5.0          # Sparse reward for being inside the goal area
 
   '''
     Safety-Gym Engine Configuration: an environment-building tool for safe exploration research.
@@ -250,8 +264,8 @@ def custom_environment_config(lidar_num_bins=16, lidar_max_dist=None, lidar_type
     'task': 'goal',
 
     # Rewards    
-    'reward_distance': 2.0,       # Dense reward multiplied by the distance moved to the goal
-    'reward_goal': 10.0,           # Sparse reward for being inside the goal area
+    'reward_distance': reward_distance,   # Dense reward multiplied by the distance moved to the goal
+    'reward_goal': reward_goal,           # Sparse reward for being inside the goal area
     
     # World Spawn Limits
     'placements_extents': [-2, -2, 2, 2],

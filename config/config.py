@@ -42,6 +42,10 @@ class EnvironmentParams:
   lidar_max_dist:     Optional[float]
   lidar_exp_gain:     float
   lidar_type:         str
+  reward_distance:    float
+  reward_goal:        float
+  stuck_threshold:    float
+  stuck_penalty:      float
   safety_threshold:   float
 
 @dataclass

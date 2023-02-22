@@ -53,4 +53,8 @@ lidar_num_bins:      ${environment_params.lidar_num_bins}
 lidar_max_dist:      ${environment_params.lidar_max_dist}
 lidar_exp_gain:      ${environment_params.lidar_exp_gain}
 lidar_type:          ${environment_params.lidar_type}
+reward_distance:     ${environment_params.reward_distance}
+reward_goal:         ${environment_params.reward_goal}
+stuck_threshold:     ${environment_params.stuck_threshold}
+stuck_penalty:       ${environment_params.stuck_penalty}
 safety_threshold:    ${environment_params.safety_threshold}
