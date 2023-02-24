@@ -1,3 +1,0 @@
-- training_params.patience=1000
-- environment_params.stuck_penalty=0.25
-- environment_params.reward_distance=1.0
