@@ -68,6 +68,9 @@ class Odometry():
         threshold: Threshold Distance to Have Pos Changes
         '''
         
+        # IDEA: Try to Change Stuck Function:
+        # Stuck when Last - First pose < threshold
+        
         # Wait at Least n Positions
         if len(self.positions) < n: return False
         
