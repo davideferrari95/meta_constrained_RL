@@ -1,0 +1,101 @@
+agent:
+  _target_: SAC.SAC.WCSACP
+  env_name: ${environment_params.env}
+  seed: ${training_params.seed}
+  record_video: ${utilities_params.record_video}
+  record_epochs: ${utilities_params.record_epochs}
+  capacity: 1000000.0
+  batch_size: 2048
+  hidden_size: 512
+  gamma: 0.99
+  loss_function: smooth_l1_loss
+  optim: AdamW
+  samples_per_epoch: ${training_params.samples_per_epoch}
+  tau: ${training_params.tau}
+  critic_lr: 0.001
+  critic_betas:
+  - 0.9
+  - 0.999
+  critic_update_freq: 2
+  critic_hidden_depth: 4
+  actor_lr: 0.001
+  actor_betas:
+  - 0.9
+  - 0.999
+  actor_update_freq: 1
+  log_std_bounds:
+  - -20
+  - 2
+  actor_hidden_depth: 4
+  epsilon: ${training_params.epsilon}
+  smooth_lambda: ${training_params.smooth_lambda}
+  alpha: ${entropy_params.alpha}
+  init_alpha: ${entropy_params.init_alpha}
+  target_alpha: ${entropy_params.target_alpha}
+  alpha_betas: ${entropy_params.alpha_betas}
+  alpha_lr: ${entropy_params.alpha_lr}
+  fixed_cost_penalty: ${cost_params.fixed_cost_penalty}
+  init_beta: ${cost_params.init_beta}
+  cost_limit: ${cost_params.cost_limit}
+  target_cost: ${cost_params.target_cost}
+  beta_betas: ${cost_params.beta_betas}
+  beta_lr: ${cost_params.beta_lr}
+  cost_lr_scale: ${cost_params.cost_lr_scale}
+  risk_level: ${cost_params.risk_level}
+  damp_scale: ${cost_params.damp_scale}
+  lidar_num_bins: ${environment_params.lidar_num_bins}
+  lidar_max_dist: ${environment_params.lidar_max_dist}
+  lidar_exp_gain: ${environment_params.lidar_exp_gain}
+  lidar_type: ${environment_params.lidar_type}
+  reward_distance: ${environment_params.reward_distance}
+  reward_goal: ${environment_params.reward_goal}
+  stuck_threshold: ${environment_params.stuck_threshold}
+  stuck_penalty: ${environment_params.stuck_penalty}
+  safety_threshold: ${environment_params.safety_threshold}
+entropy_params:
+  alpha: AUTO
+  init_alpha: 0.6931
+  target_alpha: AUTO
+  alpha_betas:
+  - 0.9
+  - 0.999
+  alpha_lr: 0.001
+cost_params:
+  fixed_cost_penalty: null
+  init_beta: 0.6931
+  cost_limit: 15
+  target_cost: null
+  beta_betas:
+  - 0.9
+  - 0.999
+  beta_lr: 0.001
+  cost_lr_scale: 1
+  risk_level: 0.1
+  damp_scale: 10
+environment_params:
+  env:
+  - custom
+  - FixedHazardEnv
+  lidar_num_bins: 32
+  lidar_max_dist: null
+  lidar_exp_gain: 1.0
+  lidar_type: pseudo
+  reward_distance: 2.0
+  reward_goal: 5.0
+  stuck_threshold: 0.01
+  stuck_penalty: 0.1
+  safety_threshold: 0.65
+training_params:
+  seed: 123
+  samples_per_epoch: 10000
+  epochs: 10000
+  patience: 1000
+  tau: 0.005
+  epsilon: 0.1
+  smooth_lambda: 0.01
+utilities_params:
+  early_stopping: true
+  use_profiler: false
+  record_video: true
+  record_epochs: 100
+  fast_dev_run: false

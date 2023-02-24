@@ -1,0 +1,3 @@
+- training_params.patience=1000
+- environment_params.safety_threshold=0.65
+- environment_params.reward_distance=2.0
