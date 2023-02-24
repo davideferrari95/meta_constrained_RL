@@ -304,7 +304,7 @@ def custom_environment_config(
     # Vases Config
     'vases_num': 4,                 # Number of vases in the world
     'vases_contact_cost': 2.0,      # Cost (per step) for being in contact with a vase
-    'vases_displace_cost': 1.0,     # Cost (per step) per meter of displacement for a vase
+    'vases_displace_cost': 0.0,     # Cost (per step) per meter of displacement for a vase
     'vases_velocity_cost': 1.0,     # Cost (per step) per m/s of velocity for a vase
 
     # Robot Starting Location
