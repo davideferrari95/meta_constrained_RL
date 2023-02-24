@@ -6,5 +6,5 @@ lidar_type:         'pseudo'
 reward_distance:    1.0
 reward_goal:        5.0
 stuck_threshold:    0.01
-stuck_penalty:      0.1
+stuck_penalty:      0.25
 safety_threshold:   0.6
