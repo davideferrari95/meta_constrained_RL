@@ -1,38 +1,34 @@
-import os
-import gym
+import sys
 
 # Import Utils
-from SAC.Utils import VIDEO_FOLDER
+from SAC.Utils import VIDEO_FOLDER, FOLDER
+
+# Import Parameters Class
+sys.path.append(FOLDER)
+from config.config import EnvironmentParams
 
 # Import Environments
-import safety_gym
+import gym, safety_gym
 import mujoco_py
 
 # Environment Types
 GOAL_ENV = 'GOAL_ENV'
 STANDARD_ENV = 'STANDARD_ENV'
 
-def custom_environment_config(
-  
-  # Lidar Parameters:
-  lidar_num_bins=16,
-  lidar_max_dist=None, 
-  lidar_type='pseudo',
-  lidar_exp_gain=1.0,
-  
-  # Reward Parameters:
-  reward_distance=1.0,
-  reward_goal=5.0
-  
-  ) -> dict: #():
+def custom_environment_config(config:EnvironmentParams) -> dict: #():
   
   ''' Return the Safety-Gym Configuration Dictionary '''
+
+  # Env Parameters:
+  # env_name                  # Environment Name
   
-  # Some Parameters
+  # Lidar Parameters:
   # lidar_num_bins = 16        # Number of Lidar Dots
   # lidar_max_dist = None      # Maximum distance for lidar sensitivity (if None, exponential distance)
   # lidar_exp_gain = 1.0       # Scaling factor for distance in exponential distance lidar
   # lidar_type = 'pseudo'      # 'pseudo', 'natural', see self.obs_lidar()
+
+  # Reward Parameters:
   # reward_distance = 1.0      # Dense reward multiplied by the distance moved to the goal
   # reward_goal = 5.0          # Sparse reward for being inside the goal area
 
@@ -256,71 +252,74 @@ def custom_environment_config(
 
   }
   
+  # Return None if not Custom Environment
+  if not 'custom' in config.env_name: return config.env_name, None
+  
   # Custom Environment
-  config = {
+  env_config = {
       
     # Task Configuration
-    'robot_base': 'xmls/point.xml',
-    'task': 'goal',
+    'robot_base': config.robot_base,
+    'task': config.task,
 
-    # Rewards    
-    'reward_distance': reward_distance,   # Dense reward multiplied by the distance moved to the goal
-    'reward_goal': reward_goal,           # Sparse reward for being inside the goal area
+    # Rewards
+    'reward_distance': config.reward_distance,   # Dense reward multiplied by the distance moved to the goal
+    'reward_goal':     config.reward_goal,       # Sparse reward for being inside the goal area
     
     # World Spawn Limits
-    'placements_extents': [-2, -2, 2, 2],
+    'placements_extents': config.placements_extents,
     
     # Activation Bool
-    'observe_goal_lidar': True,     # Enable Goal Lidar
-    'observe_buttons': False,       # Lidar observation of button object positions
-    'observe_hazards': True,        # Enable Hazard Lidar
-    'observe_vases': True,          # Observe the vector from agent to vases
-    'observe_pillars': False,       # Lidar observation of pillar object positions
-    'observe_gremlins': False,      # Gremlins are observed with lidar-like space
-    'observe_walls': False,         # Observe the walls with a lidar space
+    'observe_goal_lidar': config.observe_goal_lidar,    # Enable Goal Lidar
+    'observe_buttons':    config.observe_buttons,       # Lidar observation of button object positions
+    'observe_hazards':    config.observe_hazards,       # Enable Hazard Lidar
+    'observe_vases':      config.observe_vases,         # Observe the vector from agent to vases
+    'observe_pillars':    config.observe_pillars,       # Lidar observation of pillar object positions
+    'observe_gremlins':   config.observe_gremlins,      # Gremlins are observed with lidar-like space
+    'observe_walls':      config.observe_walls,         # Observe the walls with a lidar space
     
-    'constrain_hazards': True,      # Penalty Entering in Hazards
-    'constrain_vases': True,        # Constrain robot from touching objects
-    'constrain_pillars': False,     # Immovable obstacles in the environment
-    'constrain_gremlins': False,    # Moving objects that must be avoided
-    'constrain_buttons': False,     # Penalize pressing incorrect buttons
+    'constrain_hazards':  config.constrain_hazards,     # Penalty Entering in Hazards
+    'constrain_vases':    config.constrain_vases,       # Constrain robot from touching objects
+    'constrain_pillars':  config.constrain_pillars,     # Immovable obstacles in the environment
+    'constrain_gremlins': config.constrain_gremlins,    # Moving objects that must be avoided
+    'constrain_buttons':  config.constrain_buttons,     # Penalize pressing incorrect buttons
     
     # Lidar Config
-    'lidar_num_bins': lidar_num_bins,  # Number of Lidar Dots
-    'lidar_max_dist': lidar_max_dist,  # Maximum distance for lidar sensitivity (if None, exponential distance)
-    'lidar_type':     lidar_type,      # 'pseudo', 'natural', see self.obs_lidar()
-    'lidar_exp_gain': lidar_exp_gain,  # Scaling factor for distance in exponential distance lidar
+    'lidar_num_bins': config.lidar_num_bins,    # Number of Lidar Dots
+    'lidar_max_dist': config.lidar_max_dist,    # Maximum distance for lidar sensitivity (if None, exponential distance)
+    'lidar_exp_gain': config.lidar_exp_gain,    # Scaling factor for distance in exponential distance lidar
+    'lidar_type':     config.lidar_type,        # 'pseudo', 'natural', see self.obs_lidar()
 
     # Goal Config
-    'goal_size': 0.3,           # Size of Goal (0.3)
-    'goal_keepout': 0.3,        # Min Spawn Distance to Hazard
+    'goal_size':    config.goal_size,           # Size of Goal (0.3)
+    'goal_keepout': config.goal_keepout,        # Min Spawn Distance to Hazard
 
-    # Hazard Config 
-    'hazards_num': 8,           # Number of Hazards
-    'hazards_size': 0.2,        # Size of Hazard (0.2)
-    'hazards_keepout': 0.3,     # Min Spawn Distance to Hazard
-    'hazards_cost': 2.0,        # Cost (per step) for violating the constraint
+    # Hazard Config
+    'hazards_num':     config.hazards_num,      # Number of Hazards
+    'hazards_size':    config.hazards_size,     # Size of Hazard (0.2)
+    'hazards_keepout': config.hazards_keepout,  # Min Spawn Distance to Hazard
+    'hazards_cost':    config.hazards_cost,     # Cost (per step) for violating the constraint
     
     # Vases Config
-    'vases_num': 4,                 # Number of vases in the world
-    'vases_contact_cost': 2.0,      # Cost (per step) for being in contact with a vase
-    'vases_displace_cost': 0.0,     # Cost (per step) per meter of displacement for a vase
-    'vases_velocity_cost': 1.0,     # Cost (per step) per m/s of velocity for a vase
+    'vases_num':           config.vases_num,              # Number of vases in the world
+    'vases_contact_cost':  config.vases_contact_cost,     # Cost (per step) for being in contact with a vase
+    'vases_displace_cost': config.vases_displace_cost,    # Cost (per step) per meter of displacement for a vase
+    'vases_velocity_cost': config.vases_velocity_cost,    # Cost (per step) per m/s of velocity for a vase
 
     # Robot Starting Location
-    # 'robot_locations': [[0,0]],  # Explicitly place robot XY coordinate
-    # 'robot_rot': 0,              # Override robot starting angle
+    # 'robot_locations': config.robot_locations,    # Explicitly Place Robot XY Coordinates
+    # 'robot_rot':       config.robot_rot,          # Override Robot Starting Angle
 
     # HardCoded Location of Goal and Hazards
-    # 'goal_locations': [[0,1]],
-    # 'hazards_locations': [[1,0],[-1,0],[0,-1]],
+    # 'goal_locations':    config.goal_locations,     # Explicitly Place Goal XY Coordinates
+    # 'hazards_locations': config.hazards_locations,  # Explicitly Place Hazards XY Coordinates
     
     # Robot Sensors
-    'sensors_obs': ['accelerometer', 'velocimeter', 'gyro', 'magnetometer'],
+    'sensors_obs': config.sensors_obs,   # Mujoco Sensors
   
   }
   
-  return config
+  return config.env_name, env_config
 
 # Create Single Environment
 def create_environment(name:str, config:dict=None, seed:int=-1, record_video:bool=True, record_epochs:int=100, render_mode='rgb_array') -> gym.Env: #():

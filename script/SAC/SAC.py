@@ -3,14 +3,18 @@ from SAC.Networks import DoubleQCritic, SafetyCritic, DiagGaussianPolicy
 from SAC.Networks import polyak_average, DEVICE
 from SAC.ReplayBuffer import ReplayBuffer, RLDataset
 from SAC.Environment import create_environment, custom_environment_config
-from SAC.Utils import set_seed_everywhere, AUTO, CostMonitor
+from SAC.Utils import set_seed_everywhere, FOLDER, AUTO, CostMonitor
 from SAC.SafetyController import SafetyController, Odometry
 
 # Import Utilities
-import copy, itertools
+import copy, itertools, sys
 from termcolor import colored
 from typing import Union, Optional
 import numpy as np
+
+# Import Parameters Class
+sys.path.append(FOLDER)
+from config.config import EnvironmentParams
 
 # Import PyTorch
 import torch
@@ -26,7 +30,6 @@ class WCSACP(LightningModule):
     '''
     
     # SAC Parameters
-    # env_name:             Environment Name
     # seed:                 Seeding Environment and Torch Network
     # record_video:         Record Video with RecordVideo Wrapper
     # record_epochs:        Record Video Every n Epochs
@@ -54,14 +57,14 @@ class WCSACP(LightningModule):
     # log_std_bounds:       Constrain log_std Inside Bounds
     # actor_hidden_depth:   Number of Hidden Layers (-1) of Actor Network
     
-    # Entropy Coefficient
+    # Entropy Parameters
     # alpha:                Entropy Regularization Coefficient  |  Set it to 'auto' to Automatically Learn
     # init_alpha:           Initial Value of α [Optional]       |  When Learning Automatically α
     # target_alpha:         Target Entropy                      |  When Learning Automatically α, Set it to 'auto' to Automatically Compute Target    
     # alpha_betas:          Coefficients for Computing Running Averages of Gradient
     # alpha_lr:             Learning Rate of Alpha Coefficient
     
-    # Cost Constraints
+    # Cost Parameters
     # fixed_cost_penalty:   Cost Penalty Coefficient                    |  Set it to 'auto' to Automatically Learn
     # init_beta:            Initial Value of β [Optional]               |  When Learning Automatically β
     # cost_limit:           Compute an Approximate Cost Constraint      |  When 'target_cost' is None
@@ -73,6 +76,7 @@ class WCSACP(LightningModule):
     # damp_scale:           Damp Impact of Safety Constraint in Actor Update
     
     # Environment Parameters
+    # env_name:             Environment Name
     # lidar_num_bins:       Number of Lidar Dots
     # lidar_max_dist:       Maximum distance for lidar sensitivity (if None, exponential distance)
     # lidar_exp_gain:       Scaling factor for distance in exponential distance lidar
@@ -87,7 +91,7 @@ class WCSACP(LightningModule):
     
     def __init__(
         
-        self, env_name, seed=-1, record_video=True, record_epochs=100, capacity=100_000,
+        self, seed=-1, record_video=True, record_epochs=100, capacity=100_000,
         batch_size=512, hidden_size=256, loss_function='smooth_l1_loss', optim='AdamW', 
         samples_per_epoch=10_000,  gamma=0.99, tau=0.05, epsilon=0.1, smooth_lambda=0.01,
         
@@ -114,16 +118,8 @@ class WCSACP(LightningModule):
         risk_level=0.5,
         damp_scale=10,
         
-        # Environment Parameters:
-        lidar_num_bins = 16,
-        lidar_max_dist = None,
-        lidar_exp_gain = 1.0,
-        lidar_type = 'pseudo',
-        reward_distance = 1,
-        reward_goal = 5.0,
-        stuck_threshold = 0.01,
-        stuck_penalty = 0.5,
-        safety_threshold = 0.5
+        # Environment Configuration Parameters:
+        environment_config:Optional[EnvironmentParams]=None
 
     ):
 
@@ -137,15 +133,15 @@ class WCSACP(LightningModule):
         torch.set_float32_matmul_precision('high')
 
         # Create Environment
-        config = custom_environment_config(lidar_num_bins, lidar_max_dist, lidar_type, lidar_exp_gain, reward_distance, reward_goal) if 'custom' in env_name else None
-        self.env = create_environment(env_name, config, seed, record_video, record_epochs)
+        env_name, env_config = custom_environment_config(environment_config)
+        self.env = create_environment(env_name, env_config, seed, record_video, record_epochs)
 
         # Initialize Safety Controller
         self.SafetyController = SafetyController(
-            lidar_num_bins=lidar_num_bins, 
-            lidar_max_dist=lidar_max_dist,
-            lidar_exp_gain=lidar_exp_gain,
-            lidar_type=lidar_type,
+            lidar_num_bins=environment_config.lidar_num_bins, 
+            lidar_max_dist=environment_config.lidar_max_dist,
+            lidar_exp_gain=environment_config.lidar_exp_gain,
+            lidar_type=environment_config.lidar_type,
             debug_print=False)
 
         # Get max_episode_steps from Environment -> For Safety-Gym = 1000
@@ -298,17 +294,17 @@ class WCSACP(LightningModule):
             else: action = self.env.action_space.sample()
 
             # Check if Policy Action is Safe
-            unsafe_lidar, safe_action = self.SafetyController.check_safe_action(action, info['sorted_obs'], self.hparams.safety_threshold)
+            unsafe_lidar, safe_action = self.SafetyController.check_safe_action(action, info['sorted_obs'], self.hparams.environment_config.safety_threshold)
             
             # Execute Safe Action on the Environment
             next_obs, reward, done, truncated, next_info = self.env.step(safe_action)
             
             # Penalize if Robot Get Stuck in Position
             odometry.update_odometry(next_info)
-            if odometry.stuck_in_position(n=50, threshold=self.hparams.stuck_threshold): 
+            if odometry.stuck_in_position(n=50, threshold=self.hparams.environment_config.stuck_threshold): 
                 
                 monitor.robot_stuck += 1
-                reward -= self.hparams.stuck_penalty
+                reward -= self.hparams.environment_config.stuck_penalty
             
             # Get Cumulative Cost | Update Episode Cost 
             cost = monitor.compute_cost(next_info)
