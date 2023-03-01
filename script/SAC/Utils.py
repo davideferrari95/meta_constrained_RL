@@ -121,11 +121,13 @@ def set_seed_everywhere(seed):
     
     """ Apply Seeding Everywhere """
     
+    print('\n\n')
+    
     if seed == -1: 
         
         # Generating Random Seed
         seed = np.random.randint(0,2**32)
-        print(f"\n\nSeed Must be Provided, Generating Random Seed: {seed}")
+        print(f"Seed Must be Provided, Generating Random Seed: {seed}")
 
     # Set Manual Seed in PyTorch-Lightning 
     import pytorch_lightning as pl
