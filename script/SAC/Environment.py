@@ -322,7 +322,10 @@ def custom_environment_config(config:EnvironmentParams) -> dict: #():
   return config.env_name, env_config
 
 # Create Single Environment
-def create_environment(name:str, config:dict=None, seed:int=-1, record_video:bool=True, record_epochs:int=100, render_mode='rgb_array') -> gym.Env: #():
+def create_environment(name:str, config:dict=None, seed:int=-1, 
+                       record_video:bool=True, record_epochs:int=100, 
+                       render_mode='rgb_array', apply_wrappers:bool=True
+                       ) -> gym.Env: #():
     
   """ Create Gym Environment """
   
@@ -343,7 +346,7 @@ def create_environment(name:str, config:dict=None, seed:int=-1, record_video:boo
   ENV_TYPE = __check_environment_type(env)
   
   # Apply Wrappers
-  env = __apply_wrappers(env, record_video, record_epochs, folder=VIDEO_FOLDER, env_type=ENV_TYPE)
+  if apply_wrappers: env = __apply_wrappers(env, record_video, record_epochs, folder=VIDEO_FOLDER, env_type=ENV_TYPE)
   
   # Apply Seed
   env.seed(seed)
@@ -406,14 +409,17 @@ def __make_custom_env(name, config:dict, render_mode='rgb_array') -> gym.Env: #(
   elif config is None: raise Exception(f"{name} Environment Not Implemented")    
 
   # Use Given Config | Remove 'custom' from name, Capitalize and add '-v0'
-  else: name = (''.join(name)).replace('custom','').capitalize() + '-v0'
+  else: name = (''.join(name)).replace('custom','') + '-v0'
 
-  register(
-    id=name,
-    entry_point="safety_gym.envs.safety_mujoco:Engine",
-    max_episode_steps=1000,
-    kwargs={"config": config},
-  )
+  # Check if Environment is Already Registered
+  if name not in gym.envs.registry:
+
+    register(
+      id=name,
+      entry_point="safety_gym.envs.safety_mujoco:Engine",
+      max_episode_steps=1000,
+      kwargs={"config": config},
+    )
   
   return gym.make(name, render_mode=render_mode)
 
@@ -472,3 +478,16 @@ def __check_environment_type(env):
   # Check if is a Goal-Environment
   if type(env.reset()[0]) is dict and 'observation' in env.reset()[0]: return GOAL_ENV
   else: return STANDARD_ENV
+
+def record_episode(env:gym.Env, seed:int, action_list, current_epoch:int):
+
+  # Apply Record Video Wrapper
+  env = gym.wrappers.RecordVideo(env, video_folder=f'{VIDEO_FOLDER}/Violations', episode_trigger=lambda x: True)
+
+  # Reset Environment with Seeding
+  env.reset(seed=seed)
+
+  # Apply All Action in `action_list` Buffer
+  for action in action_list: env.step(action)
+
+  # TODO: Save Video with Current Epoch Name

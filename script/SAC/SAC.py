@@ -2,8 +2,8 @@
 from SAC.Networks import DoubleQCritic, SafetyCritic, DiagGaussianPolicy
 from SAC.Networks import polyak_average, DEVICE
 from SAC.ReplayBuffer import ReplayBuffer, RLDataset
-from SAC.Environment import create_environment, custom_environment_config
-from SAC.Utils import set_seed_everywhere, FOLDER, AUTO, CostMonitor
+from SAC.Environment import create_environment, custom_environment_config, record_episode
+from SAC.Utils import CostMonitor, FOLDER, AUTO
 from SAC.SafetyController import SafetyController, Odometry
 
 # Import Utilities
@@ -131,6 +131,7 @@ class WCSACP(LightningModule):
         # Create Environment
         env_name, env_config = custom_environment_config(environment_config)
         self.env = create_environment(env_name, env_config, seed, record_video, record_epochs)
+        self.test_env = create_environment(env_name, env_config, seed, apply_wrappers=False)
 
         # Initialize Safety Controller
         self.SafetyController = SafetyController(
@@ -269,9 +270,13 @@ class WCSACP(LightningModule):
     @torch.no_grad()
     def play_episode(self, policy=None):
 
+        # Compute Environment Seeding
+        seed = np.random.randint(0,2**32)
+
         # Reset Environment
-        obs, info = self.env.reset()
+        obs, info = self.env.reset(seed=seed)
         done, truncated = False, False
+        action_buffer = []
 
         # Initialize Odometry and Cost Monitor
         odometry = Odometry()
@@ -295,6 +300,9 @@ class WCSACP(LightningModule):
             # Execute Safe Action on the Environment
             next_obs, reward, done, truncated, next_info = self.env.step(safe_action)
             
+            # Save Executed Action in Action Buffer
+            action_buffer.append(safe_action)
+
             # Penalize if Robot Get Stuck in Position
             odometry.update_odometry(next_info)
             if odometry.stuck_in_position(n=50, threshold=self.hparams.environment_config.stuck_threshold): 
@@ -325,6 +333,10 @@ class WCSACP(LightningModule):
             # Update Observations
             obs, info = next_obs, next_info
         
+        # Record Episode with Violation
+        if monitor.get_episode_cost() != 0.0:
+            record_episode(env=self.test_env, seed=seed, action_list=action_buffer, current_epoch=self.current_epoch)
+
         # Log Episode Cost
         if policy: self.log('Cost/Episode-Cost', monitor.get_episode_cost())
         if policy: self.log('Cost/Hazards-Violations', monitor.get_hazards_violation())
