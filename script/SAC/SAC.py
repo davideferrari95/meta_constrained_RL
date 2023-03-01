@@ -125,10 +125,6 @@ class WCSACP(LightningModule):
 
         super().__init__()
         
-        # Setting Manual Seed
-        assert seed != -1, f"Seed Must be Provided, Got Default Seed: {seed}"
-        set_seed_everywhere(seed)
-
         # Properly Utilize Tensor Cores of the CUDA device ('NVIDIA RTX A4000 Laptop GPU')
         torch.set_float32_matmul_precision('high')
 

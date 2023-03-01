@@ -121,16 +121,28 @@ def set_seed_everywhere(seed):
     
     """ Apply Seeding Everywhere """
     
-    # Apply Manual Seed to Torch Networks
+    if seed == -1: 
+        
+        # Generating Random Seed
+        seed = np.random.randint(0,2**32)
+        print(f"\n\nSeed Must be Provided, Generating Random Seed: {seed}")
+
+    # Set Manual Seed in PyTorch-Lightning 
+    import pytorch_lightning as pl
+    pl.seed_everything(seed)
+    
+    # Set Manual Seed in PyTorch Networks
     torch.manual_seed(seed)
     
-    # Apply Manual Seed in Cuda 
+    # Set Manual Seed in CUDA 
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(seed)
     
-    # Apply Seeding in Numpy and Random
+    # Set Manual Seed in Numpy, Random
     np.random.seed(seed)
     random.seed(seed)
+    
+    return seed
 
 def print_float_array(text, list_of_floats, decimal_number=4):
     

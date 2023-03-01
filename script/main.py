@@ -6,6 +6,7 @@ from pytorch_lightning import Trainer, loggers as pl_loggers
 from pytorch_lightning.profilers import AdvancedProfiler, SimpleProfiler
 from pytorch_lightning.callbacks import EarlyStopping, DeviceStatsMonitor, ModelCheckpoint
 from SAC.LightningCallbacks import PrintCallback, OverrideEpochStepCallback
+from SAC.Utils import set_seed_everywhere
 
 # Import Utilities
 from SAC.Utils import FOLDER, AUTO, print_arguments, check_spells_error
@@ -31,9 +32,12 @@ def main(cfg: Params):
     # Training and Utilities Parameters
     TP = cfg.training_params
     UP = cfg.utilities_params
+    
+    # Add PyTorch Lightning Seeding
+    seed = set_seed_everywhere(cfg.training_params.seed)
 
     # Instantiate Algorithm Model
-    model = hydra.utils.instantiate(cfg.agent, record_video=(UP.record_video and not UP.fast_dev_run),
+    model = hydra.utils.instantiate(cfg.agent, seed=seed, record_video=(UP.record_video and not UP.fast_dev_run),
                                     samples_per_epoch = TP.samples_per_epoch if not UP.fast_dev_run else 1)
 
     # Instantiate Default Callbacks
