@@ -19,6 +19,10 @@ sys.path.append(FOLDER)
 import hydra
 from config.config import Params
 
+# Set Hydra Full Log Error
+import os
+os.environ['HYDRA_FULL_ERROR'] = '1'
+
 # Hydra Decorator to Load Configuration Files
 @hydra.main(config_path=f'{FOLDER}/config', config_name='config', version_base=None)
 def main(cfg: Params):
