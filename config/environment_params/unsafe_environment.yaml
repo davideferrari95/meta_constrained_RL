@@ -63,4 +63,4 @@ sensors_obs: ['accelerometer', 'velocimeter', 'gyro', 'magnetometer']   # Mujoco
 # Stuck Parameters
 stuck_threshold:    0.01
 stuck_penalty:      0.25
-safety_threshold:   0.55
+safety_threshold:   1.0
