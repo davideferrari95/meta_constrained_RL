@@ -1,5 +1,5 @@
 # Environment Name
-env_name:           ['custom','SimpleEnv']
+env_name:           ['custom','SafeEnv']
 
 # Task Configuration
 robot_base:         'xmls/point.xml'
