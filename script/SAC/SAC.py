@@ -2,7 +2,7 @@
 from SAC.Networks import DoubleQCritic, SafetyCritic, DiagGaussianPolicy
 from SAC.Networks import polyak_average, DEVICE
 from SAC.ReplayBuffer import ReplayBuffer, RLDataset
-from SAC.Environment import create_environment, custom_environment_config, record_episode
+from SAC.Environment import create_environment, custom_environment_config, record_violation_episode
 from SAC.Utils import CostMonitor, FOLDER, AUTO
 from SAC.SafetyController import SafetyController, Odometry
 
@@ -131,7 +131,7 @@ class WCSACP(LightningModule):
         # Create Environment
         env_name, env_config = custom_environment_config(environment_config)
         self.env = create_environment(env_name, env_config, seed, record_video, record_epochs)
-        self.test_env = create_environment(env_name, env_config, seed, apply_wrappers=False)
+        self.test_env = create_environment(env_name, env_config, seed, test_environment=True)
 
         # Initialize Safety Controller
         self.SafetyController = SafetyController(
@@ -256,6 +256,10 @@ class WCSACP(LightningModule):
         
         print(colored('\n\nStart Collecting Experience\n\n','yellow'))
 
+        # Initialize Episode Counter
+        self.episode_counter = 0
+        self.experience_episode_counter = 0
+
         # While Buffer is Filling
         while len(self.buffer) < self.hparams.samples_per_epoch:
 
@@ -264,6 +268,7 @@ class WCSACP(LightningModule):
 
             # Method that Play the Environment
             self.play_episode()
+            self.experience_episode_counter += 1
 
         print(colored('\n\nEnd Collecting Experience\n\n','yellow'))
 
@@ -335,13 +340,16 @@ class WCSACP(LightningModule):
         
         # Record Episode with Violation
         if monitor.get_episode_cost() != 0.0:
-            record_episode(env=self.test_env, seed=seed, action_list=action_buffer, current_epoch=self.current_epoch)
+            record_violation_episode(self.test_env, seed, action_buffer, self.current_epoch + self.experience_episode_counter)
 
         # Log Episode Cost
         if policy: self.log('Cost/Episode-Cost', monitor.get_episode_cost())
         if policy: self.log('Cost/Hazards-Violations', monitor.get_hazards_violation())
         if policy: self.log('Cost/Vases-Violations', monitor.get_vases_violation())
         if policy: self.log('Cost/Robot-Stuck', monitor.get_robot_stuck())
+
+        # Increase Episode Counter
+        self.episode_counter += 1
 
     def forward(self, x):
         

@@ -1,7 +1,8 @@
-import sys
+import sys, os
 
 # Import Utils
-from SAC.Utils import VIDEO_FOLDER, FOLDER
+from SAC.Utils import FOLDER, VIDEO_FOLDER, VIOLATIONS_FOLDER
+from SAC.Utils import video_rename
 
 # Import Parameters Class
 sys.path.append(FOLDER)
@@ -324,11 +325,11 @@ def custom_environment_config(config:EnvironmentParams) -> dict: #():
 # Create Single Environment
 def create_environment(name:str, config:dict=None, seed:int=-1, 
                        record_video:bool=True, record_epochs:int=100, 
-                       render_mode='rgb_array', apply_wrappers:bool=True
-                       ) -> gym.Env: #():
-    
+                       render_mode='rgb_array', apply_wrappers:bool=True,
+                       test_environment:bool=False) -> gym.Env: #():
+
   """ Create Gym Environment """
-  
+
   # Custom Environment Creation
   if ('custom' in name) or (config is not None): env = __make_custom_env(name, config, render_mode)
 
@@ -337,22 +338,22 @@ def create_environment(name:str, config:dict=None, seed:int=-1,
     # Build the Environment
     try: env = gym.make(name, render_mode=render_mode)
     except:
-      
+
       # Not-Standard Render Mode
       try: env = gym.make(name, render=True)
       except: env = gym.make(name)
-  
+
   # Check Environment Type (GOAL, STANDARD...)
   ENV_TYPE = __check_environment_type(env)
-  
+
   # Apply Wrappers
-  if apply_wrappers: env = __apply_wrappers(env, record_video, record_epochs, folder=VIDEO_FOLDER, env_type=ENV_TYPE)
-  
+  if test_environment: env = gym.wrappers.RecordVideo(env, video_folder=VIOLATIONS_FOLDER, episode_trigger=lambda x: True, name_prefix='test_')
+  elif apply_wrappers: env = __apply_wrappers(env, record_video, record_epochs, folder=VIDEO_FOLDER, env_type=ENV_TYPE)
+
   # Apply Seed
   env.seed(seed)
   
   return env
-
 
 def __make_custom_env(name, config:dict, render_mode='rgb_array') -> gym.Env: #():
     
@@ -479,10 +480,7 @@ def __check_environment_type(env):
   if type(env.reset()[0]) is dict and 'observation' in env.reset()[0]: return GOAL_ENV
   else: return STANDARD_ENV
 
-def record_episode(env:gym.Env, seed:int, action_list, current_epoch:int):
-
-  # Apply Record Video Wrapper
-  env = gym.wrappers.RecordVideo(env, video_folder=f'{VIDEO_FOLDER}/Violations', episode_trigger=lambda x: True)
+def record_violation_episode(env:gym.Env, seed:int, action_list, current_epoch:int):
 
   # Reset Environment with Seeding
   env.reset(seed=seed)
@@ -490,4 +488,6 @@ def record_episode(env:gym.Env, seed:int, action_list, current_epoch:int):
   # Apply All Action in `action_list` Buffer
   for action in action_list: env.step(action)
 
-  # TODO: Save Video with Current Epoch Name
+  # Rename Video with Current Epoch Name
+  for filename in os.listdir(VIOLATIONS_FOLDER):
+    if filename.startswith('test_'): video_rename(VIOLATIONS_FOLDER, filename, f'violation-episode-{current_epoch}')

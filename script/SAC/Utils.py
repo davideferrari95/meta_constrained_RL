@@ -20,7 +20,9 @@ def check_video_folder(folder):
         
     return f'{folder}/data/videos/Trial_{n}'
 
+# Define Video and Violations Folder
 VIDEO_FOLDER = check_video_folder(FOLDER)
+VIOLATIONS_FOLDER = f'{VIDEO_FOLDER}/Violations'
 
 # Print and Save Arguments
 def print_arguments(cfg, term_print = True, save_file = False):
@@ -225,3 +227,12 @@ class CostMonitor():
     
     def get_robot_stuck(self):
         return self.robot_stuck
+
+def video_rename(folder:str, old_name:str, new_name:str):
+
+    # Check if .mp4 or .json
+    if old_name.endswith('.mp4'): new_name = f'{new_name}.mp4'
+    elif old_name.endswith('.json'): new_name = f'{new_name}.meta.json'
+
+    # Rename Files
+    os.rename(os.path.join(folder, old_name), os.path.join(folder, new_name))
