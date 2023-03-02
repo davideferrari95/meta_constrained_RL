@@ -1,7 +1,7 @@
 import sys, os
 
 # Import Utils
-from SAC.Utils import FOLDER, VIDEO_FOLDER, VIOLATIONS_FOLDER
+from SAC.Utils import FOLDER, VIDEO_FOLDER, VIOLATIONS_FOLDER, TEST_FOLDER
 from SAC.Utils import video_rename
 
 # Import Parameters Class
@@ -326,7 +326,7 @@ def custom_environment_config(config:EnvironmentParams) -> dict: #():
 def create_environment(name:str, config:dict=None, seed:int=-1, 
                        record_video:bool=True, record_epochs:int=100, 
                        render_mode='rgb_array', apply_wrappers:bool=True,
-                       test_environment:bool=False) -> gym.Env: #():
+                       test_environment:bool=False, violation_environment:bool=False) -> gym.Env: #():
 
   """ Create Gym Environment """
 
@@ -347,7 +347,9 @@ def create_environment(name:str, config:dict=None, seed:int=-1,
   ENV_TYPE = __check_environment_type(env)
 
   # Apply Wrappers
-  if test_environment: env = gym.wrappers.RecordVideo(env, video_folder=VIOLATIONS_FOLDER, episode_trigger=lambda x: True, name_prefix='test_')
+  # TODO: Change Recording Trigger (Too Much Videos)
+  if violation_environment: env = gym.wrappers.RecordVideo(env, video_folder=VIOLATIONS_FOLDER, episode_trigger=lambda x: True, name_prefix='new_')
+  elif test_environment: env = gym.wrappers.RecordVideo(env, video_folder=TEST_FOLDER, episode_trigger=lambda x: True, name_prefix='test_')
   elif apply_wrappers: env = __apply_wrappers(env, record_video, record_epochs, folder=VIDEO_FOLDER, env_type=ENV_TYPE)
 
   # Apply Seed
@@ -490,4 +492,4 @@ def record_violation_episode(env:gym.Env, seed:int, action_list, current_epoch:i
 
   # Rename Video with Current Epoch Name
   for filename in os.listdir(VIOLATIONS_FOLDER):
-    if filename.startswith('test_'): video_rename(VIOLATIONS_FOLDER, filename, f'violation-episode-{current_epoch}')
+    if filename.startswith('new_'): video_rename(VIOLATIONS_FOLDER, filename, f'violation-episode-{current_epoch}')

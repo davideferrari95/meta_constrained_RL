@@ -23,6 +23,7 @@ def check_video_folder(folder):
 # Define Video and Violations Folder
 VIDEO_FOLDER = check_video_folder(FOLDER)
 VIOLATIONS_FOLDER = f'{VIDEO_FOLDER}/Violations'
+TEST_FOLDER = f'{VIDEO_FOLDER}/Test'
 
 # Print and Save Arguments
 def print_arguments(cfg, term_print = True, save_file = False):
