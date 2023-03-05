@@ -278,59 +278,77 @@ class SafetyController():
         return F_action
     
     def simulate_unsafe_action(self, obs, sorted_obs, unsafe_lidar, unsafe_action):
-        
-        # Hard-Coded Reward and Cost
-        unsafe_reward, unsafe_cost, done = -0.1, 0.1, False
-        
+
         # Initialize Observations
+        velocimeter = sorted_obs['velocimeter']
         lidar = np.copy(sorted_obs['hazards_lidar']).astype(np.float32)
         unsafe_obs, new_lidar = np.copy(obs), np.copy(lidar)
+        unsafe_experience = []
 
-        for bin in unsafe_lidar:
-            
-            # Convert [0;360] in [-180;+180]
-            bin['Angle'] = bin['Angle'] if bin['Angle'] <= 180 else bin['Angle'] - 360 
-            
-            # If Front Action and 
-            if (unsafe_action[0] >= 0 and 
-                    
-                    # Front Obstacle or Turn-Left Obstacle or Turn-Right Obstacle
-                    (  is_between_180(bin['Angle'], self.front_area[1], self.front_area[0])
-                    or (unsafe_action[1] > 0 and is_between_180(bin['Angle'], 0, 90))
-                    or (unsafe_action[1] < 0 and is_between_180(bin['Angle'], -90, 0)))
-            
-            # If Back Action and 
-            ) or (unsafe_action[0] < 0  and 
-                  
-                    # Back Obstacle or Back-Turn-Left Obstacle or Back-Turn-Right Obstacle
-                    ( is_between_180(bin['Angle'], - 180 - self.front_area[1], 180 - self.front_area[0], extern_angle=True)
-                    or (unsafe_action[1] < 0 and is_between_180(bin['Angle'], 0, 90))
-                    or (unsafe_action[1] > 0 and is_between_180(bin['Angle'], -90, 0)))
-            ):
-                
-                # Increase Value of Lidar Bin in Unsafe Action Direction
-                new_lidar[bin['Index']] = np.clip(new_lidar[bin['Index']] + 0.05, 0, 1)
+        # Hard-Coded Reward and Cost
+        for step in range(35):
 
-        # Print Lidar Changes
-        # if self.debug_print: print(f'\nLidar: {lidar}')
-        # if self.debug_print: print(f'\nNew Lidar: {new_lidar}')
-        if self.debug_print: print_float_array(f'\nLidar Changes: ', new_lidar - lidar)
-        
-        # Map Sorted Lidar with Obs Vector
-        lidar_index = get_index(np.round(lidar, 4), np.round(obs, 4))
-        assert lidar_index is not None, f'Lidar Index is None'
-        unsafe_obs[lidar_index:lidar_index+len(new_lidar)] = new_lidar
-        
-        # Print Mapping
-        # if self.debug_print: print_float_array(f'\nSorted_obs: ', lidar, decimal_number=4)
-        # if self.debug_print: print_float_array(f'Obs: ', obs, decimal_number=4)
-        # if self.debug_print: print(f'Lidar Index: {lidar_index}')
-        
-        # Print Old and New Observation
-        # if self.debug_print: print_float_array(f'\nObservation: ', obs)
-        # if self.debug_print: print_float_array(f'New Observation: ', unsafe_obs)
-        
-        return (obs, unsafe_action, unsafe_reward, unsafe_cost, float(done), unsafe_obs)
+            # First 10 Steps -> robot Can STOP -> cost = 0.25, reward = -0.25
+            if step < 10: unsafe_reward, unsafe_cost, done = -0.25, 0.25, False
+
+            # Next 10 Steps  -> Robot CanNot STOP -> cost = 0.5, reward = -0.5
+            elif 10 <= step < 20: unsafe_reward, unsafe_cost, done = -0.5, 0.5, False
+
+            # Last 15 Steps  -> Robot in Unsafe Area -> cost = 1.0, reward = -1.0
+            else: unsafe_reward, unsafe_cost, done = -1.0, 1.0, False
+
+            for bin in unsafe_lidar:
+
+                # Convert [0;360] in [-180;+180]
+                bin['Angle'] = bin['Angle'] if bin['Angle'] <= 180 else bin['Angle'] - 360 
+
+                # If Front Action and 
+                if (unsafe_action[0] >= 0 and 
+
+                        # Front Obstacle or Turn-Left Obstacle or Turn-Right Obstacle
+                        (is_between_180(bin['Angle'], self.front_area[1], self.front_area[0])
+                        or (unsafe_action[1] > 0 and is_between_180(bin['Angle'], 0, 90))
+                        or (unsafe_action[1] < 0 and is_between_180(bin['Angle'], -90, 0)))
+
+                # If Back Action and 
+                ) or (unsafe_action[0] < 0  and 
+
+                        # Back Obstacle or Back-Turn-Left Obstacle or Back-Turn-Right Obstacle
+                        (is_between_180(bin['Angle'], - 180 - self.front_area[1], 180 - self.front_area[0], extern_angle=True)
+                        or (unsafe_action[1] < 0 and is_between_180(bin['Angle'], 0, 90))
+                        or (unsafe_action[1] > 0 and is_between_180(bin['Angle'], -90, 0)))
+                ):
+
+                    # Increase Value of Lidar Bin in Unsafe Action Direction (Proportional to Velocity)
+                    new_lidar[bin['Index']] = np.clip(new_lidar[bin['Index']] + 0.01 * velocimeter[0], 0, 1)
+
+            # Print Lidar Changes
+            # if self.debug_print: print(f'\nLidar: {lidar}')
+            # if self.debug_print: print(f'\nNew Lidar: {new_lidar}')
+            if self.debug_print: print_float_array(f'\nLidar Changes: ', new_lidar - lidar)
+
+            # Map Sorted Lidar with Obs Vector
+            lidar_index = get_index(np.round(lidar, 4), np.round(obs, 4))
+            assert lidar_index is not None, f'Lidar Index is None'
+            unsafe_obs[lidar_index:lidar_index+len(new_lidar)] = new_lidar
+
+            # Print Mapping
+            # if self.debug_print: print_float_array(f'\nSorted_obs: ', lidar, decimal_number=4)
+            # if self.debug_print: print_float_array(f'Obs: ', obs, decimal_number=4)
+            # if self.debug_print: print(f'Lidar Index: {lidar_index}')
+
+            # Print Old and New Observation
+            # if self.debug_print: print_float_array(f'\nObservation: ', obs)
+            # if self.debug_print: print_float_array(f'New Observation: ', unsafe_obs)
+
+            # Save Unsafe Experience
+            exp = (obs, unsafe_action, unsafe_reward, unsafe_cost, float(done), unsafe_obs)
+            unsafe_experience.append(exp)
+
+            # Update Observation
+            lidar, obs = np.copy(new_lidar), np.copy(unsafe_obs)
+
+        return unsafe_experience
     
     def observation_print(self, action, reward, done, truncated, info):
         

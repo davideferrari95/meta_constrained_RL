@@ -133,11 +133,13 @@ class WCSACP(LightningModule):
         self.env = create_environment(env_name, env_config, seed, record_video, record_epochs)
 
         # Create Violation Environment
-        self.violation_env = create_environment(env_name, env_config, seed, violation_environment=environment_config.violation_environment,
+        self.violation_env = create_environment(env_name, env_config, seed, record_video,
+                                                violation_environment=environment_config.violation_environment,
                                                 violation_env_epochs=environment_config.violation_env_epochs)
 
         # Create Test Environment
-        self.test_env = create_environment(env_name, env_config, seed, test_environment=environment_config.test_environment,
+        self.test_env = create_environment(env_name, env_config, seed, record_video,
+                                           test_environment=environment_config.test_environment,
                                            test_env_epochs=environment_config.test_env_epochs)
 
         # Initialize Safety Controller
@@ -356,7 +358,7 @@ class WCSACP(LightningModule):
 
                 # Save Unsafe Experience in Replay Buffer
                 unsafe_exp = self.SafetyController.simulate_unsafe_action(obs, info['sorted_obs'], unsafe_lidar, action)
-                self.buffer.append(unsafe_exp)
+                for exp in unsafe_exp: self.buffer.append(exp)
 
                 # Print Observation
                 if self.SafetyController.debug_print: self.SafetyController.observation_print(safe_action, reward, done, truncated, next_info)
