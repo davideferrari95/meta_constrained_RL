@@ -348,8 +348,8 @@ def create_environment(name:str, config:dict=None, seed:int=-1,
   ENV_TYPE = __check_environment_type(env)
 
   # Apply Wrappers
-  if violation_environment: env = gym.wrappers.RecordVideo(env, video_folder=VIOLATIONS_FOLDER, episode_trigger=lambda x: x % violation_env_epochs == 0, name_prefix='new_')
-  elif test_environment: env = gym.wrappers.RecordVideo(env, video_folder=TEST_FOLDER, episode_trigger=lambda x: x % test_env_epochs == 0, name_prefix='test_')
+  if violation_environment and record_video: env = gym.wrappers.RecordVideo(env, video_folder=VIOLATIONS_FOLDER, episode_trigger=lambda x: x % violation_env_epochs == 0, name_prefix='new_')
+  elif test_environment and record_video:    env = gym.wrappers.RecordVideo(env, video_folder=TEST_FOLDER, episode_trigger=lambda x: x % test_env_epochs == 0, name_prefix='test_')
   elif apply_wrappers: env = __apply_wrappers(env, record_video, record_epochs, folder=VIDEO_FOLDER, env_type=ENV_TYPE)
 
   # Apply Seed
