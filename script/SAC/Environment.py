@@ -326,7 +326,8 @@ def custom_environment_config(config:EnvironmentParams) -> dict: #():
 def create_environment(name:str, config:dict=None, seed:int=-1, 
                        record_video:bool=True, record_epochs:int=100, 
                        render_mode='rgb_array', apply_wrappers:bool=True,
-                       test_environment:bool=False, violation_environment:bool=False) -> gym.Env: #():
+                       test_environment:bool=False, test_env_epochs:int=1, 
+                       violation_environment:bool=False, violation_env_epochs:int=1) -> gym.Env: #():
 
   """ Create Gym Environment """
 
@@ -347,9 +348,8 @@ def create_environment(name:str, config:dict=None, seed:int=-1,
   ENV_TYPE = __check_environment_type(env)
 
   # Apply Wrappers
-  # TODO: Change Recording Trigger (Too Much Videos)
-  if violation_environment: env = gym.wrappers.RecordVideo(env, video_folder=VIOLATIONS_FOLDER, episode_trigger=lambda x: True, name_prefix='new_')
-  elif test_environment: env = gym.wrappers.RecordVideo(env, video_folder=TEST_FOLDER, episode_trigger=lambda x: True, name_prefix='test_')
+  if violation_environment: env = gym.wrappers.RecordVideo(env, video_folder=VIOLATIONS_FOLDER, episode_trigger=lambda x: x % violation_env_epochs == 0, name_prefix='new_')
+  elif test_environment: env = gym.wrappers.RecordVideo(env, video_folder=TEST_FOLDER, episode_trigger=lambda x: x % test_env_epochs == 0, name_prefix='test_')
   elif apply_wrappers: env = __apply_wrappers(env, record_video, record_epochs, folder=VIDEO_FOLDER, env_type=ENV_TYPE)
 
   # Apply Seed

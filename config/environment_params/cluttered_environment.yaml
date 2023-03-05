@@ -64,3 +64,10 @@ sensors_obs: ['accelerometer', 'velocimeter', 'gyro', 'magnetometer']   # Mujoco
 stuck_threshold:    0.01
 stuck_penalty:      0.25
 safety_threshold:   0.6
+
+# Test and Violation Environments
+test_environment:       true
+violation_environment:  true
+test_env_epochs:        1
+violation_env_epochs:   10
+test_episode_frequency: 1000

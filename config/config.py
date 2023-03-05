@@ -101,6 +101,13 @@ class EnvironmentParams:
   stuck_threshold:    float
   stuck_penalty:      float
   safety_threshold:   float
+  
+  # Test and Violation Environments
+  test_environment:       bool
+  violation_environment:  bool
+  test_env_epochs:        int
+  violation_env_epochs:   int
+  test_episode_frequency: int
 
 @dataclass
 class UtilitiesParams:

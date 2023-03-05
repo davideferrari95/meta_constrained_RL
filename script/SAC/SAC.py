@@ -131,7 +131,14 @@ class WCSACP(LightningModule):
         # Create Environment
         env_name, env_config = custom_environment_config(environment_config)
         self.env = create_environment(env_name, env_config, seed, record_video, record_epochs)
-        self.violation_env = create_environment(env_name, env_config, seed, violation_environment=True)
+
+        # Create Violation Environment
+        self.violation_env = create_environment(env_name, env_config, seed, violation_environment=environment_config.violation_environment,
+                                                violation_env_epochs=environment_config.violation_env_epochs)
+
+        # Create Test Environment
+        self.test_env = create_environment(env_name, env_config, seed, test_environment=environment_config.test_environment,
+                                           test_env_epochs=environment_config.test_env_epochs)
 
         # Initialize Safety Controller
         self.SafetyController = SafetyController(
@@ -273,6 +280,25 @@ class WCSACP(LightningModule):
         print(colored('\n\nEnd Collecting Experience\n\n','yellow'))
 
     @torch.no_grad()
+    def __play_test_episode(self, policy=None):
+
+        # Exit if not Policy
+        if not policy: return
+
+        # Reset Environment
+        obs, _ = self.test_env.reset(seed=np.random.randint(0,2**32))
+        done, truncated = False, False
+
+        while not done and not truncated:
+
+            # Get the Action Mean
+            action, _, _ = policy(obs, mean=True)
+            action = action.cpu().detach().numpy()
+
+            # Execute Action on the Environment
+            obs, _, done, truncated, _ = self.test_env.step(action)
+
+    @torch.no_grad()
     def play_episode(self, policy=None):
 
         # Compute Environment Seeding
@@ -341,6 +367,10 @@ class WCSACP(LightningModule):
         # Record Episode with Violation
         if monitor.get_episode_cost() != 0.0:
             record_violation_episode(self.violation_env, seed, action_buffer, self.current_epoch + self.experience_episode_counter)
+
+        # Play Test Episode
+        if self.episode_counter % self.hparams.environment_config.test_episode_frequency == 0.0:
+            self.__play_test_episode(policy)
 
         # Log Episode Cost
         if policy: self.log('Cost/Episode-Cost', monitor.get_episode_cost())
