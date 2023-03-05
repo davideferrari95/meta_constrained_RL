@@ -312,58 +312,58 @@ class WCSACP(LightningModule):
         # Initialize Odometry and Cost Monitor
         odometry = Odometry()
         monitor = CostMonitor()
-        
+
         while not done and not truncated:
 
             # Select an Action using our Policy (Random Action in the Beginning)
             if policy:
-                
+
                 # Get only the Action, not the Log Probability
                 action, _, _ = policy(obs)
                 action = action.cpu().detach().numpy()
-            
+
             # Sample from the Action Space
             else: action = self.env.action_space.sample()
 
             # Check if Policy Action is Safe
             unsafe_lidar, safe_action = self.SafetyController.check_safe_action(action, info['sorted_obs'], self.hparams.environment_config.safety_threshold)
-            
+
             # Execute Safe Action on the Environment
             next_obs, reward, done, truncated, next_info = self.env.step(safe_action)
-            
+
             # Save Executed Action in Action Buffer
             action_buffer.append(safe_action)
 
             # Penalize if Robot Get Stuck in Position
             odometry.update_odometry(next_info)
             if odometry.stuck_in_position(n=50, threshold=self.hparams.environment_config.stuck_threshold): 
-                
+
                 monitor.robot_stuck += 1
                 reward -= self.hparams.environment_config.stuck_penalty
-            
+
             # Get Cumulative Cost | Update Episode Cost 
             cost = monitor.compute_cost(next_info)
-            
+
             # Add Cost to Reward
             # reward -= cost
-            
+
             # Save Safe Experience in Replay Buffer
             safe_exp = (obs, safe_action, reward, cost, float(done), next_obs)
             self.buffer.append(safe_exp)
-            
+
             # Check if Safe Action != Action
             if np.not_equal(safe_action, action).any(): 
-                
+
                 # Save Unsafe Experience in Replay Buffer
                 unsafe_exp = self.SafetyController.simulate_unsafe_action(obs, info['sorted_obs'], unsafe_lidar, action)
                 self.buffer.append(unsafe_exp)
-        
+
                 # Print Observation
                 if self.SafetyController.debug_print: self.SafetyController.observation_print(safe_action, reward, done, truncated, next_info)
-            
+
             # Update Observations
             obs, info = next_obs, next_info
-        
+
         # Record Episode with Violation
         if monitor.get_episode_cost() != 0.0:
             record_violation_episode(self.violation_env, seed, action_buffer, self.current_epoch + self.experience_episode_counter)
