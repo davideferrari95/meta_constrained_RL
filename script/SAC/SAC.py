@@ -349,6 +349,10 @@ class WCSACP(LightningModule):
             # Add Cost to Reward
             # reward -= cost
 
+            # Add -1.0 Penalty Reward for Each Step (Goal Reward Increased by +1)
+            # Penalize while not Getting the Goal Reward
+            reward -= 1.0
+
             # Save Safe Experience in Replay Buffer
             safe_exp = (obs, safe_action, reward, cost, float(done), next_obs)
             self.buffer.append(safe_exp)
