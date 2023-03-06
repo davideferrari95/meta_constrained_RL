@@ -315,8 +315,8 @@ def custom_environment_config(config:EnvironmentParams) -> dict: #():
     # 'goal_locations':    config.goal_locations,     # Explicitly Place Goal XY Coordinates
     # 'hazards_locations': config.hazards_locations,  # Explicitly Place Hazards XY Coordinates
     
-    # Robot Sensors
-    'sensors_obs': config.sensors_obs,   # Mujoco Sensors
+    # Robot Sensors (Mujoco Sensors)
+    'sensors_obs': config.sensors_obs,
   
   }
   
