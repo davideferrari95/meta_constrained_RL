@@ -42,10 +42,10 @@ def custom_environment_config(config:EnvironmentParams) -> dict: #():
     configurations, so an environment in Safety Gym can be completely specified
     by the config dict of the Engine() object.
   '''
-    
+
   # Default Configuration
   DEFAULT = {
-        
+
     'max_episode_steps': 1000,  # Maximum number of environment steps in an episode
     'action_noise': 0.0,        # Magnitude of independent per-component gaussian action noise
 
@@ -88,7 +88,7 @@ def custom_environment_config(config:EnvironmentParams) -> dict: #():
     'observe_gremlins': False,      # Gremlins are observed with lidar-like space
     'observe_vision': False,        # Observe vision from the robot
     'observe_world_lim': False,     # Observe world limits
-    
+
     # Observations Not-Normalized, Only for Debugging
     'observe_qpos': False,          # Observe the q-pos of the world
     'observe_qvel': False,          # Observe the q-vel of the robot
@@ -141,7 +141,7 @@ def custom_environment_config(config:EnvironmentParams) -> dict: #():
     reward_distance should be positive to encourage moving towards the goal
     if reward_distance is 0, then the reward function is sparse 
     '''
-    
+
     # Reward Parameters
     'reward_distance': 1.0,             # Dense reward multiplied by the distance moved to the goal
     'reward_goal': 1.0,                 # Sparse reward for being inside the goal area
@@ -207,7 +207,7 @@ def custom_environment_config(config:EnvironmentParams) -> dict: #():
     'vases_size': 0.1,              # Half-size (radius) of vase object
     'vases_density': 0.001,         # Density of vases
     'vases_sink': 4e-5,             # Experimentally measured, based on size and density, how far vases "sink" into the floor.
-    
+
     '''
     Mujoco has soft contacts, so vases slightly sink into the floor,
     in a way which can be hard to precisely calculate (and varies with time)
@@ -246,7 +246,7 @@ def custom_environment_config(config:EnvironmentParams) -> dict: #():
     # For deterministic steps, set frameskip_binom_p = 1.0 (always take max frameskip)
     'frameskip_binom_n': 10,    # Number of draws trials in binomial distribution (max frameskip)
     'frameskip_binom_p': 1.0,   # Probability of trial return (controls distribution)
-    
+
     # Recording Setup
     'default_camera_id': 1,
 
@@ -254,16 +254,16 @@ def custom_environment_config(config:EnvironmentParams) -> dict: #():
     '_seed': None,  
 
   }
-  
+
   # Return None if not Custom Environment
   if not 'custom' in config.env_name: return config.env_name, None
-  
+
   # Remove Penalty when Get the Goal Reward
   config.reward_goal += config.penalty_step
 
   # Custom Environment
   env_config = {
-      
+
     # Task Configuration
     'robot_base': config.robot_base,
     'task': config.task,
@@ -271,11 +271,11 @@ def custom_environment_config(config:EnvironmentParams) -> dict: #():
     # Rewards
     'reward_distance': config.reward_distance,   # Dense reward multiplied by the distance moved to the goal
     'reward_goal':     config.reward_goal,       # Sparse reward for being inside the goal area
-    
+
     # World Spawn Limits
     'world_limits':       config.world_limits,          # Soft world limits (min X, min Y, max X, max Y)
     'placements_extents': config.placements_extents,    # Placement limits (min X, min Y, max X, max Y)
-    
+
     # Activation Bool
     'observe_goal_lidar': config.observe_goal_lidar,    # Enable Goal Lidar
     'observe_buttons':    config.observe_buttons,       # Lidar observation of button object positions
@@ -285,13 +285,13 @@ def custom_environment_config(config:EnvironmentParams) -> dict: #():
     'observe_gremlins':   config.observe_gremlins,      # Gremlins are observed with lidar-like space
     'observe_walls':      config.observe_walls,         # Observe the walls with a lidar space
     'observe_world_lim':  config.observe_world_lim,     # Observe world limits
-    
+
     'constrain_hazards':  config.constrain_hazards,     # Penalty Entering in Hazards
     'constrain_vases':    config.constrain_vases,       # Constrain robot from touching objects
     'constrain_pillars':  config.constrain_pillars,     # Immovable obstacles in the environment
     'constrain_gremlins': config.constrain_gremlins,    # Moving objects that must be avoided
     'constrain_buttons':  config.constrain_buttons,     # Penalize pressing incorrect buttons
-    
+
     # Lidar Config
     'lidar_num_bins': config.lidar_num_bins,    # Number of Lidar Dots
     'lidar_max_dist': config.lidar_max_dist,    # Maximum distance for lidar sensitivity (if None, exponential distance)
@@ -307,7 +307,7 @@ def custom_environment_config(config:EnvironmentParams) -> dict: #():
     'hazards_size':    config.hazards_size,     # Size of Hazard (0.2)
     'hazards_keepout': config.hazards_keepout,  # Min Spawn Distance to Hazard
     'hazards_cost':    config.hazards_cost,     # Cost (per step) for violating the constraint
-    
+
     # Vases Config
     'vases_num':           config.vases_num,              # Number of vases in the world
     'vases_contact_cost':  config.vases_contact_cost,     # Cost (per step) for being in contact with a vase
@@ -321,12 +321,12 @@ def custom_environment_config(config:EnvironmentParams) -> dict: #():
     # HardCoded Location of Goal and Hazards
     # 'goal_locations':    config.goal_locations,     # Explicitly Place Goal XY Coordinates
     # 'hazards_locations': config.hazards_locations,  # Explicitly Place Hazards XY Coordinates
-    
+
     # Robot Sensors (Mujoco Sensors)
     'sensors_obs': config.sensors_obs,
-  
+
   }
-  
+
   return config.env_name, env_config
 
 # Create Single Environment
@@ -361,7 +361,7 @@ def create_environment(name:str, config:dict=None, seed:int=-1,
 
   # Apply Seed
   env.seed(seed)
-  
+
   return env
 
 def __make_custom_env(name, config:dict, render_mode='rgb_array') -> gym.Env: #():
@@ -375,7 +375,7 @@ def __make_custom_env(name, config:dict, render_mode='rgb_array') -> gym.Env: #(
   if "static" in name:
 
     name = 'StaticEnv-v0'
-        
+
     config = {
       "placements_extents": [-1.5, -1.5, 1.5, 1.5],
       "robot_base": "xmls/point.xml",
@@ -393,7 +393,7 @@ def __make_custom_env(name, config:dict, render_mode='rgb_array') -> gym.Env: #(
       "hazards_keepout": 0.705,
       "hazards_locations": [(0, 0)],
     }
-  
+
   # Build Dynamic Custom Environment
   elif "dynamic" in name:
 
@@ -416,7 +416,7 @@ def __make_custom_env(name, config:dict, render_mode='rgb_array') -> gym.Env: #(
     }
 
   # If Name is not in Pre-Configured Environments and Config is None
-  elif config is None: raise Exception(f"{name} Environment Not Implemented")    
+  elif config is None: raise Exception(f"{name} Environment Not Implemented")
 
   # Use Given Config | Remove 'custom' from name, Capitalize and add '-v0'
   else: name = (''.join(name)).replace('custom','') + '-v0'
@@ -430,28 +430,28 @@ def __make_custom_env(name, config:dict, render_mode='rgb_array') -> gym.Env: #(
       max_episode_steps=1000,
       kwargs={"config": config},
     )
-  
+
   return gym.make(name, render_mode=render_mode)
 
 def __apply_wrappers(env, record_video, record_epochs, folder, env_type) -> gym.Env: #():
-  
+
   """ Apply Gym Wrappers """
-  
+
   # Apply Specific Wrappers form GOAl Environments
   if env_type == GOAL_ENV:
-        
+
     print('/n/nGOAL Environment/n/n')
-    
+
     # Filter Out the Achieved Goal
     env = gym.wrappers.FilterObservation(env, ['observation', 'desired_goal'])
-    
+
     # Flatten the Dictionary in a Flatten Array
     env = gym.wrappers.FlattenObservation(env)
 
   # FIX: MoviePy Log Removed
   # Record Environment Videos in the specified folder, trigger specifies which episode to record and which to ignore (1 in record_epochs)
   if record_video: env = gym.wrappers.RecordVideo(env, video_folder=folder, episode_trigger=lambda x: x % record_epochs == 0)
-  
+
   # Keep Track of the Reward the Agent Obtain and Save them into a Property
   env = gym.wrappers.RecordEpisodeStatistics(env)
 
@@ -462,27 +462,27 @@ def __check_environment_type(env):
   '''
   GOAL Environment: GOAL is inside the Observation Tuple
   GOAL -> Make the "achieved_goal" equal to the "desired_goal"
-  
+
   env.reset():
-  
+
   (
     {
       'observation': array([ 3.8439669e-02, -2.1944723e-12,  1.9740014e-01,  0.0000000e+00, -0.0000000e+00,  0.0000000e+00], dtype=float32), 
       'achieved_goal': array([ 3.8439669e-02, -2.1944723e-12,  1.9740014e-01], dtype=float32),
       'desired_goal': array([0.02063092, 0.09413411, 0.22546957], dtype=float32)
     },
-  
+
     {
       'is_success': array(False)
     }
   )
-  
+
   In "PandaReach-v3" Environment:
-  
+
     observation   = Joint Position
     achieved_goal = X,Y,Z Position of the Tip of the Robot
     desired_goal  = X,Y,Z Position of the Reach Point
-  
+
   '''
 
   # Check if is a Goal-Environment

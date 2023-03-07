@@ -26,17 +26,17 @@ os.environ['HYDRA_FULL_ERROR'] = '1'
 # Hydra Decorator to Load Configuration Files
 @hydra.main(config_path=f'{FOLDER}/config', config_name='config', version_base=None)
 def main(cfg: Params):
-    
+
     # Check for 'None' or 'Null' Strings -> None
     cfg = check_spells_error(cfg)
-    
+
     # Display Arguments
     print_arguments(cfg, term_print=True, save_file=False)
 
     # Training and Utilities Parameters
     TP = cfg.training_params
     UP = cfg.utilities_params
-    
+
     # Add PyTorch Lightning Seeding
     seed = set_seed_everywhere(cfg.training_params.seed)
 
@@ -52,7 +52,7 @@ def main(cfg: Params):
 
     # Model Checkpoint Callback
     # callbacks.append(ModelCheckpoint())
-    
+
     # Override Epochs Callback
     # callbacks.append(OverrideEpochStepCallback())
 
@@ -65,34 +65,34 @@ def main(cfg: Params):
 
     # Create Trainer Module
     trainer = Trainer(
-        
+
         # Devices
-        devices = AUTO, 
+        devices = AUTO,
         accelerator = AUTO,
-        
+
         # Hyperparameters
         max_epochs = TP.epochs,
-        
+
         # Additional Callbacks
         callbacks = callbacks,
 
         # Use Python Profiler
         profiler = profiler,
-        
+
         # Custom TensorBoard Logger
         logger = pl_loggers.TensorBoardLogger(save_dir=f'{FOLDER}/data/logs/'),
-        
+
         # Developer Test Mode
         fast_dev_run = UP.fast_dev_run
 
     )
-        
+
     # Save Arguments
     print_arguments(cfg, term_print=False, save_file=(True and (UP.record_video and not UP.fast_dev_run)))
 
     # Start Training
     trainer.fit(model)
-    
+
     # Play Some Test Episodes
     model.play_test_episodes()
 

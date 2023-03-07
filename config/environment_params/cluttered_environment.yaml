@@ -60,8 +60,8 @@ vases_velocity_cost: 1.0      # Cost (per step) per m/s of velocity for a vase
 # goal_locations: [[0,1]]                     # Explicitly Place Goal XY Coordinates
 # hazards_locations: [[1,0],[-1,0],[0,-1]]    # Explicitly Place Hazards XY Coordinates
 
-# Robot Sensors
-sensors_obs: ['accelerometer', 'velocimeter', 'gyro', 'magnetometer']   # Mujoco Sensors
+# Robot Sensors (Mujoco Sensors)
+sensors_obs: ['accelerometer', 'velocimeter', 'gyro', 'magnetometer']
 
 # Stuck Parameters
 stuck_threshold:    0.01
