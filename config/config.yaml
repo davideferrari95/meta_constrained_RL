@@ -4,6 +4,7 @@ defaults:
   - entropy_params: default_entropy
   - cost_params: default_cost
   - environment_params: safe_environment
+  - safe_params: default_safety
   - _self_
 
 training_params:

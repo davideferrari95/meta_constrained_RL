@@ -92,7 +92,9 @@ def main(cfg: Params):
 
     # Start Training
     trainer.fit(model)
-
+    
+    # Start Testing
+    trainer.test()
 
 if __name__ == '__main__':
 

@@ -35,6 +35,11 @@ class CostParams:
   damp_scale:         float
 
 @dataclass
+class SafeParams:
+
+  unsafe_experience:  bool    # Activate or Not UnSafe Experience Saving in ReplayBuffer
+
+@dataclass
 class EnvironmentParams:
 
   # Task Configuration
@@ -128,5 +133,6 @@ class Params:
   training_params:    TrainingParams
   entropy_params:     EntropyParams
   cost_params:        CostParams
+  safe_params:        SafeParams
   environment_params: EnvironmentParams
   utilities_params:   UtilitiesParams

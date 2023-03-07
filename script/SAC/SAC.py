@@ -26,9 +26,9 @@ from pytorch_lightning import LightningModule
 
 # Create SAC Algorithm
 class WCSACP(LightningModule):
-    
+
     '''
-    
+
     # SAC Parameters
     # seed:                 Seeding Environment and Torch Network
     # record_video:         Record Video with RecordVideo Wrapper
@@ -49,21 +49,21 @@ class WCSACP(LightningModule):
     # critic_betas:         Coefficients for Computing Running Averages of Gradient
     # critic_update_freq:   Update Frequency of Critic Network
     # critic_hidden_depth:  Number of Hidden Layers (-1) of Critic Networks
-    
+
     # Actor Parameters
     # actor_lr:             Learning Rate of Actor Network
     # actor_betas:          Coefficients for Computing Running Averages of Gradient
     # actor_update_freq:    Update Frequency of Actor Network
     # log_std_bounds:       Constrain log_std Inside Bounds
     # actor_hidden_depth:   Number of Hidden Layers (-1) of Actor Network
-    
+
     # Entropy Parameters
     # alpha:                Entropy Regularization Coefficient  |  Set it to 'auto' to Automatically Learn
     # init_alpha:           Initial Value of α [Optional]       |  When Learning Automatically α
     # target_alpha:         Target Entropy                      |  When Learning Automatically α, Set it to 'auto' to Automatically Compute Target    
     # alpha_betas:          Coefficients for Computing Running Averages of Gradient
     # alpha_lr:             Learning Rate of Alpha Coefficient
-    
+
     # Cost Parameters
     # fixed_cost_penalty:   Cost Penalty Coefficient                    |  Set it to 'auto' to Automatically Learn
     # init_beta:            Initial Value of β [Optional]               |  When Learning Automatically β
@@ -74,7 +74,10 @@ class WCSACP(LightningModule):
     # cost_lr_scale:        Scale Learning Rate of Safety Weight Optimizer
     # risk_level:           Risk Averse = 0, Risk Neutral = 1
     # damp_scale:           Damp Impact of Safety Constraint in Actor Update
-    
+
+    # Safe Parameters:
+    unsafe_experience:      Activate or Not UnSafe Experience Saving in ReplayBuffer
+
     # Environment Parameters
     # env_name:             Environment Name
     # lidar_num_bins:       Number of Lidar Dots
@@ -88,25 +91,25 @@ class WCSACP(LightningModule):
     # safety_threshold:     Lidar Threshold to Trigger Safe Action Control
 
     '''
-    
+
     def __init__(
-        
+
         self, seed=-1, record_video=True, record_epochs=100, capacity=100_000,
         batch_size=512, hidden_size=256, loss_function='smooth_l1_loss', optim='AdamW', 
         samples_per_epoch=10_000,  gamma=0.99, tau=0.05, epsilon=0.1, smooth_lambda=0.01,
-        
+
         # Critic and Actor Parameters:
         critic_lr=1e-3, critic_betas=[0.9, 0.999], critic_update_freq=2,
         actor_lr=1e-3,  actor_betas=[0.9, 0.999],  actor_update_freq=1,
         log_std_bounds=[-20, 2], critic_hidden_depth=2, actor_hidden_depth=2,
-        
+
         # Entropy Coefficient α, if AUTO -> Automatic Learning:
         alpha: Union[str, float]=AUTO,
         init_alpha: Optional[float]=None,
         target_alpha: Union[str, float]=AUTO,
         alpha_betas=[0.9, 0.999],
         alpha_lr=1e-3,
-        
+
         # Cost Constraints:
         fixed_cost_penalty: Optional[float]=None,
         init_beta: Optional[float]=None,
@@ -117,7 +120,10 @@ class WCSACP(LightningModule):
         cost_lr_scale=1,
         risk_level=0.5,
         damp_scale=10,
-        
+
+        # Safety Parameters:
+        unsafe_experience=True,
+
         # Environment Configuration Parameters:
         environment_config:Optional[EnvironmentParams]=None
 
@@ -282,25 +288,6 @@ class WCSACP(LightningModule):
         print(colored('\n\nEnd Collecting Experience\n\n','yellow'))
 
     @torch.no_grad()
-    def __play_test_episode(self, policy=None):
-
-        # Exit if not Policy
-        if not policy: return
-
-        # Reset Environment
-        obs, _ = self.test_env.reset(seed=np.random.randint(0,2**32))
-        done, truncated = False, False
-
-        while not done and not truncated:
-
-            # Get the Action Mean
-            action, _, _ = policy(obs, mean=True)
-            action = action.cpu().detach().numpy()
-
-            # Execute Action on the Environment
-            obs, _, done, truncated, _ = self.test_env.step(action)
-
-    @torch.no_grad()
     def play_episode(self, policy=None):
 
         # Compute Environment Seeding
@@ -349,16 +336,15 @@ class WCSACP(LightningModule):
             # Add Cost to Reward
             # reward -= cost
 
-            # Add -1.0 Penalty Reward for Each Step (Goal Reward Increased by +1)
-            # Penalize while not Getting the Goal Reward
-            reward -= 1.0
+            # Add Penalty Reward for Each Step not Getting the Goal Reward
+            reward -= self.hparams.environment_config.penalty_step
 
             # Save Safe Experience in Replay Buffer
             safe_exp = (obs, safe_action, reward, cost, float(done), next_obs)
             self.buffer.append(safe_exp)
 
             # Check if Safe Action != Action
-            if np.not_equal(safe_action, action).any(): 
+            if self.hparams.unsafe_experience and np.not_equal(safe_action, action).any(): 
 
                 # Save Unsafe Experience in Replay Buffer
                 unsafe_exp = self.SafetyController.simulate_unsafe_action(obs, info['sorted_obs'], unsafe_lidar, action)
@@ -373,10 +359,6 @@ class WCSACP(LightningModule):
         # Record Episode with Violation
         if monitor.get_episode_cost() != 0.0:
             record_violation_episode(self.violation_env, seed, action_buffer, self.current_epoch + self.experience_episode_counter)
-
-        # Play Test Episode
-        if self.episode_counter % self.hparams.environment_config.test_episode_frequency == 0.0:
-            self.__play_test_episode(policy)
 
         # Log Episode Cost
         if policy: self.log('Cost/Episode-Cost', monitor.get_episode_cost())
@@ -577,3 +559,30 @@ class WCSACP(LightningModule):
         
         # Log Episode Return
         self.log("episode/Return", self.env.return_queue[-1].item(), on_epoch=True)
+
+    def test_step(self):
+        
+        print(colored('\n\nQuando Viene chiamata questa ???\n\n','red'))
+        # Play a Bunch of Test Episodes
+        # self.play_test_episode(policy=self.target_policy)
+
+    def test_epoch_end(self):
+        
+        # for _ in range(self.hparams.test_episode_number):
+            
+            # # Reset Environment
+            # obs, _ = self.test_env.reset(seed=np.random.randint(0,2**32))
+            # done, truncated = False, False
+
+            # while not done and not truncated:
+
+            #     # Get the Action Mean
+            #     action, _, _ = self.target_policy(obs, mean=True)
+            #     action = action.cpu().detach().numpy()
+
+            #     # Execute Action on the Environment
+            #     obs, _, done, truncated, _ = self.test_env.step(action)
+            
+        print(colored('\n\nQuando Viene chiamata questa ??? v2\n\n','red'))
+        # Play a Bunch of Test Episodes
+        # self.play_test_episode(policy=self.target_policy)
