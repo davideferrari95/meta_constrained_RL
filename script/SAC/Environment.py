@@ -49,7 +49,8 @@ def custom_environment_config(config:EnvironmentParams) -> dict: #():
     'max_episode_steps': 1000,  # Maximum number of environment steps in an episode
     'action_noise': 0.0,        # Magnitude of independent per-component gaussian action noise
 
-    # Environment Limits
+    # World Limits
+    'world_limits': [-4, -4, 4, 4],         # Soft world limits (min X, min Y, max X, max Y)
     'placements_extents': [-2, -2, 2, 2],   # Placement limits (min X, min Y, max X, max Y)
     'placements_margin': 0.0,               # Additional margin added to keepout when placing objects
 
@@ -86,6 +87,7 @@ def custom_environment_config(config:EnvironmentParams) -> dict: #():
     'observe_buttons': False,       # Lidar observation of button object positions
     'observe_gremlins': False,      # Gremlins are observed with lidar-like space
     'observe_vision': False,        # Observe vision from the robot
+    'observe_world_lim': False,     # Observe world limits
     
     # Observations Not-Normalized, Only for Debugging
     'observe_qpos': False,          # Observe the q-pos of the world
@@ -256,6 +258,9 @@ def custom_environment_config(config:EnvironmentParams) -> dict: #():
   # Return None if not Custom Environment
   if not 'custom' in config.env_name: return config.env_name, None
   
+  # Remove Penalty when Get the Goal Reward
+  config.reward_goal += config.penalty_step
+
   # Custom Environment
   env_config = {
       
@@ -268,7 +273,8 @@ def custom_environment_config(config:EnvironmentParams) -> dict: #():
     'reward_goal':     config.reward_goal,       # Sparse reward for being inside the goal area
     
     # World Spawn Limits
-    'placements_extents': config.placements_extents,
+    'world_limits':       config.world_limits,          # Soft world limits (min X, min Y, max X, max Y)
+    'placements_extents': config.placements_extents,    # Placement limits (min X, min Y, max X, max Y)
     
     # Activation Bool
     'observe_goal_lidar': config.observe_goal_lidar,    # Enable Goal Lidar
@@ -278,6 +284,7 @@ def custom_environment_config(config:EnvironmentParams) -> dict: #():
     'observe_pillars':    config.observe_pillars,       # Lidar observation of pillar object positions
     'observe_gremlins':   config.observe_gremlins,      # Gremlins are observed with lidar-like space
     'observe_walls':      config.observe_walls,         # Observe the walls with a lidar space
+    'observe_world_lim':  config.observe_world_lim,     # Observe world limits
     
     'constrain_hazards':  config.constrain_hazards,     # Penalty Entering in Hazards
     'constrain_vases':    config.constrain_vases,       # Constrain robot from touching objects

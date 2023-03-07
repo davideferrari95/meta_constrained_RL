@@ -7,10 +7,12 @@ task:               'goal'
 
 # Rewards
 reward_distance:    1.0       # Dense reward multiplied by the distance moved to the goal
-reward_goal:        6.0       # Sparse reward for being inside the goal area
-    
-# World Spawn Limits
-placements_extents: [-2, -2, 2, 2]
+reward_goal:        5.0       # Sparse reward for being inside the goal area
+penalty_step:		    0.0       # Penalty Every Non-Goal Step
+
+# World Limits
+world_limits:       [-4, -4, 4, 4]    # Soft world limits (min X, min Y, max X, max Y)
+placements_extents: [-2, -2, 2, 2]    # Placement limits (min X, min Y, max X, max Y)
 
 # Activation Bool
 observe_goal_lidar: True      # Enable Goal Lidar
@@ -20,6 +22,7 @@ observe_vases:      True      # Observe the vector from agent to vases
 observe_pillars:    False     # Lidar observation of pillar object positions
 observe_gremlins:   False     # Gremlins are observed with lidar-like space
 observe_walls:      False     # Observe the walls with a lidar space
+observe_world_lim:  True      # Observe world limits
 
 constrain_hazards:  True      # Penalty Entering in Hazards
 constrain_vases:    True      # Constrain robot from touching objects
@@ -72,4 +75,4 @@ test_environment:       true
 violation_environment:  true
 test_env_epochs:        1
 violation_env_epochs:   1
-test_episode_frequency: 250
+test_episode_number:    10

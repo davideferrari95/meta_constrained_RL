@@ -41,14 +41,16 @@ class EnvironmentParams:
   env_name:           Union[str, List[str]]
   robot_base:         str
   task:               str
-  
+
   # Rewards
   reward_distance:    float   # Dense reward multiplied by the distance moved to the goal
   reward_goal:        float   # Sparse reward for being inside the goal area
-    
-  # World Spawn Limits
-  placements_extents: List[float]
-  
+  penalty_step:		    float   # Reward Every Non-Goal Step
+
+  # World Limits
+  world_limits:       List[float]   # Soft world limits (min X, min Y, max X, max Y)
+  placements_extents: List[float]   # Placement limits (min X, min Y, max X, max Y)
+
   # Activation Bool
   observe_goal_lidar: bool    # Enable Goal Lidar
   observe_buttons:    bool    # Lidar observation of button object positions
@@ -57,13 +59,14 @@ class EnvironmentParams:
   observe_pillars:    bool    # Lidar observation of pillar object positions
   observe_gremlins:   bool    # Gremlins are observed with lidar-like space
   observe_walls:      bool    # Observe the walls with a lidar space
-  
+  observe_world_lim:  bool    # Observe world limits
+
   constrain_hazards:  bool    # Penalty Entering in Hazards
   constrain_vases:    bool    # Constrain robot from touching objects
   constrain_pillars:  bool    # Immovable obstacles in the environment
   constrain_gremlins: bool    # Moving objects that must be avoided
   constrain_buttons:  bool    # Penalize pressing incorrect buttons
-  
+
   # Lidar Config
   lidar_num_bins:     int               # Number of Lidar Dots
   lidar_max_dist:     Optional[float]   # Maximum distance for lidar sensitivity (if None, exponential distance)
@@ -79,7 +82,7 @@ class EnvironmentParams:
   hazards_size:       float   # Size of Hazard (0.2)
   hazards_keepout:    float   # Min Spawn Distance to Hazard
   hazards_cost:       float   # Cost (per step) for violating the constraint
-  
+
   # Vases Config
   vases_num:           int    # Number of vases in the world
   vases_contact_cost:  float  # Cost (per step) for being in contact with a vase
@@ -93,7 +96,7 @@ class EnvironmentParams:
   # HardCoded Location of Goal and Hazards
   goal_locations:     Optional[List[float]]         # Explicitly Place Goal XY Coordinates
   hazards_locations:  Optional[List[List[float]]]   # Explicitly Place Hazards XY Coordinates
-  
+
   # Robot Sensors
   sensors_obs:        List[str]   # Mujoco Sensors
 
@@ -101,13 +104,13 @@ class EnvironmentParams:
   stuck_threshold:    float
   stuck_penalty:      float
   safety_threshold:   float
-  
+
   # Test and Violation Environments
   test_environment:       bool
   violation_environment:  bool
   test_env_epochs:        int
   violation_env_epochs:   int
-  test_episode_frequency: int
+  test_episode_number:    int
 
 @dataclass
 class UtilitiesParams:
@@ -120,7 +123,7 @@ class UtilitiesParams:
 
 @dataclass
 class Params:
-    
+
   agent:              classmethod
   training_params:    TrainingParams
   entropy_params:     EntropyParams
