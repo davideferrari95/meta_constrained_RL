@@ -93,8 +93,8 @@ def main(cfg: Params):
     # Start Training
     trainer.fit(model)
     
-    # Start Testing
-    trainer.test()
+    # Play Some Test Episodes
+    model.play_test_episodes()
 
 if __name__ == '__main__':
 
