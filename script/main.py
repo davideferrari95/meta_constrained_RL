@@ -94,7 +94,7 @@ def main(cfg: Params):
     trainer.fit(model)
 
     # Play Some Test Episodes
-    model.play_test_episodes()
+    if not UP.fast_dev_run: model.play_test_episodes()
 
 if __name__ == '__main__':
 

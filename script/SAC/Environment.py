@@ -491,6 +491,9 @@ def __check_environment_type(env):
 
 def record_violation_episode(env:gym.Env, seed:int, action_list, current_epoch:int):
 
+  # Return if Violation Folder Not Exist
+  if not os.path.exists(VIOLATIONS_FOLDER): return
+
   # Reset Environment with Seeding
   env.reset(seed=seed)
 
