@@ -45,8 +45,8 @@ class DoubleQCritic(nn.Module):
         super().__init__()
 
         # Create a Sequential Neural Network
-        self.Q1 = mlp(obs_size + action_dim, hidden_size, 1, hidden_depth)
-        self.Q2 = mlp(obs_size + action_dim, hidden_size, 1, hidden_depth)
+        self.Q1 = mlp(obs_size + action_dim, hidden_size, 1, hidden_depth).to(DEVICE)
+        self.Q2 = mlp(obs_size + action_dim, hidden_size, 1, hidden_depth).to(DEVICE)
 
         # Output Dict
         self.outputs = dict()
@@ -83,8 +83,8 @@ class SafetyCritic(nn.Module):
         super().__init__()
 
         # Create the 2 Cost Networks
-        self.QC = mlp(obs_size + action_dim, hidden_size, 1, hidden_depth)
-        self.VC = mlp(obs_size + action_dim, hidden_size, 1, hidden_depth)
+        self.QC = mlp(obs_size + action_dim, hidden_size, 1, hidden_depth).to(DEVICE)
+        self.VC = mlp(obs_size + action_dim, hidden_size, 1, hidden_depth).to(DEVICE)
 
         # Output Dict
         self.outputs = dict()
@@ -121,7 +121,7 @@ class DiagGaussianPolicy(nn.Module):
         super().__init__()
 
         # Create the Network
-        self.net = mlp(obs_size, hidden_size, 2 * action_dim, hidden_depth)
+        self.net = mlp(obs_size, hidden_size, 2 * action_dim, hidden_depth).to(DEVICE)
 
         # Get Action Range and Std Bounds
         self.action_range = action_range
@@ -186,11 +186,11 @@ class GradientPolicy(nn.Module):
         self.max = torch.tensor(np.array(max), device=DEVICE)
 
         # Create the Network
-        self.net = mlp(obs_size, hidden_size, hidden_size, hidden_depth-1, output_mod=nn.ReLU())
+        self.net = mlp(obs_size, hidden_size, hidden_size, hidden_depth-1, output_mod=nn.ReLU()).to(DEVICE)
 
         # Mean and Standard Deviation of the Gaussian Distribution
-        self.linear_mu  = nn.Linear(hidden_size, action_dim)
-        self.linear_std = nn.Linear(hidden_size, action_dim)
+        self.linear_mu  = nn.Linear(hidden_size, action_dim).to(DEVICE)
+        self.linear_std = nn.Linear(hidden_size, action_dim).to(DEVICE)
 
     def forward(self, x, reparametrization=False, mean=False):
 
