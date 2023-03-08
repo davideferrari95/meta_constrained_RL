@@ -6,7 +6,8 @@ class TrainingParams:
     
   seed:               int
   samples_per_epoch:  int
-  epochs:             int
+  min_epochs:         int
+  max_epochs:         int
   patience:           int
   tau:                float
   epsilon:            float

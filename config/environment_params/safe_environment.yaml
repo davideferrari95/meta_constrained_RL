@@ -13,5 +13,5 @@ safety_threshold:   0.6
 test_environment:       true
 violation_environment:  true
 test_env_epochs:        1
-violation_env_epochs:   10
+violation_env_epochs:   100
 test_episode_number:    10

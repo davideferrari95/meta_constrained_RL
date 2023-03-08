@@ -17,7 +17,7 @@ sys.path.append(FOLDER)
 
 # Import Hydra and Parameters Configuration File
 import hydra
-from config.config import Params
+from config.config import Params, TrainingParams, UtilitiesParams
 
 # Set Hydra Full Log Error
 import os
@@ -34,8 +34,8 @@ def main(cfg: Params):
     print_arguments(cfg, term_print=True, save_file=False)
 
     # Training and Utilities Parameters
-    TP = cfg.training_params
-    UP = cfg.utilities_params
+    TP: TrainingParams  = cfg.training_params
+    UP: UtilitiesParams = cfg.utilities_params
 
     # Add PyTorch Lightning Seeding
     seed = set_seed_everywhere(cfg.training_params.seed)
@@ -71,7 +71,8 @@ def main(cfg: Params):
         accelerator = AUTO,
 
         # Hyperparameters
-        max_epochs = TP.epochs,
+        min_epochs = TP.min_epochs,
+        max_epochs = TP.max_epochs,
 
         # Additional Callbacks
         callbacks = callbacks,
@@ -92,9 +93,6 @@ def main(cfg: Params):
 
     # Start Training
     trainer.fit(model)
-
-    # Play Some Test Episodes
-    if not UP.fast_dev_run: model.play_test_episodes()
 
 if __name__ == '__main__':
 
