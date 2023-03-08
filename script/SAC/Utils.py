@@ -70,21 +70,17 @@ def _recursive_print(cfg, file=None, space='   ', term_print=True, save_file=Fal
         else:
 
             # Change Arg Name if _target_ Class
-            arg_name = 'class' if arg == '_target_' else arg
-
-            # Get Tabulation Length
-            length = (len('class') if arg == '_target_' else len(arg)) + len(space)
-            tab = '\t' if length >= 22 else '\t\t' if length >= 14 else '\t\t\t' if length >= 8 else '\t\t\t\t'
+            arg_name = 'class:' if arg == '_target_' else f'{arg}:'
 
             # Print Arguments
-            if term_print: print (('\n' if new_line else ''), colored((f'{space[:-1]}{arg_name}:'),
+            if term_print: print (('\n' if new_line else ''), colored((f'{space[:-1]}{arg_name:25}'),
                                   ('red' if arg == '_target_' else 'white'), attrs=['bold']),
-                                  f'{tab}{cfg[arg]}', '\n' if arg == '_target_' else '')
+                                  f'{cfg[arg]}', '\n' if arg == '_target_' else '')
 
             # Save into File
             if save_file:
                 file.write(('\n' if new_line else ''))
-                file.write(f'{space}{arg_name}:{tab}{cfg[arg]}\n')
+                file.write(f'{space}{arg_name:25}{cfg[arg]}\n')
 
         if arg == 'utilities_params':
 
@@ -95,15 +91,15 @@ def _recursive_print(cfg, file=None, space='   ', term_print=True, save_file=Fal
 
             # Print Arguments
             if term_print:
-                print(colored(f'\n{space}   use_costs:', 'white', attrs=['bold']), f'\t\t{use_costs}')
-                print(colored(f'{space}   learn_alpha:', 'white', attrs=['bold']), f'\t\t{learn_alpha}')
-                print(colored(f'{space}   learn_beta:',  'white', attrs=['bold']), f'\t\t{learn_beta}')
+                print(colored(f'\n{space}   {"use_costs:":25}', 'white', attrs=['bold']), f'{use_costs}')
+                print(colored(f'{space}   {"learn_alpha:":25}', 'white', attrs=['bold']), f'{learn_alpha}')
+                print(colored(f'{space}   {"learn_beta:":25}',  'white', attrs=['bold']), f'{learn_beta}')
 
             # Save Info Arguments
             if save_file:
-                file.write(f'{space}   use_costs:  \t\t{use_costs}\n')
-                file.write(f'{space}   learn_alpha:\t\t{learn_alpha}\n')
-                file.write(f'{space}   learn_beta: \t\t{learn_beta}\n')
+                file.write(f'{space}   {"use_costs:":25}{use_costs}\n')
+                file.write(f'{space}   {"learn_alpha:":25}{learn_alpha}\n')
+                file.write(f'{space}   {"learn_beta:":25}{learn_beta}\n')
 
 def check_spells_error(cfg):
 
