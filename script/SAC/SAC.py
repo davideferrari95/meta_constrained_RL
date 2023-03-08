@@ -10,6 +10,7 @@ from SAC.SafetyController import SafetyController, Odometry
 import copy, itertools, sys
 from termcolor import colored
 from typing import Union, Optional
+from tqdm import tqdm
 import numpy as np
 
 # Import Parameters Class
@@ -373,9 +374,7 @@ class WCSACP(LightningModule):
     @torch.no_grad()
     def play_test_episodes(self):
 
-        # TODO: Add Progress Bar
-
-        for _ in range(self.EC.test_episode_number):
+        for _ in tqdm(range(self.EC.test_episode_number)):
 
             # Reset Environment
             obs, _ = self.test_env.reset(seed=np.random.randint(0,2**32))
@@ -591,4 +590,4 @@ class WCSACP(LightningModule):
             # Play a Bunch of Test Episodes
             self.play_test_episodes()
 
-            print(colored('Test Done\n\n', 'yellow'))
+            print(colored('\n\nTest Done\n\n', 'yellow'))
