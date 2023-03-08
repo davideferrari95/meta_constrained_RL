@@ -138,23 +138,24 @@ class WCSACP(LightningModule):
         env_name, env_config = custom_environment_config(environment_config)
         self.env = create_environment(env_name, env_config, seed, record_video, record_epochs)
 
+        # Save Environment Config Parameters
+        self.EC: Optional[EnvironmentParams] = environment_config
+
         # Create Violation Environment
-        self.violation_env = create_environment(env_name, env_config, seed, record_video,
-                                                violation_environment=environment_config.violation_environment,
-                                                violation_env_epochs=environment_config.violation_env_epochs)
+        if self.EC.violation_environment: self.violation_env = create_environment(env_name, env_config, seed, record_video, 
+                                                          environment_type='violation', env_epochs=self.EC.violation_env_epochs)
 
         # Create Test Environment
-        self.test_env = create_environment(env_name, env_config, seed, record_video,
-                                           test_environment=environment_config.test_environment,
-                                           test_env_epochs=environment_config.test_env_epochs)
+        if self.EC.test_environment: self.test_env = create_environment(env_name, env_config, seed, record_video, 
+                                                environment_type='test', env_epochs=self.EC.test_env_epochs)
 
         # Initialize Safety Controller
         self.SafetyController = SafetyController(
-            lidar_num_bins=environment_config.lidar_num_bins, 
-            lidar_max_dist=environment_config.lidar_max_dist,
-            lidar_exp_gain=environment_config.lidar_exp_gain,
-            lidar_type=environment_config.lidar_type,
-            debug_print=False)
+            lidar_num_bins = self.EC.lidar_num_bins, 
+            lidar_max_dist = self.EC.lidar_max_dist,
+            lidar_exp_gain = self.EC.lidar_exp_gain,
+            lidar_type     = self.EC.lidar_type,
+            debug_print    = False)
 
         # Get max_episode_steps from Environment -> For Safety-Gym = 1000
         self.max_episode_steps = self.env.spec.max_episode_steps
@@ -315,7 +316,7 @@ class WCSACP(LightningModule):
             else: action = self.env.action_space.sample()
 
             # Check if Policy Action is Safe
-            unsafe_lidar, safe_action = self.SafetyController.check_safe_action(action, info['sorted_obs'], self.hparams.environment_config.safety_threshold)
+            unsafe_lidar, safe_action = self.SafetyController.check_safe_action(action, info['sorted_obs'], self.EC.safety_threshold)
 
             # Execute Safe Action on the Environment
             next_obs, reward, done, truncated, next_info = self.env.step(safe_action)
@@ -325,10 +326,10 @@ class WCSACP(LightningModule):
 
             # Penalize if Robot Get Stuck in Position
             odometry.update_odometry(next_info)
-            if odometry.stuck_in_position(n=50, threshold=self.hparams.environment_config.stuck_threshold): 
+            if odometry.stuck_in_position(n=50, threshold=self.EC.stuck_threshold):
 
                 monitor.robot_stuck += 1
-                reward -= self.hparams.environment_config.stuck_penalty
+                reward -= self.EC.stuck_penalty
 
             # Get Cumulative Cost | Update Episode Cost
             cost = monitor.compute_cost(next_info)
@@ -337,7 +338,7 @@ class WCSACP(LightningModule):
             # reward -= cost
 
             # Add Penalty Reward for Each Step not Getting the Goal Reward
-            reward -= self.hparams.environment_config.penalty_step
+            reward -= self.EC.penalty_step
 
             # Save Safe Experience in Replay Buffer
             safe_exp = (obs, safe_action, reward, cost, float(done), next_obs)
@@ -368,6 +369,26 @@ class WCSACP(LightningModule):
 
         # Increase Episode Counter
         self.episode_counter += 1
+
+    @torch.no_grad()
+    def play_test_episodes(self):
+
+        # TODO: Add Progress Bar
+
+        for _ in range(self.EC.test_episode_number):
+
+            # Reset Environment
+            obs, _ = self.test_env.reset(seed=np.random.randint(0,2**32))
+            done, truncated = False, False
+
+            while not done and not truncated:
+
+                # Get the Action Mean
+                action, _, _ = self.target_policy(obs, mean=True)
+                action = action.cpu().detach().numpy()
+
+                # Execute Action on the Environment
+                obs, _, done, truncated, _ = self.test_env.step(action)
 
     def forward(self, x):
 
@@ -560,21 +581,14 @@ class WCSACP(LightningModule):
         # Log Episode Return
         self.log("episode/Return", self.env.return_queue[-1].item(), on_epoch=True)
 
-    def play_test_episodes(self):
+        # Check if Early Stopping or Last Epochs
+        if self.EC.test_episode_number != 0 and \
+           self.current_epoch + 1 >= min(self.trainer.min_epochs, self.trainer.max_epochs) and \
+           (self.trainer.should_stop or self.current_epoch + 1 == self.trainer.max_epochs):
 
-        ''' Play a Bunch of Test Episodes '''
+            print(colored('\n\nReproducing Some Test Episodes...', 'yellow'))
 
-        for _ in range(self.hparams.test_episode_number):
+            # Play a Bunch of Test Episodes
+            self.play_test_episodes()
 
-            # Reset Environment
-            obs, _ = self.test_env.reset(seed=np.random.randint(0,2**32))
-            done, truncated = False, False
-
-            while not done and not truncated:
-
-                # Get the Action Mean
-                action, _, _ = self.target_policy(obs, mean=True)
-                action = action.cpu().detach().numpy()
-
-                # Execute Action on the Environment
-                obs, _, done, truncated, _ = self.test_env.step(action)
+            print(colored('Test Done\n\n', 'yellow'))
