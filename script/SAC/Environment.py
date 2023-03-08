@@ -1,4 +1,5 @@
 import sys, os
+from typing import Optional
 
 # Import Utils
 from SAC.Utils import FOLDER, VIDEO_FOLDER, VIOLATIONS_FOLDER, TEST_FOLDER
@@ -333,8 +334,7 @@ def custom_environment_config(config:EnvironmentParams) -> dict: #():
 def create_environment(name:str, config:dict=None, seed:int=-1, 
                        record_video:bool=True, record_epochs:int=100, 
                        render_mode='rgb_array', apply_wrappers:bool=True,
-                       test_environment:bool=False, test_env_epochs:int=1, 
-                       violation_environment:bool=False, violation_env_epochs:int=1) -> gym.Env: #():
+                       environment_type:Optional[str]=None, env_epochs:int=1) -> gym.Env: #():
 
   """ Create Gym Environment """
 
@@ -355,8 +355,8 @@ def create_environment(name:str, config:dict=None, seed:int=-1,
   ENV_TYPE = __check_environment_type(env)
 
   # Apply Wrappers
-  if violation_environment and record_video: env = gym.wrappers.RecordVideo(env, video_folder=VIOLATIONS_FOLDER, episode_trigger=lambda x: x % violation_env_epochs == 0, name_prefix='new_')
-  elif test_environment and record_video:    env = gym.wrappers.RecordVideo(env, video_folder=TEST_FOLDER, episode_trigger=lambda x: x % test_env_epochs == 0, name_prefix='test_')
+  if   environment_type == 'test'      and record_video: env = gym.wrappers.RecordVideo(env, video_folder=TEST_FOLDER,       episode_trigger=lambda x: x % env_epochs == 0, name_prefix='test_')
+  elif environment_type == 'violation' and record_video: env = gym.wrappers.RecordVideo(env, video_folder=VIOLATIONS_FOLDER, episode_trigger=lambda x: x % env_epochs == 0, name_prefix='new_')
   elif apply_wrappers: env = __apply_wrappers(env, record_video, record_epochs, folder=VIDEO_FOLDER, env_type=ENV_TYPE)
 
   # Apply Seed
@@ -450,7 +450,7 @@ def __apply_wrappers(env, record_video, record_epochs, folder, env_type) -> gym.
 
   # FIX: MoviePy Log Removed
   # Record Environment Videos in the specified folder, trigger specifies which episode to record and which to ignore (1 in record_epochs)
-  if record_video: env = gym.wrappers.RecordVideo(env, video_folder=folder, episode_trigger=lambda x: x % record_epochs == 0)
+  if record_video: env = gym.wrappers.RecordVideo(env, video_folder=folder, episode_trigger=lambda x: x % record_epochs == 0 and x != 0)
 
   # Keep Track of the Reward the Agent Obtain and Save them into a Property
   env = gym.wrappers.RecordEpisodeStatistics(env)
