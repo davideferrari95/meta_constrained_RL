@@ -44,13 +44,13 @@ goal_keepout:       0.3       # Min Spawn Distance to Hazard
 hazards_num:        4         # Number of Hazards
 hazards_size:       0.2       # Size of Hazard (0.2)
 hazards_keepout:    0.3       # Min Spawn Distance to Hazard
-hazards_cost:       1.0       # Cost (per step) for violating the constraint
+hazards_cost:       2.0       # Cost (per step) for violating the constraint
 
 # Vases Config
 vases_num:           4        # Number of vases in the world
-vases_contact_cost:  1.0      # Cost (per step) for being in contact with a vase
+vases_contact_cost:  2.0      # Cost (per step) for being in contact with a vase
 vases_displace_cost: 0.0      # Cost (per step) per meter of displacement for a vase
-vases_velocity_cost: 0.5      # Cost (per step) per m/s of velocity for a vase
+vases_velocity_cost: 1.0      # Cost (per step) per m/s of velocity for a vase
 
 # Robot Starting Location
 # robot_locations: [[0,0]]      # Explicitly place robot XY coordinate
