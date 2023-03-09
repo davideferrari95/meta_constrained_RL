@@ -4,7 +4,7 @@ defaults:
   - entropy_params: default_entropy
   - cost_params: default_cost
   - environment_params: safe_environment
-  - safe_params: default_safety
+  - safety_params: default_safety
   - _self_
 
 training_params:
@@ -12,8 +12,8 @@ training_params:
   seed:               123
   samples_per_epoch:  10_000
   min_epochs:         2_000
-  max_epochs:         10_000
-  patience:           1000
+  max_epochs:         4_000
+  patience:           500
   tau:                0.005
   epsilon:            0.1
   smooth_lambda:      0.01

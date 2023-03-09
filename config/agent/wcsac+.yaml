@@ -48,7 +48,7 @@ risk_level:          ${cost_params.risk_level}
 damp_scale:          ${cost_params.damp_scale}
 
 # Safety Parameters
-unsafe_experience:   ${safe_params.unsafe_experience}
+unsafe_experience:   ${safety_params.unsafe_experience}
 
 # Environment Parameters:
 environment_config:  ${environment_params}
