@@ -579,15 +579,3 @@ class WCSACP(LightningModule):
 
         # Log Episode Return
         self.log("episode/Return", self.env.return_queue[-1].item(), on_epoch=True)
-
-        # Check if Early Stopping or Last Epochs
-        if self.EC.test_episode_number != 0 and \
-           self.current_epoch + 1 >= min(self.trainer.min_epochs, self.trainer.max_epochs) and \
-           (self.trainer.should_stop or self.current_epoch + 1 == self.trainer.max_epochs):
-
-            print(colored('\n\nReproducing Some Test Episodes...', 'yellow'))
-
-            # Play a Bunch of Test Episodes
-            self.play_test_episodes()
-
-            print(colored('\n\nTest Done\n\n', 'yellow'))

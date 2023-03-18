@@ -8,10 +8,15 @@ class TrainingParams:
   samples_per_epoch:  int
   min_epochs:         int
   max_epochs:         int
+  early_stopping:     bool
   patience:           int
   tau:                float
   epsilon:            float
   smooth_lambda:      float
+  record_video:       bool
+  record_epochs:      int
+  use_profiler:       bool
+  fast_dev_run:       bool
 
 @dataclass
 class EntropyParams:
@@ -119,15 +124,6 @@ class EnvironmentParams:
   test_episode_number:    int
 
 @dataclass
-class UtilitiesParams:
-
-  early_stopping:     bool
-  use_profiler:       bool
-  record_video:       bool
-  record_epochs:      int
-  fast_dev_run:       bool
-
-@dataclass
 class Params:
 
   agent:              classmethod
@@ -136,4 +132,3 @@ class Params:
   cost_params:        CostParams
   safe_params:        SafetyParams
   environment_params: EnvironmentParams
-  utilities_params:   UtilitiesParams

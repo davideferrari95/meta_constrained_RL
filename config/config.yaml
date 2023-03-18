@@ -13,17 +13,14 @@ training_params:
   samples_per_epoch:  10_000
   min_epochs:         2_000
   max_epochs:         4_000
-  patience:           500
+  early_stopping:     True
+  patience:           750
   tau:                0.005
   epsilon:            0.1
   smooth_lambda:      0.01
-
-utilities_params:
-
-  early_stopping:     True
-  use_profiler:       False
   record_video:       True
   record_epochs:      100
+  use_profiler:       False
   fast_dev_run:       False
 
 hydra:  

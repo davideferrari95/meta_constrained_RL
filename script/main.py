@@ -5,7 +5,7 @@ from SAC.SAC import WCSACP
 from pytorch_lightning import Trainer, loggers as pl_loggers
 from pytorch_lightning.profilers import AdvancedProfiler, SimpleProfiler
 from pytorch_lightning.callbacks import EarlyStopping, DeviceStatsMonitor, ModelCheckpoint
-from SAC.LightningCallbacks import PrintCallback, OverrideEpochStepCallback
+from SAC.LightningCallbacks import PrintCallback, TestCallback, OverrideEpochStepCallback
 from SAC.Utils import set_seed_everywhere
 
 # Import Utilities
@@ -17,7 +17,7 @@ sys.path.append(FOLDER)
 
 # Import Hydra and Parameters Configuration File
 import hydra
-from config.config import Params, TrainingParams, UtilitiesParams
+from config.config import Params, EnvironmentParams, TrainingParams
 
 # Set Hydra Full Log Error
 import os
@@ -33,16 +33,16 @@ def main(cfg: Params):
     # Display Arguments
     print_arguments(cfg, term_print=True, save_file=False)
 
-    # Training and Utilities Parameters
-    TP: TrainingParams  = cfg.training_params
-    UP: UtilitiesParams = cfg.utilities_params
+    # Environment and Training Parameters
+    EP: EnvironmentParams = cfg.environment_params
+    TP: TrainingParams    = cfg.training_params
 
     # Add PyTorch Lightning Seeding
     seed = set_seed_everywhere(cfg.training_params.seed)
 
     # Instantiate Algorithm Model
-    model = hydra.utils.instantiate(cfg.agent, seed=seed, record_video=(UP.record_video and not UP.fast_dev_run),
-                                    samples_per_epoch = TP.samples_per_epoch if not UP.fast_dev_run else 1)
+    model = hydra.utils.instantiate(cfg.agent, seed=seed, record_video=(TP.record_video and not TP.fast_dev_run),
+                                    samples_per_epoch = TP.samples_per_epoch if not TP.fast_dev_run else 1)
 
     # Instantiate Default Callbacks
     callbacks = [PrintCallback()]
@@ -57,11 +57,14 @@ def main(cfg: Params):
     # callbacks.append(OverrideEpochStepCallback())
 
     # Optional Callbacks
-    if UP.early_stopping: callbacks.append(EarlyStopping(monitor='episode/Return', mode='max', patience=TP.patience, verbose=True))
+    if TP.early_stopping: callbacks.append(EarlyStopping(monitor='episode/Return', mode='max', patience=TP.patience, verbose=True))
+
+    # Test Callback
+    if EP.test_environment: callbacks.append(TestCallback())
 
     # Python Profiler: Summary of All the Calls Made During Training
     # profiler = AdvancedProfiler()
-    profiler = SimpleProfiler() if UP.use_profiler else None
+    profiler = SimpleProfiler() if TP.use_profiler else None
 
     # Create Trainer Module
     trainer = Trainer(
@@ -84,12 +87,12 @@ def main(cfg: Params):
         logger = pl_loggers.TensorBoardLogger(save_dir=f'{FOLDER}/data/logs/'),
 
         # Developer Test Mode
-        fast_dev_run = UP.fast_dev_run
+        fast_dev_run = TP.fast_dev_run
 
     )
 
     # Save Arguments
-    print_arguments(cfg, term_print=False, save_file=(True and (UP.record_video and not UP.fast_dev_run)))
+    print_arguments(cfg, term_print=False, save_file=(True and (TP.record_video and not TP.fast_dev_run)))
 
     # Start Training
     trainer.fit(model)

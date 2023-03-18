@@ -15,6 +15,7 @@ class PrintCallback(Callback):
 
 # Use Epochs instead of Steps in TensorBoard Log
 class OverrideEpochStepCallback(Callback):
+
     def __init__(self) -> None:
         super().__init__()
 
@@ -29,3 +30,15 @@ class OverrideEpochStepCallback(Callback):
 
     def _log_step_as_current_epoch(self, trainer: pl.Trainer, pl_module: pl.LightningModule):
         pl_module.log("epochs", trainer.current_epoch)
+
+class TestCallback(Callback):
+
+    # On End Training
+    def on_train_end(self, trainer, pl_module):
+
+        print(colored('Reproducing Some Test Episodes...\n\n', 'yellow'))
+
+        # Play a Bunch of Test Episodes
+        pl_module.play_test_episodes()
+
+        print(colored('\n\n\nTest Done\n\n', 'yellow'))
