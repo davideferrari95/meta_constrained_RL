@@ -372,12 +372,12 @@ class WCSACP(LightningModule):
         self.episode_counter += 1
 
     @torch.no_grad()
-    def play_test_episodes(self):
+    def play_test_episodes(self, test_constrained=False):
 
         for _ in tqdm(range(self.EC.test_episode_number)):
 
             # Reset Environment
-            obs, _ = self.test_env.reset(seed=np.random.randint(0,2**32))
+            obs, info = self.test_env.reset(seed=np.random.randint(0,2**32))
             done, truncated = False, False
 
             while not done and not truncated:
@@ -386,8 +386,11 @@ class WCSACP(LightningModule):
                 action, _, _ = self.target_policy(obs, mean=True)
                 action = action.cpu().detach().numpy()
 
+                # Check if Policy Action is Safe
+                if test_constrained: _, action = self.SafetyController.check_safe_action(action, info['sorted_obs'], self.EC.safety_threshold)
+
                 # Execute Action on the Environment
-                obs, _, done, truncated, _ = self.test_env.step(action)
+                obs, _, done, truncated, info = self.test_env.step(action)
 
     def forward(self, x):
 

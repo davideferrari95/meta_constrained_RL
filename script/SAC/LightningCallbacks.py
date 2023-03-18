@@ -41,4 +41,7 @@ class TestCallback(Callback):
         # Play a Bunch of Test Episodes
         pl_module.play_test_episodes()
 
+        # Play a Bunch of Constrained Test Episodes
+        if pl_module.EC.test_constrained: pl_module.play_test_episodes(test_constrained = True)
+
         print(colored('\n\n\nTest Done\n\n', 'yellow'))
