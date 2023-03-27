@@ -40,6 +40,9 @@ def main(cfg: Params):
     # Add PyTorch Lightning Seeding
     seed = set_seed_everywhere(cfg.training_params.seed)
 
+    # Set Test Episode Number to 0 if Fast-Dev-Run of No-Record-Video
+    if (not TP.record_video or TP.fast_dev_run): cfg.agent.environment_config.test_episode_number = 0
+
     # Instantiate Algorithm Model
     model = hydra.utils.instantiate(cfg.agent, seed=seed, record_video=(TP.record_video and not TP.fast_dev_run),
                                     samples_per_epoch = TP.samples_per_epoch if not TP.fast_dev_run else 1)

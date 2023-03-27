@@ -118,6 +118,7 @@ class EnvironmentParams:
 
   # Test and Violation Environments
   test_environment:       bool
+  test_unconstrained:     bool
   test_constrained:       bool
   violation_environment:  bool
   test_env_epochs:        int

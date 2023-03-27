@@ -36,10 +36,13 @@ class TestCallback(Callback):
     # On End Training
     def on_train_end(self, trainer, pl_module):
 
+        # Return if No Test Episode
+        if pl_module.EC.test_episode_number == 0: return
+
         print(colored('Reproducing Some Test Episodes...\n\n', 'yellow'))
 
-        # Play a Bunch of Test Episodes
-        pl_module.play_test_episodes()
+        # Play a Bunch of Un-Constrained Test Episodes
+        if pl_module.EC.test_unconstrained: pl_module.play_test_episodes(test_constrained = False)
 
         # Play a Bunch of Constrained Test Episodes
         if pl_module.EC.test_constrained: pl_module.play_test_episodes(test_constrained = True)
