@@ -1,4 +1,5 @@
 import os, random, omegaconf, sys
+import numba
 import torch
 import numpy as np
 from termcolor import colored
@@ -154,6 +155,7 @@ def print_float_array(text, list_of_floats, decimal_number=4):
     print(f'{text} [', end='')
     print(*list_of_float, sep=", ", end=']\n')
 
+@numba.jit(nopython=True)
 def is_between(value, min_value, max_value):
 
     ''' Is Between Two Numbers '''
@@ -162,6 +164,7 @@ def is_between(value, min_value, max_value):
 
     return min_value <= value <= max_value
 
+@numba.jit(nopython=True)
 def is_between_180(value, min_angle, max_angle, extern_angle=False):
 
     ''' Is Between Two Angles in a +- 180 Circumference '''
@@ -169,6 +172,7 @@ def is_between_180(value, min_angle, max_angle, extern_angle=False):
     if not extern_angle: return is_between(value, min_angle, max_angle)
     else: return is_between(value, -180, min_angle) or is_between(value, max_angle, 180)
 
+@numba.jit(nopython=True)
 def get_index(vec1, vec2):
 
     ''' Check if Vector 1 is Contained in Vector 2 and Return the Index '''
