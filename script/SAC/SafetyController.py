@@ -1,17 +1,8 @@
 from SAC.Utils import print_float_array, is_between_180, get_index
-from dataclasses import dataclass
+import numba
 
 import numpy as np
 import math
-
-@dataclass
-class Pose:
-
-    ''' Pose XYθ Dataclass '''
-
-    x: float
-    y: float
-    θ: float
 
 class Odometry():
 
@@ -21,44 +12,43 @@ class Odometry():
 
         # Initialize Odometry
         self.x, self.y, self.θ = 0,0,0
-        self.dx, self.dy, self.dθ = 0,0,0
-
-        # BUG: Mujoco Step-Time = 0.002 ? -> x10 Factor Somewhere
-        self.dt = 0.02
 
         # Position Memory Buffer
-        self.positions = []
+        self.positions = np.array([[0.0, 0.0, 0.0]])
 
     def update_odometry(self, new_observation):
 
-        # Get Sensors
-        accelerometer = new_observation['sorted_obs']['accelerometer']
-        velocimeter   = new_observation['sorted_obs']['velocimeter']
-        gyroscope     = new_observation['sorted_obs']['gyro']
-
-        # Robot Sensors
-        acc, vel, gyro = accelerometer, velocimeter, gyroscope
-
-        # Compute Acceleration
-        # self.ddx = accel[0] * np.cos(self.θ) - accel[1] * np.sin(self.θ)
-        # self.ddy = accel[0] * np.sin(self.θ) + accel[1] * np.cos(self.θ)
-
-        # Compute Velocities
-        # self.dx = self.dx + self.ddx * self.dt
-        # self.dy = self.dy + self.ddy * self.dt
-        self.dx = vel[0] * np.cos(self.θ) - vel[1] * np.sin(self.θ)
-        self.dy = vel[0] * np.sin(self.θ) + vel[1] * np.cos(self.θ)
-        self.dθ = gyro[2]
+        # Get Robot Sensors
+        # accelerometer = new_observation['sorted_obs']['accelerometer']
+        velocimeter = new_observation['sorted_obs']['velocimeter']
+        gyroscope   = new_observation['sorted_obs']['gyro']
 
         # Compute Pose
-        self.x = self.x + self.dx * self.dt
-        self.y = self.y + self.dy * self.dt
-        self.θ = self.θ + self.dθ * self.dt
+        self.x, self.y, self.θ = self.computePose(velocimeter, gyroscope, self.x, self.y, self.θ)
 
         # Save Pose in Memory Buffer
-        self.positions.append(Pose(self.x, self.y, self.θ))
+        self.positions = np.append(self.positions, [[self.x, self.y, self.θ]], axis=0)
 
         return self.x, self.y, self.θ % np.radians(360)
+
+    @staticmethod
+    @numba.jit(nopython=True)
+    def computePose(vel, gyro, x, y, θ):
+
+        # BUG: Mujoco Step-Time = 0.002 ? -> x10 Factor Somewhere
+        dt = 0.02
+
+        # Compute Velocities
+        dx = vel[0] * np.cos(θ) - vel[1] * np.sin(θ)
+        dy = vel[0] * np.sin(θ) + vel[1] * np.cos(θ)
+        dθ = gyro[2]
+
+        # Compute Pose
+        x += dx * dt
+        y += dy * dt
+        θ += dθ * dt
+
+        return x, y, θ
 
     def stuck_in_position(self, n:int=100, threshold:float=0.1):
 
@@ -68,18 +58,25 @@ class Odometry():
         threshold: Threshold Distance to Have Pos Changes
         '''
 
+        # Return `numba` Computation Function
+        return self.computePositionStuck(self.positions, n, threshold)
+
+    @staticmethod
+    @numba.jit(nopython=True)
+    def computePositionStuck(position_array, n, threshold):
+
         # IDEA: Try to Change Stuck Function:
         # Stuck when Last - First pose < threshold
 
         # Wait at Least n Positions
-        if len(self.positions) < n: return False
+        if len(position_array) < n: return False
 
         # Position -> Tuple (Pos, Prev_Pos)
-        positions = [(self.positions[i], self.positions[i-1]) 
-                     for i in range(len(self.positions)-n, len(self.positions))]
+        positions = [(position_array[i], position_array[i-1]) 
+                     for i in range(len(position_array)-n, len(position_array))]
 
         # Compute the Distance Array
-        dist = np.array([math.sqrt((pose.x - prev_pose.x) ** 2 + (pose.y - prev_pose.y) ** 2)
+        dist = np.array([math.sqrt((pose[0] - prev_pose[0]) ** 2 + (pose[1] - prev_pose[1]) ** 2)
                         for pose, prev_pose in positions])
 
         # Return True if All Distance < `threshold`
