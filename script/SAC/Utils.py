@@ -156,6 +156,17 @@ def print_float_array(text, list_of_floats, decimal_number=4):
     print(*list_of_float, sep=", ", end=']\n')
 
 @numba.jit(nopython=True)
+def print_numba_float_array(text, list_of_floats, decimal_number=4):
+
+    list_of_float = np.array([(round(item) if item * 10 % 10 == 0 
+                               else round(item, decimal_number)) 
+                               for item in list_of_floats])
+
+    print(text)
+    print(list_of_float)
+    print('\n')
+
+@numba.jit(nopython=True)
 def is_between(value, min_value, max_value):
 
     ''' Is Between Two Numbers '''
