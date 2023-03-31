@@ -1,28 +1,11 @@
 defaults:
-
-  - agent: wcsac+
-  - entropy_params: default_entropy
-  - cost_params: default_cost
-  - environment_params: common_environment
-  - safety_params: default_safety
-  - _self_
-
-training_params:
-
-  seed:               123
-  samples_per_epoch:  10_000
-  min_epochs:         2_000
-  max_epochs:         4_000
-  early_stopping:     True
-  patience:           750
-  tau:                0.005
-  epsilon:            0.1
-  smooth_lambda:      0.01
-  record_video:       True
-  record_epochs:      100
-  use_profiler:       False
-  fast_dev_run:       False
-
-hydra:  
+- agent: wcsac+
+- training_params: default_training
+- environment_params: common_environment
+- entropy_params: default_entropy
+- cost_params: default_cost
+- safety_params: default_safety
+- _self_
+hydra:
   run:
     dir: /home/davide/ROS/meta_constrained_RL_ws/src/Constrained_RL/safe_wcsac+/data/outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}
