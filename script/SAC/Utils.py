@@ -26,6 +26,22 @@ VIDEO_FOLDER = check_video_folder(FOLDER)
 VIOLATIONS_FOLDER = f'{VIDEO_FOLDER}/Violations'
 TEST_FOLDER = f'{VIDEO_FOLDER}/Test'
 
+def set_hydra_absolute_path():
+
+    import yaml
+    hydra_config_file = os.path.join(FOLDER, 'config/config.yaml')
+
+    # Load Hydra `config.yaml` File
+    with open(hydra_config_file, 'r') as file:
+        yaml_data = yaml.load(file, Loader=yaml.FullLoader)
+
+    # Edit Hydra Run Directory
+    yaml_data['hydra']['run']['dir'] = os.path.join(FOLDER, r'data/outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}')
+
+    # Write Hydra `config.yaml` File
+    with open(hydra_config_file, 'w') as file:
+        yaml.dump(yaml_data, file, default_flow_style=False)
+
 # Print and Save Arguments
 def print_arguments(cfg, term_print = True, save_file = False):
 

@@ -6,7 +6,7 @@ from pytorch_lightning import Trainer, loggers as pl_loggers
 from pytorch_lightning.profilers import AdvancedProfiler, SimpleProfiler
 from pytorch_lightning.callbacks import EarlyStopping, DeviceStatsMonitor, ModelCheckpoint
 from SAC.LightningCallbacks import PrintCallback, TestCallback, OverrideEpochStepCallback
-from SAC.Utils import set_seed_everywhere
+from SAC.Utils import set_seed_everywhere, set_hydra_absolute_path
 
 # Import Utilities
 from SAC.Utils import FOLDER, AUTO, print_arguments, check_spells_error
@@ -18,6 +18,9 @@ sys.path.append(FOLDER)
 # Import Hydra and Parameters Configuration File
 import hydra
 from config.config import Params, EnvironmentParams, TrainingParams
+
+# Set Hydra Absolute FilePath in `config.yaml`
+set_hydra_absolute_path()
 
 # Set Hydra Full Log Error
 import os
