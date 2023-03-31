@@ -342,8 +342,7 @@ class WCSACP(LightningModule):
             reward -= self.EC.penalty_step
 
             # Save Safe Experience in Replay Buffer
-            safe_exp = (obs, safe_action, reward, cost, float(done), next_obs)
-            self.buffer.append(safe_exp)
+            self.buffer.append((obs, safe_action, reward, cost, float(done), next_obs))
 
             # Check if Safe Action != Action
             if self.hparams.unsafe_experience and np.not_equal(safe_action, action).any():
