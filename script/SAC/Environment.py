@@ -503,3 +503,14 @@ def record_violation_episode(env:gym.Env, seed:int, action_list, current_epoch:i
   # Rename Video with Current Epoch Name
   for filename in os.listdir(VIOLATIONS_FOLDER):
     if filename.startswith('new_'): video_rename(VIOLATIONS_FOLDER, filename, f'violation-episode-{current_epoch}')
+
+def rename_test_episodes(prefix=''):
+
+  # Rename Video with Current Epoch Name
+  for filename in os.listdir(TEST_FOLDER):
+
+    # Check if .mp4 or .json
+    if filename.endswith('.mp4'):    number = filename[14:-4]
+    elif filename.endswith('.json'): number = filename[14:-10]
+
+    if filename.startswith('test_'): video_rename(TEST_FOLDER, filename, f'{prefix}-test-episode-{number}')

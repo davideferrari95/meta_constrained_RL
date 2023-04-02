@@ -1,3 +1,5 @@
+from SAC.Environment import rename_test_episodes
+
 from pytorch_lightning.callbacks import Callback
 import pytorch_lightning as pl
 from termcolor import colored
@@ -41,10 +43,20 @@ class TestCallback(Callback):
 
         print(colored('Reproducing Some Test Episodes...\n\n', 'yellow'))
 
-        # Play a Bunch of Un-Constrained Test Episodes
-        if pl_module.EC.test_unconstrained: pl_module.play_test_episodes(test_constrained = False)
+        if pl_module.EC.test_unconstrained:
 
-        # Play a Bunch of Constrained Test Episodes
-        if pl_module.EC.test_constrained: pl_module.play_test_episodes(test_constrained = True)
+            # Play a Bunch of Un-Constrained Test Episodes
+            pl_module.play_test_episodes(test_constrained = False)
+
+            # Rename Unconstrained Episodes
+            rename_test_episodes(prefix='unconstrained')
+
+        if pl_module.EC.test_constrained:
+
+            # Play a Bunch of Constrained Test Episodes
+            pl_module.play_test_episodes(test_constrained = True)
+
+            # Rename Constrained Episodes
+            rename_test_episodes(prefix='constrained')
 
         print(colored('\n\n\nTest Done\n\n', 'yellow'))
