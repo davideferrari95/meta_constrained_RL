@@ -135,6 +135,9 @@ class WCSACP(LightningModule):
         # Properly Utilize Tensor Cores of the CUDA device ('NVIDIA RTX A4000 Laptop GPU')
         torch.set_float32_matmul_precision('high')
 
+        # Remove Automatic Optimization (Multiple Optimizers)
+        self.automatic_optimization = False
+
         # Create Environment
         env_name, env_config = custom_environment_config(environment_config)
         self.env = create_environment(env_name, env_config, seed, record_video, record_epochs)
@@ -441,7 +444,7 @@ class WCSACP(LightningModule):
 
         return dataloader
 
-    def training_step(self, batch, batch_idx, optimizer_idx):
+    def training_step(self, batch, batch_idx):
 
         # Un-Pack the Batch Tuple
         states, actions, rewards, costs, dones, next_states = batch
@@ -451,8 +454,14 @@ class WCSACP(LightningModule):
         costs = costs.unsqueeze(1)
         dones = dones.unsqueeze(1)
 
+        # Get List of Optimizers
+        optimizers = self.optimizers()
+
         # Update Q-Networks
-        if optimizer_idx == 0:
+        if 'critic_optimizer' in self.optimizers_list:
+
+            # Get Critic Optimizer
+            critic_opt = optimizers[self.optimizers_list.index('critic_optimizer')]
 
             # Get Current Action-Value Estimates from the Double-Q Critic
             current_Q1, current_Q2 = self.q_critic(states, actions)
@@ -496,10 +505,16 @@ class WCSACP(LightningModule):
                 polyak_average(self.q_critic, self.target_q_critic, tau=self.hparams.tau)
                 polyak_average(self.safety_critic, self.target_safety_critic, tau=self.hparams.tau)
 
-            return total_loss
+            # Optimizer Step
+            critic_opt.zero_grad()
+            self.manual_backward(total_loss)
+            critic_opt.step()
 
         # Update the Policy
-        elif optimizer_idx == 1:
+        if 'actor_optimizer' in self.optimizers_list:
+
+            # Get Critic Optimizer
+            actor_opt = optimizers[self.optimizers_list.index('actor_optimizer')]
 
             # Compute the Updated Actions and the Log Probabilities
             new_actions, new_log_probs, dist = self.policy(states, reparametrization=True)
@@ -546,10 +561,16 @@ class WCSACP(LightningModule):
             if self.global_step % self.hparams.actor_update_freq == 0:
                 polyak_average(self.policy, self.target_policy, tau=self.hparams.tau)
 
-            return actor_loss
+            # Optimizer Step
+            actor_opt.zero_grad()
+            self.manual_backward(actor_loss)
+            actor_opt.step()
 
         # Update Alpha
-        elif 'alpha_optimizer' in self.optimizers_list and optimizer_idx == self.optimizers_list.index('alpha_optimizer'):
+        if 'alpha_optimizer' in self.optimizers_list:
+
+            # Get Alpha Optimizer
+            alpha_opt = optimizers[self.optimizers_list.index('alpha_optimizer')]
 
             # Get the Log Probabilities
             log_probs = self.log_probs_Alpha
@@ -559,10 +580,16 @@ class WCSACP(LightningModule):
             self.log('Alpha-Beta/Alpha-Loss', alpha_loss)
             self.log('Alpha-Beta/Alpha-Value', self.log_alpha.exp())
 
-            return alpha_loss
+            # Optimizer Step
+            alpha_opt.zero_grad()
+            self.manual_backward(alpha_loss)
+            alpha_opt.step()
 
         # Update Beta
-        elif 'beta_optimizer' in self.optimizers_list and optimizer_idx == self.optimizers_list.index('beta_optimizer'):
+        if 'beta_optimizer' in self.optimizers_list:
+
+            # Get Beta Optimizer
+            beta_opt = optimizers[self.optimizers_list.index('beta_optimizer')]
 
             # Get CVaR (Conditional Value-at-Risk)
             CVaR = self.CVaR_Beta
@@ -572,9 +599,12 @@ class WCSACP(LightningModule):
             self.log("Alpha-Beta/Beta-Loss", beta_loss)
             self.log("Alpha-Beta/Beta-Value", self.log_beta.exp())
 
-            return beta_loss
+            # Optimizer Step
+            beta_opt.zero_grad()
+            self.manual_backward(beta_loss)
+            beta_opt.step()
 
-    def training_epoch_end(self, training_step_outputs):
+    def on_train_epoch_end(self):
 
         # Play Episode
         self.play_episode(policy=self.target_policy)
