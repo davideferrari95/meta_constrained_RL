@@ -3,6 +3,7 @@ seed:               123
 samples_per_epoch:  10_000
 min_epochs:         2_000
 max_epochs:         4_000
+precision:          16
 
 early_stopping:     True
 patience:           750

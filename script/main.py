@@ -78,6 +78,7 @@ def main(cfg: Params):
         # Devices
         devices = AUTO,
         accelerator = AUTO,
+        precision = TP.precision,
 
         # Hyperparameters
         min_epochs = TP.min_epochs,

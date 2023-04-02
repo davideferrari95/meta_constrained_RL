@@ -7,7 +7,7 @@ from SAC.Utils import CostMonitor, FOLDER, AUTO
 from SAC.SafetyController import SafetyController, Odometry
 
 # Import Utilities
-import copy, itertools, sys
+import copy, itertools, sys, os
 from termcolor import colored
 from typing import Union, Optional
 from tqdm import tqdm
@@ -207,7 +207,7 @@ class WCSACP(LightningModule):
         if self.learn_alpha:
 
             # Automatically Set Target Entropy | else: Force Float Conversion -> target α (safety-gym = -2.0)
-            if self.hparams.target_alpha in [None, AUTO]: self.target_alpha = - torch.prod(Tensor(self.env.action_space.shape)).item()
+            if self.hparams.target_alpha in [None, AUTO]: self.target_alpha = - torch.prod(Tensor(self.env.action_space.shape)).detach()
             else: self.target_alpha = float(self.hparams.target_alpha)
 
             # Instantiate Alpha, Log_Alpha
@@ -437,7 +437,7 @@ class WCSACP(LightningModule):
         dataset = RLDataset(self.buffer, self.hparams.samples_per_epoch)
 
         # Create a DataLoader -> Fetch the Data from Dataset into Training Process with some Optimization
-        dataloader = DataLoader(dataset=dataset, batch_size=self.hparams.batch_size, num_workers=16, pin_memory=True)
+        dataloader = DataLoader(dataset=dataset, batch_size=self.hparams.batch_size, num_workers=os.cpu_count(), pin_memory=True)
 
         return dataloader
 

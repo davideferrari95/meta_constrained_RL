@@ -8,6 +8,7 @@ class TrainingParams:
   samples_per_epoch:  int
   min_epochs:         int
   max_epochs:         int
+  precision:          int
   early_stopping:     bool
   patience:           int
   tau:                float
