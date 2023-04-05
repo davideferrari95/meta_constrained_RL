@@ -8,7 +8,6 @@ import math
 # Select Training Device
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 
-
 # Neural Network Creation Function
 def mlp(input_dim:int, hidden_dim:int, output_dim:int, hidden_depth:int, hidden_mod=nn.ReLU(), output_mod=None):
 
@@ -48,10 +47,6 @@ class DoubleQCritic(nn.Module):
         self.Q1 = mlp(obs_size + action_dim, hidden_size, 1, hidden_depth).to(DEVICE)
         self.Q2 = mlp(obs_size + action_dim, hidden_size, 1, hidden_depth).to(DEVICE)
 
-        # Output Dict
-        self.outputs = dict()
-        self.apply(weight_init)
-
     def forward(self, state, action):
 
         # Dimensional Check
@@ -65,14 +60,7 @@ class DoubleQCritic(nn.Module):
         obs_action = torch.cat([state, action], dim=-1)
 
         # Pass the State-Action Pair through the Networks
-        q1 = self.Q1(obs_action)
-        q2 = self.Q2(obs_action)
-
-        # Add in the Output Dict
-        self.outputs["q1"] = q1
-        self.outputs["q2"] = q2
-
-        return q1, q2
+        return self.Q1(obs_action), self.Q2(obs_action)
 
 # Safety Critic Network for estimating Long Term Costs (Mean and Variance)
 class SafetyCritic(nn.Module):
@@ -85,10 +73,6 @@ class SafetyCritic(nn.Module):
         # Create the 2 Cost Networks
         self.QC = mlp(obs_size + action_dim, hidden_size, 1, hidden_depth).to(DEVICE)
         self.VC = mlp(obs_size + action_dim, hidden_size, 1, hidden_depth).to(DEVICE)
-
-        # Output Dict
-        self.outputs = dict()
-        self.apply(weight_init)
 
     def forward(self, state, action):
 
@@ -103,14 +87,7 @@ class SafetyCritic(nn.Module):
         obs_action = torch.cat([state, action], dim=-1)
 
         # Pass the State-Action Pair through the Networks
-        qc = self.QC(obs_action)
-        vc = self.VC(obs_action)
-
-        # Add in the Output Dict
-        self.outputs["qc"] = qc
-        self.outputs["vc"] = vc
-
-        return qc, vc
+        return self.QC(obs_action), self.VC(obs_action)
 
 # Diagonal Gaussian Policy Network
 class DiagGaussianPolicy(nn.Module):
@@ -126,9 +103,6 @@ class DiagGaussianPolicy(nn.Module):
         # Get Action Range and Std Bounds
         self.action_range = action_range
         self.log_std_bounds = log_std_bounds
-
-        self.outputs = dict()
-        self.apply(weight_init)
 
     def forward(self, x, reparametrization=False, mean=False):
 
@@ -148,9 +122,6 @@ class DiagGaussianPolicy(nn.Module):
 
         # Get Standard Deviation
         std = log_std.exp()
-
-        self.outputs["mu"] = mu
-        self.outputs["std"] = std
 
         # Create a Normal Distribution and Apply the Squashing Function
         dist = SquashedNormal(mu, std)
@@ -297,15 +268,3 @@ def polyak_average(net, target_net, tau=0.01):
 
         # Polyak Average Function
         target_param.data.copy_(tau * param.data + (1 - tau) * target_param.data)
-
-# Custom Weight Init for Conv2D and Linear layers
-def weight_init(m):
-
-    ''' Custom Weight Init for Conv2D and Linear layers '''
-
-    if isinstance(m, nn.Linear):
-
-        # Fills the Input Tensor with a (semi) Orthogonal Matrix
-        nn.init.orthogonal_(m.weight.data)
-
-        if hasattr(m.bias, "data"): m.bias.data.fill_(0.0)
