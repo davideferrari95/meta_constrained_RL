@@ -16,6 +16,7 @@ class TrainingParams:
   smooth_lambda:      float
   record_video:       bool
   record_epochs:      int
+  profiler:           str
   use_profiler:       bool
   fast_dev_run:       bool
 

@@ -5,7 +5,7 @@ from SAC.SAC import WCSACP
 from pytorch_lightning import Trainer, loggers as pl_loggers
 from pytorch_lightning.profilers import AdvancedProfiler, SimpleProfiler
 from pytorch_lightning.callbacks import EarlyStopping, DeviceStatsMonitor, ModelCheckpoint
-from SAC.LightningCallbacks import PrintCallback, TestCallback, OverrideEpochStepCallback
+from SAC.LightningCallbacks import PrintCallback, TestCallback
 from SAC.Utils import set_seed_everywhere, set_hydra_absolute_path
 
 # Import Utilities
@@ -62,9 +62,6 @@ def main(cfg: Params):
     # Model Checkpoint Callback
     # callbacks.append(ModelCheckpoint())
 
-    # Override Epochs Callback
-    # callbacks.append(OverrideEpochStepCallback())
-
     # Optional Callbacks
     if TP.early_stopping: callbacks.append(EarlyStopping(monitor='episode/Return', mode='max', patience=TP.patience, verbose=True, check_on_train_epoch_end=True))
 
@@ -72,8 +69,8 @@ def main(cfg: Params):
     if EP.test_environment: callbacks.append(TestCallback())
 
     # Python Profiler: Summary of All the Calls Made During Training
-    # profiler = AdvancedProfiler()
-    profiler = SimpleProfiler() if TP.use_profiler else None
+    profiler = AdvancedProfiler() if TP.profiler == 'advanced' else SimpleProfiler()
+    profiler = profiler if TP.use_profiler else None
 
     # Create Trainer Module
     trainer = Trainer(
