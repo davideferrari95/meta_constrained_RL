@@ -73,7 +73,7 @@ safety_threshold:   0.5
 # Test and Violation Environments
 test_environment:       true
 test_unconstrained:     true
-test_constrained:       false
+test_constrained:       true
 violation_environment:  true
 test_env_epochs:        1
 violation_env_epochs:   1

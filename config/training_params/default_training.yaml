@@ -13,7 +13,7 @@ epsilon:            0.1
 smooth_lambda:      0.01
 
 record_video:       True
-record_epochs:      100
+record_epochs:      150
 
 use_profiler:       False
 fast_dev_run:       False
