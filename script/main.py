@@ -10,9 +10,9 @@ from SAC.Utils import set_seed_everywhere, set_hydra_absolute_path
 
 # Import Utilities
 from SAC.Utils import FOLDER, AUTO, print_arguments, check_spells_error
+import sys, os, logging
 
 # Import Parent Folders
-import sys
 sys.path.append(FOLDER)
 
 # Import Hydra and Parameters Configuration File
@@ -23,8 +23,11 @@ from config.config import Params, EnvironmentParams, TrainingParams
 set_hydra_absolute_path()
 
 # Set Hydra Full Log Error
-import os
 os.environ['HYDRA_FULL_ERROR'] = '1'
+
+# Ignore Torch Compiler INFO
+logging.getLogger('torch._dynamo').setLevel(logging.ERROR)
+logging.getLogger('torch._inductor').setLevel(logging.ERROR)
 
 # Hydra Decorator to Load Configuration Files
 @hydra.main(config_path=f'{FOLDER}/config', config_name='config', version_base=None)
@@ -78,6 +81,7 @@ def main(cfg: Params):
         # Devices
         devices = AUTO,
         accelerator = AUTO,
+        strategy = AUTO,
         precision = TP.precision,
 
         # Hyperparameters
