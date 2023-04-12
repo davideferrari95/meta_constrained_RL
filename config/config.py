@@ -5,7 +5,7 @@ from typing import Optional, Union, List
 class TrainingParams:
     
   seed:               int
-  samples_per_epoch:  int
+  initial_samples:    int
   min_epochs:         int
   max_epochs:         int
   precision:          int
@@ -17,7 +17,8 @@ class TrainingParams:
   record_video:       bool
   record_epochs:      int
   profiler:           str
-  use_profiler:       bool
+  compilation_mode:   str
+  torch_compilation:  bool
   fast_dev_run:       bool
 
 @dataclass

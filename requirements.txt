@@ -1,11 +1,19 @@
+# Utilities
+hydra-core>=1.3.1
+moviepy
+mujoco-py==2.1.2.14
+numba>=0.56.4
+numpy<=1.24
 pyglet==1.5.0
+PyYAML>=6.0
+termcolor
+tqdm
+
+# Gym Environments
 gym>=0.26.2
 gym[box2d]
-moviepy
+git+https://github.com/davideferrari95/safety-gym.git
+
+# Torch
 pytorch-lightning>=2.0.1
-numpy<=1.24
 torch==2.0.0
-termcolor
-hydra-core>=1.3.1
-numba>=0.56.4
-PyYAML>=6.0

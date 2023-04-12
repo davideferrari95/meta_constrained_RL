@@ -1,9 +1,9 @@
 seed:               123
 
-samples_per_epoch:  10_000
+initial_samples:    10_000
 min_epochs:         2_000
 max_epochs:         4_000
-precision:          16
+precision:          16-mixed
 
 early_stopping:     True
 patience:           750
@@ -15,6 +15,8 @@ smooth_lambda:      0.01
 record_video:       True
 record_epochs:      150
 
-profiler:           'simple'
+profiler:           simple
 use_profiler:       False
+compilation_mode:   default
+torch_compilation:  True
 fast_dev_run:       False

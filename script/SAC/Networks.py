@@ -1,6 +1,7 @@
 import torch, torch.nn as nn
 import torch.nn.functional as F
 from torch import distributions as TD
+from typing import Iterable
 
 import numpy as np
 import math
@@ -261,10 +262,22 @@ class SquashedNormal(TD.transformed_distribution.TransformedDistribution):
         return mu
 
 # Polyak Average Function to update the Target Parameters
-def polyak_average(net, target_net, tau=0.01):
+def polyak_average(params: Iterable[nn.Parameter], target_params: Iterable[nn.Parameter], tau: float = 0.01):
 
-    # For every parameter of the Q-Network and Target-Network
-    for param, target_param in zip(net.parameters(), target_net.parameters()):
+    """
+    Perform a Polyak average update on ``target_params`` using ``params``:
+    target parameters are slowly updated towards the main parameters.
+    ``tau``, the soft update coefficient controls the interpolation:
+    ``tau=1`` corresponds to copying the parameters to the target ones whereas nothing happens when ``tau=0``.
 
-        # Polyak Average Function
-        target_param.data.copy_(tau * param.data + (1 - tau) * target_param.data)
+    :param params: (Iterable[th.nn.Parameter]) parameters to use to update the target params
+    :param target_params: (Iterable[th.nn.Parameter]) parameters to update
+    :param tau: (float) the soft update coefficient ("Polyak update", between 0 and 1)
+    """
+
+    # Not Create Intermediate Tensors or a Computation Graph
+    with torch.no_grad():
+
+        # Polyak Update
+        for param, target_param in zip(params, target_params):
+            target_param.data = torch.add(torch.mul(target_param.data, 1 - tau), torch.mul(param.data, tau))

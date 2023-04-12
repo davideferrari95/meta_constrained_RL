@@ -40,7 +40,7 @@ class WCSACP(LightningModule):
     # gamma:                Discount Factor
     # loss_function:        Loss Function to Compute the Loss Value
     # optim:                Optimizer to Train the NN
-    # samples_per_epoch:    How many Observation in a single Epoch
+    # initial_samples:      How many Observation collected Before Training
     # tau:                  How fast we apply the Polyak Average Update
     # epsilon:              Radius of Perturbation Set β(s,ε)
     # smooth_lambda:        Smoothness Regularization Coefficient
@@ -96,8 +96,8 @@ class WCSACP(LightningModule):
     def __init__(
 
         self, seed=-1, record_video=True, record_epochs=100, capacity=100_000,
-        batch_size=512, hidden_size=256, loss_function='smooth_l1_loss', optim='AdamW',
-        samples_per_epoch=10_000,  gamma=0.99, tau=0.05, epsilon=0.1, smooth_lambda=0.01,
+        batch_size=1024, hidden_size=256, loss_function='smooth_l1_loss', optim='AdamW',
+        initial_samples=10_000,  gamma=0.99, tau=0.05, epsilon=0.1, smooth_lambda=0.01,
 
         # Critic and Actor Parameters:
         critic_lr=1e-3, critic_betas=[0.9, 0.999], critic_update_freq=2,
@@ -281,7 +281,7 @@ class WCSACP(LightningModule):
         self.experience_episode_counter = 0
 
         # While Buffer is Filling
-        while len(self.buffer) < self.hparams.samples_per_epoch:
+        while len(self.buffer) < self.hparams.initial_samples:
 
             if round(len(self.buffer), -2) % 500 == 0:
                 print(f"{round(len(self.buffer), -2)} samples in Experience Buffer. Filling...")
@@ -437,7 +437,7 @@ class WCSACP(LightningModule):
     def train_dataloader(self):
 
         # Create a Dataset from the ReplayBuffer
-        dataset = RLDataset(self.buffer, self.hparams.samples_per_epoch)
+        dataset = RLDataset(self.buffer, self.hparams.batch_size)
 
         # Create a DataLoader -> Fetch the Data from Dataset into Training Process with some Optimization
         dataloader = DataLoader(dataset=dataset, batch_size=self.hparams.batch_size, num_workers=os.cpu_count(), pin_memory=True)
@@ -502,8 +502,8 @@ class WCSACP(LightningModule):
 
             # Polyak Average Update of the Critic Networks
             if self.global_step % self.hparams.critic_update_freq == 0:
-                polyak_average(self.q_critic, self.target_q_critic, tau=self.hparams.tau)
-                polyak_average(self.safety_critic, self.target_safety_critic, tau=self.hparams.tau)
+                polyak_average(self.q_critic.parameters(), self.target_q_critic.parameters(), tau=self.hparams.tau)
+                polyak_average(self.safety_critic.parameters(), self.target_safety_critic.parameters(), tau=self.hparams.tau)
 
             # Optimizer Step
             critic_opt.zero_grad()
@@ -553,13 +553,9 @@ class WCSACP(LightningModule):
             self.log('Actor/Policy-Cost', torch.mean(actor_QC + self.pdf_cdf.cuda() * torch.sqrt(actor_VC)), on_epoch=True)
             self.log('Actor/Policy-Smooth_Loss', smooth_loss, on_epoch=True)
 
-            # Save Var for Alpha, Beta Updates
-            self.log_probs_Alpha = new_log_probs
-            self.CVaR_Beta = CVaR
-
             # Polyak Average Update of the Actor Network
             if self.global_step % self.hparams.actor_update_freq == 0:
-                polyak_average(self.policy, self.target_policy, tau=self.hparams.tau)
+                polyak_average(self.policy.parameters(), self.target_policy.parameters(), tau=self.hparams.tau)
 
             # Optimizer Step
             actor_opt.zero_grad()
@@ -572,11 +568,8 @@ class WCSACP(LightningModule):
             # Get Alpha Optimizer
             alpha_opt = optimizers[self.optimizers_list.index('alpha_optimizer')]
 
-            # Get the Log Probabilities
-            log_probs = self.log_probs_Alpha
-
             # Compute the Alpha Loss
-            alpha_loss = torch.mean(self.log_alpha.exp() * (- log_probs - self.target_alpha).detach())
+            alpha_loss = torch.mean(self.log_alpha.exp() * (- new_log_probs - self.target_alpha).detach())
             self.log('Alpha-Beta/Alpha-Loss', alpha_loss)
             self.log('Alpha-Beta/Alpha-Value', self.log_alpha.exp())
 
@@ -590,9 +583,6 @@ class WCSACP(LightningModule):
 
             # Get Beta Optimizer
             beta_opt = optimizers[self.optimizers_list.index('beta_optimizer')]
-
-            # Get CVaR (Conditional Value-at-Risk)
-            CVaR = self.CVaR_Beta
 
             # Compute the Beta Loss
             beta_loss = torch.mean(self.log_beta.exp() * (self.target_cost - CVaR).detach())

@@ -10,7 +10,7 @@ from SAC.Utils import set_seed_everywhere, set_hydra_absolute_path
 
 # Import Utilities
 from SAC.Utils import FOLDER, AUTO, print_arguments, check_spells_error
-import sys, os, logging
+import sys, os, logging, torch
 
 # Import Parent Folders
 sys.path.append(FOLDER)
@@ -51,7 +51,7 @@ def main(cfg: Params):
 
     # Instantiate Algorithm Model
     model = hydra.utils.instantiate(cfg.agent, seed=seed, record_video=(TP.record_video and not TP.fast_dev_run),
-                                    samples_per_epoch = TP.samples_per_epoch if not TP.fast_dev_run else 1)
+                                    initial_samples = TP.initial_samples if not TP.fast_dev_run else 1)
 
     # Instantiate Default Callbacks
     callbacks = [PrintCallback()]
@@ -102,8 +102,11 @@ def main(cfg: Params):
     # Save Arguments
     print_arguments(cfg, term_print=False, save_file=(True and (TP.record_video and not TP.fast_dev_run)))
 
+    # Model Compilation
+    compiled_model = torch.compile(model, mode=TP.compilation_mode) if TP.torch_compilation else model
+
     # Start Training
-    trainer.fit(model)
+    trainer.fit(compiled_model)
 
 if __name__ == '__main__':
 
