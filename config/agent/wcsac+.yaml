@@ -1,0 +1,54 @@
+# WCSACP Algorithm Class
+_target_: SAC.SAC.WCSACP
+
+# SAC Parameters
+seed:                ${training_params.seed}
+record_video:        ${training_params.record_video}
+record_epochs:       ${training_params.record_epochs}
+capacity:            1e6
+batch_size:          8192
+hidden_size:         512
+gamma:               0.99
+loss_function:       smooth_l1_loss
+optim:               AdamW
+initial_samples:     ${training_params.initial_samples}
+tau:                 ${training_params.tau}
+
+# Critic
+critic_lr:           1e-3
+critic_betas:        [0.9, 0.999]
+critic_update_freq:  2
+critic_hidden_depth: 4
+
+# Actor
+actor_lr:            1e-3
+actor_betas:         [0.9, 0.999]
+actor_update_freq:   1
+log_std_bounds:      [-20, 2]
+actor_hidden_depth:  4
+epsilon:             ${training_params.epsilon}
+smooth_lambda:       ${training_params.smooth_lambda}
+
+# Entropy Coefficient
+alpha:               ${entropy_params.alpha}
+init_alpha:          ${entropy_params.init_alpha}
+target_alpha:        ${entropy_params.target_alpha}
+alpha_betas:         ${entropy_params.alpha_betas}
+alpha_lr:            ${entropy_params.alpha_lr}
+
+# Cost Constraints
+fixed_cost_penalty:  ${cost_params.fixed_cost_penalty}
+init_beta:           ${cost_params.init_beta}
+cost_limit:          ${cost_params.cost_limit}
+target_cost:         ${cost_params.target_cost}
+beta_betas:          ${cost_params.beta_betas}
+beta_lr:             ${cost_params.beta_lr}
+cost_lr_scale:       ${cost_params.cost_lr_scale}
+risk_level:          ${cost_params.risk_level}
+damp_scale:          ${cost_params.damp_scale}
+
+# Safety Parameters
+unsafe_experience:   ${safety_params.unsafe_experience}
+
+# Environment Parameters:
+environment_config:  ${environment_params}

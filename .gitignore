@@ -1,0 +1,20 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+
+# Distribution / packaging
+eggs/
+.eggs/
+*.egg-info/
+*.egg
+
+# VSCode Folder
+.vscode
+.vscode/*
+
+# Videos, Logs, Hydra outputs
+data/logs/*
+data/videos/*
+data/outputs/*
+
+# TODO List
+TODO.todo
