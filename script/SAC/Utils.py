@@ -244,15 +244,19 @@ class CostMonitor():
 
         return cost
 
+    @property
     def get_episode_cost(self):
         return self.episode_cost
 
+    @property
     def get_hazards_violation(self):
         return self.hazards_violation
 
+    @property
     def get_vases_violation(self):
         return self.vases_violation
 
+    @property
     def get_robot_stuck(self):
         return self.robot_stuck
 
