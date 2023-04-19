@@ -329,17 +329,18 @@ class SafetyController():
         unsafe_experience = []
 
         # Hard-Coded Reward and Cost
-        for step in range(30):
-        # for step in range(1):
+        # for step in range(30):
+        for step in range(1):
 
             # For Hazards Areas :
             # First 10 Steps -> robot Can STOP -> cost = 0.25, reward = -0.25
             # Next 10 Steps  -> Robot CanNot STOP -> cost = 0.5, reward = -0.5
             # Last 15 Steps  -> Robot in Unsafe Area -> cost = 1.0, reward = -1.0
-            unsafe_reward, unsafe_cost, done = - (1/30) * step, (1/30) * step, 0
+            # unsafe_reward, unsafe_cost, done = - (1/30) * step, (1/30) * step, 0
 
             # Static Reward and Cost -> Working
             # unsafe_reward, unsafe_cost, done = -0.1, 0.1, 0
+            unsafe_reward, unsafe_cost, done = -0.05, 0.05, 0
 
             for bin in unsafe_lidar:
 
@@ -364,8 +365,8 @@ class SafetyController():
                 ):
 
                     # Increase Value of Lidar Bin in Unsafe Action Direction (Proportional to Velocity)
-                    new_lidar[bin.Index] = np.array(new_lidar[bin.Index] + 0.01 * velocimeter[0]).clip(0, 1).item()
-                    # new_lidar[bin.Index] = np.array(new_lidar[bin.Index] + 0.05).clip(0, 1).item()
+                    # new_lidar[bin.Index] = np.array(new_lidar[bin.Index] + 0.01 * velocimeter[0]).clip(0, 1).item()
+                    new_lidar[bin.Index] = np.array(new_lidar[bin.Index] + 0.05).clip(0, 1).item()
 
             # Print Lidar Changes
             # if debug_print: print('\nLidar:', lidar)
