@@ -12,6 +12,7 @@ tqdm
 # Gym Environments
 gym>=0.26.2
 gym[box2d]
+gym[mujoco]
 git+https://github.com/davideferrari95/safety-gym.git
 
 # Torch
