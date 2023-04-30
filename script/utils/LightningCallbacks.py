@@ -1,4 +1,4 @@
-from SAC.Environment import rename_test_episodes
+from envs.Environment import rename_test_episodes
 
 from pytorch_lightning.callbacks import Callback
 from termcolor import colored
