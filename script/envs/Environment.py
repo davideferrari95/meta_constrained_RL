@@ -17,9 +17,13 @@ def create_vectorized_environment(name:str, config:dict=None, env_num:int=10, se
 
     " Create Vectorized Gym Environment "
 
+    def make_env(seed, record_video):
+        def thunk(): return create_environment(name, config, seed, record_video, record_epochs, 
+                                               render_mode, apply_wrappers, environment_type, env_epochs)
+        return thunk
+
     # Create Vectorized Environment (Record Video Only for First Environment)
-    envs = gym.vector.SyncVectorEnv([create_environment(name, config, seed + i, record_video if i == 0 else False, 
-                                    record_epochs, render_mode, apply_wrappers, environment_type, env_epochs) for i in range(env_num)])
+    envs = gym.vector.SyncVectorEnv([make_env(seed + i, record_video if i == 0 else False) for i in range(env_num)])
 
     return envs
 
@@ -31,25 +35,21 @@ def create_environment(name:str, config:dict=None, seed:int=-1,
 
     """ Create Gym Environment """
 
-    def make_env():
+    # Custom Environment Creation
+    if ('custom' in name) or (config is not None): env = __make_custom_env(name, config, render_mode)
 
-        # Custom Environment Creation
-        if ('custom' in name) or (config is not None): env = __make_custom_env(name, config, render_mode)
+    # Build the Environment
+    else: env = gym.make(name, render_mode=render_mode)
 
-        # Build the Environment
-        else: env = gym.make(name, render_mode=render_mode)
+    # Apply Wrappers
+    if   environment_type == 'test'      and record_video: env = gym.wrappers.RecordVideo(env, video_folder=TEST_FOLDER,       episode_trigger=lambda x: x % env_epochs == 0, name_prefix='test_')
+    elif environment_type == 'violation' and record_video: env = gym.wrappers.RecordVideo(env, video_folder=VIOLATIONS_FOLDER, episode_trigger=lambda x: x % env_epochs == 0, name_prefix='new_')
+    elif apply_wrappers: env = __apply_wrappers(env, record_video, record_epochs, folder=VIDEO_FOLDER)
 
-        # Apply Wrappers
-        if   environment_type == 'test'      and record_video: env = gym.wrappers.RecordVideo(env, video_folder=TEST_FOLDER,       episode_trigger=lambda x: x % env_epochs == 0, name_prefix='test_')
-        elif environment_type == 'violation' and record_video: env = gym.wrappers.RecordVideo(env, video_folder=VIOLATIONS_FOLDER, episode_trigger=lambda x: x % env_epochs == 0, name_prefix='new_')
-        elif apply_wrappers: env = __apply_wrappers(env, record_video, record_epochs, folder=VIDEO_FOLDER)
+    # TODO: Apply Seed -> In env.reset() ?
+    # env.seed(seed)
 
-        # TODO: Apply Seed -> In env.reset() ?
-        # env.seed(seed)
-
-        return env
-
-    return make_env
+    return env
 
 def __make_custom_env(name, config:dict, render_mode='rgb_array') -> gym.Env: #():
 
