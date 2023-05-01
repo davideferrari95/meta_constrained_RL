@@ -1,15 +1,15 @@
 # Import WCSAC Algorithm
-from SAC.SAC import WCSACP
+from algos.PPO import PPO
 
 # Import PyTorch Lightning
 from pytorch_lightning import Trainer, loggers as pl_loggers
 from pytorch_lightning.profilers import AdvancedProfiler, SimpleProfiler
 from pytorch_lightning.callbacks import EarlyStopping, DeviceStatsMonitor, ModelCheckpoint
-from SAC.LightningCallbacks import PrintCallback, TestCallback
-from SAC.Utils import set_seed_everywhere, set_hydra_absolute_path
+from utils.LightningCallbacks import PrintCallback, TestCallback
+from utils.Utils import set_seed_everywhere, set_hydra_absolute_path
 
 # Import Utilities
-from SAC.Utils import FOLDER, AUTO, print_arguments, check_spells_error
+from utils.Utils import FOLDER, AUTO, print_arguments, check_spells_error
 import sys, os, logging, torch
 
 # Import Parent Folders
@@ -44,7 +44,7 @@ def main(cfg: Params):
     TP: TrainingParams    = cfg.training_params
 
     # Add PyTorch Lightning Seeding
-    seed = set_seed_everywhere(cfg.training_params.seed)
+    seed = set_seed_everywhere(cfg.environment_params.seed)
 
     # Set Test Episode Number to 0 if Fast-Dev-Run of No-Record-Video
     if (not TP.record_video or TP.fast_dev_run): cfg.agent.environment_config.test_episode_number = 0
