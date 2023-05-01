@@ -7,13 +7,12 @@ hidden_size:        512
 initial_samples:    ${training_params.initial_samples}
 
 num_steps:          2048
+max_epochs:         1000
 update_epochs:      10
 num_mini_batches:   32
 
 batch_size:         AUTO
 mini_batch_size:    AUTO
-total_timesteps:    2_048_000
-num_updates:        AUTO
 
 # PPO Parameters
 optim:              Adam

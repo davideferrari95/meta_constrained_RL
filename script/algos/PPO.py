@@ -32,7 +32,7 @@ class PPO(LightningModule):
         seed:int =-1,
         num_envs:int=1,
         num_steps:int=2048,
-        total_timesteps:int=2_048_000,
+        max_epochs:int=1000,
         optim:str='Adam',
         lr:float=3e-4,
         anneal_lr:bool=True,
@@ -55,7 +55,6 @@ class PPO(LightningModule):
         buffer_capacity:int=100_000,
         batch_size:int=2048,
         mini_batch_size:int=64,
-        num_updates:int=1000,
         hidden_size:int=256,
 
         # Environment Configuration Parameters:
@@ -96,6 +95,9 @@ class PPO(LightningModule):
         self.max_episode_steps = env_spec.max_episode_steps
         assert self.max_episode_steps is not None, (f'self.env.spec.max_episode_steps = None')
 
+        # Set Number of Steps -> If num_steps > max_episode_steps, then num_steps = max_episode_steps
+        if num_steps > self.max_episode_steps: num_steps = self.max_episode_steps
+
         # Create PPO Agent (Policy and Value Networks)
         self.agent = PPO_Agent(self.envs).to(DEVICE)
 
@@ -108,7 +110,6 @@ class PPO(LightningModule):
         # Compute Batch Size, Mini-Batch Size, and Number of Updates
         batch_size      = num_steps * num_envs
         mini_batch_size = batch_size // num_mini_batches
-        num_updates     = total_timesteps // batch_size
 
         # Save Hyperparameters in Internal Properties that we can Reference in our Code
         self.save_hyperparameters()
@@ -127,23 +128,25 @@ class PPO(LightningModule):
         values    = torch.zeros((self.hparams.num_steps, self.hparams.num_envs), device=DEVICE)
 
         global_steps = 0
-        next_obs, _ = self.envs.reset()
-        next_obs  = torch.Tensor(next_obs).to(DEVICE)
-        next_done = torch.zeros(self.hparams.num_envs, device=DEVICE)
 
-        for update in range(1, self.hparams.num_updates + 1):
+        # Epochs Update Loop
+        for update in range(self.hparams.max_epochs):
 
-            # Annealing the Rate
+            next_obs, _ = self.envs.reset()
+            next_obs  = torch.Tensor(next_obs).to(DEVICE)
+            next_done = torch.zeros(self.hparams.num_envs, device=DEVICE)
+
+            # Annealing the Rate -> On Epoch Start
             if self.hparams.anneal_lr:
 
                 # Fraction Variable that Linearly Decrease to 0
-                frac = 1.0 - (update - 1.0) / self.hparams.num_updates
+                frac = 1.0 - update / self.hparams.max_epochs
                 lr_now = frac * self.hparams.lr
 
                 # Update the Optimizer Learning Rate
                 self.optimizer.param_groups[0]['lr'] = lr_now
 
-            # Policy Rollout
+            # Policy Rollout -> Play Episode -> On Epoch Start / End
             for step in range(0, self.hparams.num_steps):
 
                 # Increment the Global Steps by the Total Environment Steps
@@ -171,10 +174,10 @@ class PPO(LightningModule):
                 if 'final_info' in info.keys():
                     for item in info['final_info']:
                         if item is not None and 'episode' in item.keys():
-                            print(f'global_steps={global_steps}, episodic_return={item["episode"]["r"]}')
+                            print(f'epoch={update+1}, global_steps={global_steps}, episodic_return={item["episode"]["r"]}')
                             break
 
-            # Implement GAE
+            # Implement GAE -> Calc Advantage Function
             with torch.no_grad():
 
                 next_value = self.agent.get_value(next_obs).reshape(1,-1)
@@ -234,8 +237,8 @@ class PPO(LightningModule):
             b_inds = np.arange(self.hparams.batch_size)
             clip_fracs = []
 
-            # For each Epoch
-            for epoch in range(self.hparams.update_epochs):
+            # For Each Samples in Mini-Batch
+            for _ in range(self.hparams.update_epochs):
 
                 # Shuffle the Batch
                 np.random.shuffle(b_inds)
@@ -265,7 +268,7 @@ class PPO(LightningModule):
                     if self.hparams.adv_normalize: mb_advantages = (b_advantages[mb_inds] - b_advantages[mb_inds].mean()) / (b_advantages[mb_inds].std() + 1e-8)
                     else: mb_advantages = b_advantages[mb_inds]
 
-                    # Policy Loss
+                    # Policy (Actor) Loss
                     pg_loss1 = -mb_advantages * ratio
                     pg_loss2 = -mb_advantages * torch.clamp(ratio, 1 - self.hparams.clip_ratio, 1 + self.hparams.clip_ratio)
                     pg_loss  = torch.max(pg_loss1, pg_loss2).mean()
@@ -364,7 +367,7 @@ class PPO(LightningModule):
         dataset = RLDataset(self.buffer, self.hparams.batch_size)
 
         # Create a DataLoader -> Fetch the Data from Dataset into Training Process with some Optimization
-        dataloader = DataLoader(dataset=dataset, batch_size=self.hparams.batch_size, num_workers=os.cpu_count(), pin_memory=True)
+        dataloader = DataLoader(dataset=dataset, batch_size=self.hparams.batch_size, shuffle=True, num_workers=os.cpu_count(), pin_memory=True)
 
         return dataloader
 
