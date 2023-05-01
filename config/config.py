@@ -4,16 +4,12 @@ from typing import Optional, Union, List
 @dataclass
 class TrainingParams:
     
-  seed:               int
   initial_samples:    int
   min_epochs:         int
   max_epochs:         int
   precision:          int
   early_stopping:     bool
   patience:           int
-  tau:                float
-  epsilon:            float
-  smooth_lambda:      float
   record_video:       bool
   record_epochs:      int
   profiler:           str
@@ -22,37 +18,13 @@ class TrainingParams:
   fast_dev_run:       bool
 
 @dataclass
-class EntropyParams:
-
-  alpha:              Union[str, float]
-  init_alpha:         Optional[float]
-  target_alpha:       Union[str, float]
-  alpha_betas:        List[float]
-  alpha_lr:           float
-
-@dataclass
-class CostParams:
-
-  fixed_cost_penalty: Optional[float]
-  init_beta:          Optional[float]
-  cost_limit:         Optional[float]
-  target_cost:        Union[str, float]
-  beta_betas:         List[float]
-  beta_lr:            float
-  cost_lr_scale:      float
-  risk_level:         float
-  damp_scale:         float
-
-@dataclass
-class SafetyParams:
-
-  unsafe_experience:  bool    # Activate or Not UnSafe Experience Saving in ReplayBuffer
-
-@dataclass
 class EnvironmentParams:
 
   # Task Configuration
   env_name:           Union[str, List[str]]
+  num_envs:           int
+  seed:               int
+
   robot_base:         str
   task:               str
 
@@ -133,7 +105,4 @@ class Params:
 
   agent:              classmethod
   training_params:    TrainingParams
-  entropy_params:     EntropyParams
-  cost_params:        CostParams
-  safe_params:        SafetyParams
   environment_params: EnvironmentParams

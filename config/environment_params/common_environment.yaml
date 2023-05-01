@@ -1,5 +1,7 @@
 # Environment Name
 env_name:           ['custom','CommonEnv']
+num_envs:           1
+seed:               123
 
 # Task Configuration
 robot_base:         'xmls/point.xml'

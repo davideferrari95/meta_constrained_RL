@@ -1,11 +1,8 @@
 defaults:
-- agent: wcsac+
+- agent: ppo
 - training_params: default_training
 - environment_params: common_environment
-- entropy_params: default_entropy
-- cost_params: default_cost
-- safety_params: default_safety
 - _self_
 hydra:
   run:
-    dir: /home/davide/ROS/meta_constrained_RL_ws/src/Constrained_RL/safe_wcsac+/data/outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}
+    dir: /home/davide/ROS/meta_constrained_RL_ws/src/Constrained_RL/ppo-issa/data/outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}
