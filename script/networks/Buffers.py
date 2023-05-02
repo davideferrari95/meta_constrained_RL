@@ -2,6 +2,8 @@ import torch
 import numpy as np
 import scipy.signal as signal
 
+from typing import Iterable, Callable
+
 # Import Torch IterableDataset
 from torch.utils.data.dataset import IterableDataset
 
@@ -121,21 +123,23 @@ class PPOBuffer():
                     adv=self.adv_buf, logp=self.logp_buf)
         return {k: torch.as_tensor(v, dtype=torch.float32) for k,v in data.items()}
 
-# Lightning Iterable DataSet
-class RLDataset(IterableDataset):
+# Basic Lightning Experience Source Iterable DataSet
+class ExperienceSourceDataset(IterableDataset):
 
-    ''' Must create a dataset that PyTorch-Lightning can use '''
+    """
+    Basic experience source dataset. Takes a generate_batch function that returns an iterator.
+    The logic for the experience source and how the batch is generated is defined the Lightning model itself
+    """
 
-    def __init__(self, buffer, sample_size=600):
+    # https://github.com/PyTorchLightning/pytorch-lightning-bolts/blob/master/pl_bolts/datamodules/experience_source.py
 
-        self.buffer = buffer
-        self.sample_size = sample_size
+    def __init__(self, generate_batch: Callable):
 
-    def __iter__(self):
+        # Instance the Generate Batch Function
+        self.generate_batch = generate_batch
 
-        # Define what Happen when we Process one by one this Object
-        for experience in self.buffer.sample(self.sample_size):
+    def __iter__(self) -> Iterable: #():
 
-            ''' yield will return the experience in the position number
-            0 and then wait for PyTorch to request the next item'''
-            yield experience
+        # Call the Generate Batch Function
+        iterator = self.generate_batch()
+        return iterator
