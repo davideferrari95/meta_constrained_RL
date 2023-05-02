@@ -1,34 +1,36 @@
+import numpy as np
+import gym, gym.spaces as spaces
+from typing import Optional, Union, Tuple
+
 import torch, torch.nn as nn
 from torch import distributions as TD
-
-import gym
-import numpy as np
 
 # Select Training Device
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 # Neural Network Creation Function
-def mlp(input_dim:int, hidden_dim:int, output_dim:int, hidden_depth:int, hidden_mod=nn.ReLU(), output_mod=None):
+def create_mlp(input_shape: Tuple[int], output_dim: int, hidden_sizes: Optional[list] = [128, 128], 
+               hidden_mod: Optional[nn.Module] = nn.ReLU(), output_mod: Optional[nn.Module] = None):
 
     ''' Neural Network Creation Function '''
 
     # No Hidden Layers
-    if hidden_depth <= 0:
+    if len(hidden_sizes) <= 0:
 
         # Only one Linear Layer
-        net = [nn.Linear(input_dim, output_dim)]
+        net = [nn.Linear(input_shape[0], output_dim)]
 
     else:
 
         # First Layer with ReLU Activation
-        net = [nn.Linear(input_dim, hidden_dim), hidden_mod]
+        net = [nn.Linear(input_shape[0], hidden_sizes[0]), hidden_mod]
 
         # Add the Hidden Layers
-        for i in range(hidden_depth - 1): 
-            net += [nn.Linear(hidden_dim, hidden_dim), hidden_mod]
+        for i in range(1, len(hidden_sizes)):
+            net += [nn.Linear(hidden_sizes[i-1], hidden_sizes[i]), hidden_mod]
 
         # Add the Output Layer
-        net.append(nn.Linear(hidden_dim, output_dim))
+        net.append(nn.Linear(hidden_sizes[-1], output_dim))
 
     if output_mod is not None:
         net.append(output_mod)
@@ -36,73 +38,190 @@ def mlp(input_dim:int, hidden_dim:int, output_dim:int, hidden_depth:int, hidden_
     # Create a Sequential Neural Network
     return nn.Sequential(*net)
 
-# Initialization Layer Function
-def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
+class ActorCategorical(nn.Module):
 
-    # Orthogonal Initialization on the Layer Weights
-    torch.nn.init.orthogonal_(layer.weight, std)
+    """
+    Policy Network, for Discrete Action Spaces.
+    Returns a Distribution and an Action given an Observation
+    """
 
-    # Constant Initialization on the Layer Bias
-    torch.nn.init.constant_(layer.bias, bias_const)
+    def __init__(self, actor_net):
 
-    return layer
+        """
+        Args:
+            input_shape: Observation Shape of the Environment
+            n_actions:   Number of Discrete Actions available in the Environment
+        """
 
-class PPO_Agent(nn.Module):
+        super().__init__()
 
-    def __init__(self, env:gym.Env):
+        # Instance the Actor Network
+        self.actor_net = actor_net
 
-        super(PPO_Agent, self).__init__()
-
-        # Create Critic Network -> 3 Linear Layers with Hyperbolic Tangent Activation Function
-        self.critic = nn.Sequential(
-
-            # Input Shape is the Product of Observation Space Shape | Tanh Activation
-            layer_init(nn.Linear(np.array(env.observation_space.shape).prod(), 64)), nn.Tanh(),
-
-            # Hidden Layer | Tanh Activation
-            layer_init(nn.Linear(64, 64)), nn.Tanh(),
-
-            # Last Layer uses 1.0 as Standard Deviation instead of the Default sqrt(2)
-            layer_init(nn.Linear(64, 1), std=1.0)
-
-        )
-
-        # Create Actor Network -> 3 Linear Layers with Hyperbolic Tangent Activation Function
-        self.actor_mean = nn.Sequential(
-
-            # Input Shape is the Product of Observation Space Shape | Tanh Activation
-            layer_init(nn.Linear(np.array(env.observation_space.shape).prod(), 64)), nn.Tanh(),
-
-            # Hidden Layer | Tanh Activation
-            layer_init(nn.Linear(64, 64)), nn.Tanh(),
-
-            # Last Layer uses 0.01 as Standard Deviation instead of the Default sqrt(2)
-            # Ensures that the Layer Parameters will have Similar Scalar Values -> The Probability of Taking each Action will be Similar
-            layer_init(nn.Linear(64, np.prod(env.action_space.shape)), std=0.01)
-
-        )
-        
-        self.actor_logstd = nn.Parameter(torch.zeros(1, np.prod(env.action_space.shape)))
-
-    def get_value(self, x):
-
-        """ Pass Observations through the Critic Network """
-
-        return self.critic(x)
-
-    def get_action_and_value(self, x, action=None):
+    def forward(self, states):
 
         """ Pass Observations through the Actor Network """
 
         # Un-Normalized Action Probabilities
-        action_mean = self.actor_mean(x)
-        action_std = torch.exp(self.actor_logstd)
+        logits = self.actor_net(states)
 
-        # Pass the Logits to a Normal Distribution
-        probs = TD.Normal(action_mean, action_std)
+        # Pass the Logits to a Categorical Distribution (Softmax Operation)
+        pi = TD.Categorical(logits=logits)
 
         # Sample the Action in the Rollout Phase
-        if action is None: action = probs.sample()
+        actions = pi.sample()
 
-        # Return Actions, Log Probability, Entropy, Values
-        return action, probs.log_prob(action).sum(1), probs.entropy().sum(1), self.critic(x)
+        return pi, actions
+
+    def get_log_prob(self, pi: TD.Categorical, actions: torch.Tensor):
+
+        """
+        Takes in a Distribution and Actions and Returns log_prob of Actions under the Distribution
+
+        Args:
+            pi:      Torch Distribution
+            actions: Actions Taken by Distribution
+
+        Returns:
+            Log Probability of the Action under pi
+        """
+
+        return pi.log_prob(actions)
+
+class ActorContinuous(nn.Module):
+
+    """
+    Policy Network, for Continuous Action Spaces.
+    Returns a Distribution and an Action given an Observation
+    """
+
+    def __init__(self, actor_net, act_dim):
+
+        """
+        Args:
+            input_shape: Observation Shape of the Environment
+            n_actions:   Number of Discrete Actions available in the Environment
+        """
+
+        super().__init__()
+
+        # Instance the Actor Network
+        self.actor_net = actor_net
+
+        # Log Standard Deviation Parameter
+        log_std = -0.5 * torch.ones(act_dim, dtype=torch.float)
+        self.log_std = torch.nn.Parameter(log_std)
+
+    def forward(self, states):
+
+        """ Pass Observations through the Actor Network """
+
+        # Mean and Std Action Probabilities
+        mu = self.actor_net(states)
+        std = torch.exp(self.log_std)
+
+        # Create a Normal Distribution
+        pi = TD.Normal(loc=mu, scale=std)
+
+        # Sample the Action in the Rollout Phase
+        actions = pi.sample()
+
+        return pi, actions
+
+    def get_log_prob(self, pi: TD.Normal, actions: torch.Tensor):
+
+        """
+        Takes in a Distribution and Actions and Returns log_prob of Actions under the Distribution
+
+        Args:
+            pi:      Torch Distribution
+            actions: Actions Taken by Distribution
+
+        Returns:
+            Log Probability of the Action under pi
+        """
+
+        return pi.log_prob(actions).sum(axis=-1)
+
+class ActorCriticAgent(object):
+
+    """
+    Actor Critic Agent used during Trajectory Collection.
+    It returns a Distribution and an Action given an Observation. 
+    """
+
+    # https://github.com/Shmuma/ptan/blob/master/ptan/agent.py
+
+    def __init__(self, actor_net: nn.Module, critic_net: nn.Module):
+
+        # Instance the Actor and Critic Networks
+        self.actor_net = actor_net
+        self.critic_net = critic_net
+
+    @torch.no_grad()
+    def __call__(self, state: torch.Tensor, device: str = DEVICE) -> Tuple: #():
+
+        """
+        Takes in the Current State and Returns:
+        Agents Policy, Sampled Action, Log Probability of the Action, Value of the Given State
+
+        Args:
+            states: Current State of the Environment
+            device: Device Used for the Current Batch
+
+        Returns:
+            Torch Distribution and Randomly Sampled Action
+        """
+
+        # Move the State to the Device
+        state = state.to(device=device)
+
+        # Get Distribution, Action and Log Probability
+        pi, actions = self.actor_net(state)
+        log_probs = self.get_log_prob(pi, actions)
+
+        # Get the Value of the State
+        value = self.critic_net(state)
+
+        return pi, actions, log_probs, value
+
+    def get_log_prob(self, pi: Union[TD.Categorical, TD.Normal], actions: torch.Tensor) -> torch.Tensor: #():
+
+        """
+        Takes in the Current State and Returns:
+        Log Probability of the Action under the Distribution
+
+        Args:
+            pi:      Torch Distribution
+            actions: Actions Taken by the Distribution
+
+        Returns:
+            Log Probability of the Action under pi
+        """
+
+        return self.actor_net.get_log_prob(pi, actions)
+
+
+class PPO_Agent(ActorCriticAgent):
+
+    def __init__(self, env:gym.Env):
+
+        # Create Critic Network -> 3 Linear Layers with Hyperbolic Tangent Activation Function
+        critic = create_mlp(env.observation_space.shape, 1, [128,128], nn.Tanh(), nn.Identity())
+
+        # Create Continuous Actor Network -> 3 Linear Layers with Hyperbolic Tangent Activation Function
+        if isinstance(env.action_space, spaces.Box):
+            actor_mlp = create_mlp(env.observation_space.shape, env.action_space.shape[0], [128,128], nn.Tanh(), nn.Identity())
+            actor = ActorContinuous(actor_mlp, env.action_space.shape[0])
+
+        # Create Discrete Actor Network -> 3 Linear Layers with Hyperbolic Tangent Activation Function
+        elif isinstance(env.action_space, spaces.Discrete):
+            actor_mlp = create_mlp(env.observation_space.shape, env.action_space.n, [128,128], nn.Tanh(), nn.Identity())
+            actor = ActorCategorical(actor_mlp)
+
+        # Raise Error if Action Space is not of Type Box or Discrete
+        else: raise NotImplementedError('Env action space should be of type Box (Continuous) or Discrete (Categorical). '
+                                      f'Got type: {type(env.action_space)}')
+
+        # Instance the Actor Critic Agent
+        super(PPO_Agent, self).__init__(actor, critic)
