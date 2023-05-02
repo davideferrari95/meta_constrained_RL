@@ -1,6 +1,7 @@
 import torch, torch.nn as nn
 from torch import distributions as TD
 
+import gym
 import numpy as np
 
 # Select Training Device
@@ -48,7 +49,7 @@ def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
 
 class PPO_Agent(nn.Module):
 
-    def __init__(self, envs):
+    def __init__(self, env:gym.Env):
 
         super(PPO_Agent, self).__init__()
 
@@ -56,7 +57,7 @@ class PPO_Agent(nn.Module):
         self.critic = nn.Sequential(
 
             # Input Shape is the Product of Observation Space Shape | Tanh Activation
-            layer_init(nn.Linear(np.array(envs.single_observation_space.shape).prod(), 64)), nn.Tanh(),
+            layer_init(nn.Linear(np.array(env.observation_space.shape).prod(), 64)), nn.Tanh(),
 
             # Hidden Layer | Tanh Activation
             layer_init(nn.Linear(64, 64)), nn.Tanh(),
@@ -70,18 +71,18 @@ class PPO_Agent(nn.Module):
         self.actor_mean = nn.Sequential(
 
             # Input Shape is the Product of Observation Space Shape | Tanh Activation
-            layer_init(nn.Linear(np.array(envs.single_observation_space.shape).prod(), 64)), nn.Tanh(),
+            layer_init(nn.Linear(np.array(env.observation_space.shape).prod(), 64)), nn.Tanh(),
 
             # Hidden Layer | Tanh Activation
             layer_init(nn.Linear(64, 64)), nn.Tanh(),
 
             # Last Layer uses 0.01 as Standard Deviation instead of the Default sqrt(2)
             # Ensures that the Layer Parameters will have Similar Scalar Values -> The Probability of Taking each Action will be Similar
-            layer_init(nn.Linear(64, np.prod(envs.single_action_space.shape)), std=0.01)
+            layer_init(nn.Linear(64, np.prod(env.action_space.shape)), std=0.01)
 
         )
         
-        self.actor_logstd = nn.Parameter(torch.zeros(1, np.prod(envs.single_action_space.shape)))
+        self.actor_logstd = nn.Parameter(torch.zeros(1, np.prod(env.action_space.shape)))
 
     def get_value(self, x):
 
@@ -95,8 +96,7 @@ class PPO_Agent(nn.Module):
 
         # Un-Normalized Action Probabilities
         action_mean = self.actor_mean(x)
-        action_logstd = self.actor_logstd.expand_as(action_mean)
-        action_std = torch.exp(action_logstd)
+        action_std = torch.exp(self.actor_logstd)
 
         # Pass the Logits to a Normal Distribution
         probs = TD.Normal(action_mean, action_std)

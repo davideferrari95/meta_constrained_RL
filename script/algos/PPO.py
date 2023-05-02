@@ -1,7 +1,7 @@
 # Import RL Modules
 from networks.Agents import PPO_Agent, DEVICE
-from networks.Buffers import ReplayBuffer, RLDataset
-from envs.Environment import create_environment, create_vectorized_environment, record_violation_episode
+from networks.Buffers import RLDataset
+from envs.Environment import create_environment, record_violation_episode
 from envs.DefaultEnvironment import custom_environment_config
 from utils.Utils import CostMonitor, FOLDER, AUTO
 
@@ -30,8 +30,6 @@ class PPO(LightningModule):
 
         self,
         seed:int =-1,
-        num_envs:int=1,
-        num_steps:int=2048,
         max_epochs:int=1000,
         optim:str='Adam',
         lr:float=3e-4,
@@ -71,13 +69,12 @@ class PPO(LightningModule):
         # Remove Automatic Optimization (Multiple Optimizers)
         # self.automatic_optimization = False
 
-        # Create Vectorized Environment
-        assert num_envs > 0, 'Number of Environments must be Greater than 0'
+        # Create Environment
         env_name, env_config = custom_environment_config(environment_config)
-        self.envs = create_vectorized_environment(env_name, env_config, num_envs, seed, record_video, record_epochs)
+        self.env = create_environment(env_name, env_config, seed, record_video, record_epochs)
 
         # Assert that the Action Space is Continuous
-        assert isinstance(self.envs.single_action_space, gym.spaces.Box), 'Only Continuous (Box) Action Space is Supported'
+        assert isinstance(self.env.action_space, gym.spaces.Box), 'Only Continuous (Box) Action Space is Supported'
 
         # Save Environment Config Parameters
         self.EC: Optional[EnvironmentParams] = environment_config
@@ -91,15 +88,11 @@ class PPO(LightningModule):
                                                 environment_type='test', env_epochs=self.EC.test_env_epochs)
 
         # Get max_episode_steps from Environment -> For Safety-Gym = 1000
-        env_spec = self.envs.envs[0].spec
-        self.max_episode_steps = env_spec.max_episode_steps
+        self.max_episode_steps = self.env.spec.max_episode_steps
         assert self.max_episode_steps is not None, (f'self.env.spec.max_episode_steps = None')
 
-        # Set Number of Steps -> If num_steps > max_episode_steps, then num_steps = max_episode_steps
-        if num_steps > self.max_episode_steps: num_steps = self.max_episode_steps
-
         # Create PPO Agent (Policy and Value Networks)
-        self.agent = PPO_Agent(self.envs).to(DEVICE)
+        self.agent = PPO_Agent(self.env).to(DEVICE)
 
         # Instantiate Optimizer
         self.optim = getattr(torch.optim, optim)
@@ -107,8 +100,7 @@ class PPO(LightningModule):
         # Create Optimizer for the Agent
         self.optimizer = self.optim(self.agent.parameters(), lr=lr, eps=epsilon)
 
-        # Compute Batch Size, Mini-Batch Size, and Number of Updates
-        batch_size      = num_steps * num_envs
+        # Compute Mini-Batch Size
         mini_batch_size = batch_size // num_mini_batches
 
         # Save Hyperparameters in Internal Properties that we can Reference in our Code
@@ -120,21 +112,23 @@ class PPO(LightningModule):
     def ppo_run(self):
 
         # Storage Setup (Replay Buffer)
-        obs       = torch.zeros((self.hparams.num_steps, self.hparams.num_envs) + self.envs.single_observation_space.shape, device=DEVICE)
-        actions   = torch.zeros((self.hparams.num_steps, self.hparams.num_envs) + self.envs.single_action_space.shape, device=DEVICE)
-        log_probs = torch.zeros((self.hparams.num_steps, self.hparams.num_envs), device=DEVICE)
-        rewards   = torch.zeros((self.hparams.num_steps, self.hparams.num_envs), device=DEVICE)
-        dones     = torch.zeros((self.hparams.num_steps, self.hparams.num_envs), device=DEVICE)
-        values    = torch.zeros((self.hparams.num_steps, self.hparams.num_envs), device=DEVICE)
+        obs       = torch.zeros((self.hparams.batch_size,) + self.env.observation_space.shape, device=DEVICE)
+        actions   = torch.zeros((self.hparams.batch_size,) + self.env.action_space.shape, device=DEVICE)
+        log_probs = torch.zeros(self.hparams.batch_size, device=DEVICE)
+        rewards   = torch.zeros(self.hparams.batch_size, device=DEVICE)
+        dones     = torch.zeros(self.hparams.batch_size, device=DEVICE)
+        values    = torch.zeros(self.hparams.batch_size, device=DEVICE)
 
         global_steps = 0
 
         # Epochs Update Loop
         for update in range(self.hparams.max_epochs):
 
-            next_obs, _ = self.envs.reset()
+            next_obs, _ = self.env.reset()
             next_obs  = torch.Tensor(next_obs).to(DEVICE)
-            next_done = torch.zeros(self.hparams.num_envs, device=DEVICE)
+            next_done = torch.zeros(1, device=DEVICE)
+
+            print(f'Epochs = {update+1}')
 
             # Annealing the Rate -> On Epoch Start
             if self.hparams.anneal_lr:
@@ -147,10 +141,10 @@ class PPO(LightningModule):
                 self.optimizer.param_groups[0]['lr'] = lr_now
 
             # Policy Rollout -> Play Episode -> On Epoch Start / End
-            for step in range(0, self.hparams.num_steps):
+            for step in range(0, self.hparams.batch_size):
 
                 # Increment the Global Steps by the Total Environment Steps
-                global_steps += 1 * self.hparams.num_envs
+                global_steps += 1
                 obs[step] = next_obs
                 dones[step] = next_done
 
@@ -161,7 +155,7 @@ class PPO(LightningModule):
                     values[step] = value.flatten()
 
                 # Play Episode
-                next_obs, reward, done, truncated, info = self.envs.step(action.cpu().numpy())
+                next_obs, reward, done, truncated, info = self.env.step(action.cpu().numpy())
 
                 # Save Actions, Log Probs, Rewards
                 actions[step]  = action
@@ -169,7 +163,7 @@ class PPO(LightningModule):
                 rewards[step] = torch.tensor(reward).to(DEVICE).view(-1)
 
                 # Next Obs and Done
-                next_obs, next_done = torch.Tensor(next_obs).to(DEVICE), torch.Tensor(done).to(DEVICE)
+                next_obs, next_done = torch.Tensor(next_obs).to(DEVICE), torch.Tensor(np.array(done)).to(DEVICE)
 
                 if 'final_info' in info.keys():
                     for item in info['final_info']:
@@ -187,9 +181,9 @@ class PPO(LightningModule):
                     advantages = torch.zeros_like(rewards, device=DEVICE)
                     last_gae_lam = 0
 
-                    for t in reversed(range(self.hparams.num_steps)):
+                    for t in reversed(range(self.hparams.batch_size)):
 
-                        if t == self.hparams.num_steps - 1:
+                        if t == self.hparams.batch_size - 1:
 
                             next_non_terminal = 1.0 - next_done
                             next_values = next_value
@@ -208,9 +202,9 @@ class PPO(LightningModule):
 
                     returns = torch.zeros_like(rewards, device=DEVICE)
 
-                    for t in reversed(range(self.hparams.num_steps)):
+                    for t in reversed(range(self.hparams.batch_size)):
 
-                        if t == self.hparams.num_steps - 1:
+                        if t == self.hparams.batch_size - 1:
 
                             next_non_terminal = 1.0 - next_done
                             next_return = next_value
@@ -225,9 +219,9 @@ class PPO(LightningModule):
                     advantages = returns - values
 
             # Flatten the Batch
-            b_obs        = obs.reshape((-1,) + self.envs.single_observation_space.shape)
+            b_obs        = obs.reshape((-1,) + self.env.observation_space.shape)
             b_log_probs  = log_probs.reshape(-1)
-            b_actions    = actions.reshape((-1,) + self.envs.single_action_space.shape)
+            b_actions    = actions.reshape((-1,) + self.env.action_space.shape)
             b_advantages = advantages.reshape(-1)
             b_returns    = returns.reshape(-1)
             b_values     = values.reshape(-1)
@@ -316,7 +310,7 @@ class PPO(LightningModule):
             # self.log("losses/explained_variance", explained_var, global_steps)
 
         # Close Gym Environments
-        self.envs.close()
+        self.env.close()
 
     @torch.no_grad()
     def play_episode(self, policy=None):

@@ -4,6 +4,7 @@ moviepy
 mujoco-py==2.1.2.14
 numba>=0.56.4
 numpy<=1.24
+scipy
 pyglet==1.5.0
 PyYAML>=6.0
 termcolor

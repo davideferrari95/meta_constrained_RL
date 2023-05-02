@@ -22,7 +22,6 @@ class EnvironmentParams:
 
   # Task Configuration
   env_name:           Union[str, List[str]]
-  num_envs:           int
   seed:               int
 
   robot_base:         str
