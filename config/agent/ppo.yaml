@@ -1,37 +1,38 @@
 # WCSACP Algorithm Class
 _target_: algos.PPO.PPO
 
-# Training Parameters
-buffer_capacity:    1e6
-hidden_size:        [128, 128]
-hidden_mod:         Tanh
-initial_samples:    ${training_params.initial_samples}
+# Training Parameters:
+max_epochs:         1000        # Maximum Number of Epochs
+steps_per_epoch:    2048        # How Action-State Pairs to Rollout for Trajectory Collection per Epoch
+batch_size:         512         # Batch Size for Training
+num_mini_batches:   32          # Number of Mini-Batches for Training
+hidden_sizes:       [128,128]   # Hidden Layer Sizes for Actor and Critic Networks
+hidden_mod:         Tanh        # Hidden Layer Activation Function for Actor and Critic Networks
 
-max_epochs:         1000
-update_epochs:      10
+# Optimization Parameters:
+optim:              Adam        # Optimizer for Critic and Actor Networks
+optim_update:       4           # Number of Gradient Descent to Perform on Each Batch        
+lr_actor:           3e-4        # Learning Rate for Actor Network
+lr_critic:          1e-3        # Learning Rate for Critic Network
 
-batch_size:         2048
-num_mini_batches:   32
-mini_batch_size:    AUTO
+# GAE (General Advantage Estimation) Parameters:
+gae:                True        # Use Generalized Advantage Estimation
+gae_gamma:          0.99        # Discount Factor for GAE
+gae_lambda:         0.95        # Advantage Discount Factor (Lambda) for GAE
+adv_normalize:      True        # Normalize Advantage Function
 
-# PPO Parameters
-optim:              Adam
-lr:                 3e-4
-anneal_lr:          True
-epsilon:            1e-5
-gae:                True
-gae_gamma:          0.99
-gae_lambda:         0.95
-adv_normalize:      True
-clip_ratio:         0.2
-clip_vloss:         True
-entropy_coef:       0.01
-vloss_coef:         0.5
-max_grad_norm:      0.5
-target_kl:          0.015
+# PPO (Proximal Policy Optimization) Parameters:
+clip_ratio:         0.2         # Clipping Parameter for PPO
+anneal_lr:          True        # Anneal Learning Rate
+epsilon:            1e-5        # Epsilon for Annealing Learning Rate
+clip_vloss:         True        # Clip Value Loss
+vloss_coef:         0.5         # Value Loss Coefficient
+entropy_coef:       0.01        # Entropy Coefficient
+max_grad_norm:      0.5         # Maximum Gradient Norm
+target_kl:          0.015       # Target KL Divergence
 
-# Environment Configuration Parameters
-seed:               ${environment_params.seed}
-record_video:       ${training_params.record_video}
-record_epochs:      ${training_params.record_epochs}
-environment_config: ${environment_params}
+# Environment Configuration Parameters:
+seed:               ${environment_params.seed}          # Random Seed for Environment, Torch and Numpy
+record_video:       ${training_params.record_video}     # Record Video of the Environment
+record_epochs:      ${training_params.record_epochs}    # Record Video Every N Epochs
+environment_config: ${environment_params}               # Environment Configuration Parameters

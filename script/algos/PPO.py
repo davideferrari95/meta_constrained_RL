@@ -26,39 +26,43 @@ class PPO(LightningModule):
 
     def __init__(
 
-        # gae = General Advantage Estimation
-
         self,
-        seed:int =-1,
-        max_epochs:int=1000,
-        optim:str='Adam',
-        lr:float=3e-4,
-        anneal_lr:bool=True,
-        epsilon:float=1e-5,
-        gae:bool=True,
-        gae_gamma:float=0.99,
-        gae_lambda:float=0.95,
-        num_mini_batches:int=32,
-        update_epochs:int=10,
-        adv_normalize:bool=True,
-        clip_ratio:float=0.2,
-        clip_vloss:bool=True,
-        entropy_coef:float=0.01,
-        vloss_coef:float=0.5,
-        max_grad_norm:float=0.5,
-        target_kl:float=0.015,
 
+        # Training Parameters:
+        max_epochs:         int = 1000,                         # Maximum Number of Epochs
+        steps_per_epoch:    int = 2048,                         # How Action-State Pairs to Rollout for Trajectory Collection per Epoch
+        batch_size:         int = 512,                          # Batch Size for Training
+        num_mini_batches:   int = 32,                           # Number of Mini-Batches for Training
+        hidden_sizes:       Optional[List[int]] = [128,128],    # Hidden Layer Sizes for Actor and Critic Networks
+        hidden_mod:         Optional[str]       = 'Tanh',       # Hidden Layer Activation Function for Actor and Critic Networks
 
-        initial_samples:int=10_000,
-        buffer_capacity:int=100_000,
-        batch_size:int=2048,
-        mini_batch_size:int=64,
-        hidden_sizes:Optional[List[int]]=[128,128],
-        hidden_mod:Optional[str]='Tanh',
+        # Optimization Parameters:
+        optim:              str = 'Adam',                       # Optimizer for Critic and Actor Networks
+        optim_update:       int = 4,                            # Number of Gradient Descent to Perform on Each Batch        
+        lr_actor:           float = 3e-4,                       # Learning Rate for Actor Network
+        lr_critic:          float = 1e-3,                       # Learning Rate for Critic Network
+
+        # GAE (General Advantage Estimation) Parameters:
+        gae:                bool  = True,                       # Use Generalized Advantage Estimation
+        gae_gamma:          float = 0.99,                       # Discount Factor for GAE
+        gae_lambda:         float = 0.95,                       # Advantage Discount Factor (Lambda) for GAE
+        adv_normalize:      bool  = True,                       # Normalize Advantage Function
+
+        # PPO (Proximal Policy Optimization) Parameters:
+        clip_ratio:         float = 0.2,                        # Clipping Parameter for PPO
+        anneal_lr:          bool  = True,                       # Anneal Learning Rate
+        epsilon:            float = 1e-5,                       # Epsilon for Annealing Learning Rate
+        clip_vloss:         bool  = True,                       # Clip Value Loss
+        vloss_coef:         float = 0.5,                        # Value Loss Coefficient
+        entropy_coef:       float = 0.01,                       # Entropy Coefficient
+        max_grad_norm:      float = 0.5,                        # Maximum Gradient Norm
+        target_kl:          float = 0.015,                      # Target KL Divergence
 
         # Environment Configuration Parameters:
-        record_video:bool=True, record_epochs:int=100, 
-        environment_config:Optional[EnvironmentParams]=None
+        seed:               int  = -1,                          # Random Seed for Environment, Torch and Numpy
+        record_video:       bool = True,                        # Record Video of the Environment
+        record_epochs:      int  = 100,                         # Record Video Every N Epochs
+        environment_config: Optional[EnvironmentParams] = None  # Environment Configuration Parameters
 
     ):
 
@@ -101,11 +105,11 @@ class PPO(LightningModule):
         # Create Optimizer for the Agent
         self.optimizer = self.optim(self.agent.parameters(), lr=lr, eps=epsilon)
 
-        # Compute Mini-Batch Size
-        mini_batch_size = batch_size // num_mini_batches
-
         # Save Hyperparameters in Internal Properties that we can Reference in our Code
         self.save_hyperparameters()
+
+        # Compute Mini-Batch Size
+        self.hparams.mini_batch_size = batch_size // num_mini_batches
 
         # FIX: Run PPO Algorithm
         self.ppo_run()
