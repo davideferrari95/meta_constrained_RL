@@ -22,7 +22,7 @@ def custom_environment_config(config:EnvironmentParams) -> dict: #():
     '''
 
     # Return None if not Custom Environment
-    if not 'custom' in config.env_name: return config.env_name, None
+    if config is None or not 'custom' in config.env_name: return config.env_name, None
 
     # Remove Penalty when Get the Goal Reward
     config.reward_goal += config.penalty_step
