@@ -8,7 +8,7 @@ from utils.Utils import CostMonitor, FOLDER, AUTO
 # Import Utilities
 import os, sys, gym
 from termcolor import colored
-from typing import Union, Optional
+from typing import List, Optional, Union
 from tqdm import tqdm
 import numpy as np
 
@@ -53,7 +53,8 @@ class PPO(LightningModule):
         buffer_capacity:int=100_000,
         batch_size:int=2048,
         mini_batch_size:int=64,
-        hidden_size:int=256,
+        hidden_sizes:Optional[List[int]]=[128,128],
+        hidden_mod:Optional[str]='Tanh',
 
         # Environment Configuration Parameters:
         record_video:bool=True, record_epochs:int=100, 
@@ -92,7 +93,7 @@ class PPO(LightningModule):
         assert self.max_episode_steps is not None, (f'self.env.spec.max_episode_steps = None')
 
         # Create PPO Agent (Policy and Value Networks)
-        self.agent = PPO_Agent(self.env).to(DEVICE)
+        self.agent = PPO_Agent(self.env, hidden_sizes, getattr(torch.nn, hidden_mod)).to(DEVICE)
 
         # Instantiate Optimizer
         self.optim = getattr(torch.optim, optim)

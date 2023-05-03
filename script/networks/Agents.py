@@ -1,6 +1,5 @@
-import numpy as np
 import gym, gym.spaces as spaces
-from typing import Optional, Union, Tuple
+from typing import List, Optional, Union, Tuple
 
 import torch, torch.nn as nn
 from torch import distributions as TD
@@ -9,7 +8,7 @@ from torch import distributions as TD
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 # Neural Network Creation Function
-def create_mlp(input_shape: Tuple[int], output_dim: int, hidden_sizes: Optional[list] = [128, 128], 
+def create_mlp(input_shape: Tuple[int], output_dim: int, hidden_sizes: Optional[List[int]] = [128, 128], 
                hidden_mod: Optional[nn.Module] = nn.ReLU(), output_mod: Optional[nn.Module] = None):
 
     ''' Neural Network Creation Function '''
@@ -143,7 +142,7 @@ class ActorContinuous(nn.Module):
 
         return pi.log_prob(actions).sum(axis=-1)
 
-class ActorCriticAgent(object):
+class ActorCriticAgent(nn.Module):
 
     """
     Actor Critic Agent used during Trajectory Collection.
@@ -153,6 +152,8 @@ class ActorCriticAgent(object):
     # https://github.com/Shmuma/ptan/blob/master/ptan/agent.py
 
     def __init__(self, actor_net: nn.Module, critic_net: nn.Module):
+
+        super(ActorCriticAgent, self).__init__()
 
         # Instance the Actor and Critic Networks
         self.actor_net = actor_net
@@ -204,24 +205,24 @@ class ActorCriticAgent(object):
 
 class PPO_Agent(ActorCriticAgent):
 
-    def __init__(self, env:gym.Env):
+    def __init__(self, env:gym.Env, hidden_sizes:Optional[List[int]] = [128,128], hidden_mod:Optional[nn.Module] = nn.Tanh):
 
         # Create Critic Network -> 3 Linear Layers with Hyperbolic Tangent Activation Function
-        critic = create_mlp(env.observation_space.shape, 1, [128,128], nn.Tanh(), nn.Identity())
+        critic = create_mlp(env.observation_space.shape, 1, hidden_sizes, hidden_mod(), nn.Identity())
 
         # Create Continuous Actor Network -> 3 Linear Layers with Hyperbolic Tangent Activation Function
         if isinstance(env.action_space, spaces.Box):
-            actor_mlp = create_mlp(env.observation_space.shape, env.action_space.shape[0], [128,128], nn.Tanh(), nn.Identity())
+            actor_mlp = create_mlp(env.observation_space.shape, env.action_space.shape[0], hidden_sizes, hidden_mod(), nn.Identity())
             actor = ActorContinuous(actor_mlp, env.action_space.shape[0])
 
         # Create Discrete Actor Network -> 3 Linear Layers with Hyperbolic Tangent Activation Function
         elif isinstance(env.action_space, spaces.Discrete):
-            actor_mlp = create_mlp(env.observation_space.shape, env.action_space.n, [128,128], nn.Tanh(), nn.Identity())
+            actor_mlp = create_mlp(env.observation_space.shape, env.action_space.n, hidden_sizes, hidden_mod(), nn.Identity())
             actor = ActorCategorical(actor_mlp)
 
         # Raise Error if Action Space is not of Type Box or Discrete
         else: raise NotImplementedError('Env action space should be of type Box (Continuous) or Discrete (Categorical). '
-                                      f'Got type: {type(env.action_space)}')
+                                       f'Got type: {type(env.action_space)}')
 
         # Instance the Actor Critic Agent
         super(PPO_Agent, self).__init__(actor, critic)

@@ -3,7 +3,8 @@ _target_: algos.PPO.PPO
 
 # Training Parameters
 buffer_capacity:    1e6
-hidden_size:        512
+hidden_size:        [128, 128]
+hidden_mod:         Tanh
 initial_samples:    ${training_params.initial_samples}
 
 max_epochs:         1000
