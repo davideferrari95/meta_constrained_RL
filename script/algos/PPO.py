@@ -1,5 +1,5 @@
 # Import RL Modules
-from networks.Agents import PPO_Agent
+from networks.Agents import PPO_Agent, DEVICE
 from networks.Buffers import ExperienceSourceDataset, BatchBuffer
 from envs.Environment import create_environment, record_violation_episode
 from envs.DefaultEnvironment import custom_environment_config
@@ -83,7 +83,7 @@ class PPO(LightningModule):
 
         # Initialize Observation State
         state, _ = self.env.reset()
-        self.state = torch.FloatTensor(state)
+        self.state = torch.tensor(state, dtype=torch.float32, device=DEVICE)
 
         # Save Hyperparameters in Internal Properties that we can Reference in our Code
         self.save_hyperparameters()
@@ -220,7 +220,7 @@ class PPO(LightningModule):
 
             # Update State and Episode Step
             self.buffer.episode_step += 1
-            self.state = torch.FloatTensor(next_state)
+            self.state = torch.tensor(next_state, dtype=torch.float32, device=DEVICE)
 
             # Check Epoch End or Episode End
             epoch_end = step == (self.hparams.steps_per_epoch - 1)
@@ -256,7 +256,7 @@ class PPO(LightningModule):
 
                 # Reset Environment
                 obs, _ = self.env.reset()
-                self.state = torch.FloatTensor(obs)
+                self.state = torch.tensor(obs, dtype=torch.float32, device=DEVICE)
 
             if epoch_end:
 
