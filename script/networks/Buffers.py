@@ -177,7 +177,7 @@ class BatchBuffer():
         reward, advantage, q_value = trajectory
 
         # Store the Trajectory in the Buffer
-        self.epoch_rewards.append(reward)
+        self.epoch_rewards.append(sum(reward))
         self.batch_advantages = self.batch_advantages + advantage
         self.batch_q_values   = self.batch_q_values   + q_value
 

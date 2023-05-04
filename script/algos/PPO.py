@@ -215,7 +215,7 @@ class PPO(LightningModule):
             _, action, log_prob, value = self.agent(self.state)
             next_state, reward, done, truncated, _ = self.env.step(action.cpu().numpy())
 
-            # Store Experience Data
+            # Store Experience Tuple in Batch Buffer
             self.buffer.append_experience((self.state, action, log_prob, reward, value.item()))
 
             # Update State and Episode Step
@@ -248,8 +248,8 @@ class PPO(LightningModule):
                 q_vals = self.discount_rewards(self.buffer.episode_rewards + [last_value], self.hparams.gae_gamma)[:-1]
                 advantage = self.calc_advantage(self.buffer.episode_rewards, self.buffer.episode_values, last_value)
 
-                # Add Trajectory Data to Batch
-                self.buffer.append_trajectory((sum(self.buffer.episode_rewards), advantage, q_vals))
+                # Store Trajectory Tuple in Batch Buffer
+                self.buffer.append_trajectory((self.buffer.episode_rewards, advantage, q_vals))
 
                 # Reset Episode Parameters
                 self.buffer.reset_episode()
@@ -285,7 +285,7 @@ class PPO(LightningModule):
         dataset = ExperienceSourceDataset(self.generate_trajectory_samples)
 
         # Create a DataLoader -> Fetch the Data from Dataset into Training Process with some Optimization
-        dataloader = DataLoader(dataset=dataset, batch_size=self.hparams.batch_size, num_workers=os.cpu_count(), pin_memory=True)
+        dataloader = DataLoader(dataset=dataset, batch_size=self.hparams.batch_size,  pin_memory=True)
 
         return dataloader
 
