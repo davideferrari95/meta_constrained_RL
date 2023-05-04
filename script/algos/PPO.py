@@ -6,8 +6,8 @@ from envs.DefaultEnvironment import custom_environment_config
 from utils.Utils import CostMonitor, FOLDER, AUTO
 
 # Import Utilities
-import os, sys, gym
-from typing import Any, List, Optional, Tuple
+import sys, gym
+from typing import List, Optional, Tuple
 from tqdm import tqdm
 import numpy as np
 
@@ -76,7 +76,7 @@ class PPO(LightningModule):
         self.configure_environment(environment_config, seed, record_video, record_epochs)
 
         # Create PPO Agent (Policy and Value Networks)
-        self.agent = PPO_Agent(self.env, hidden_sizes, getattr(torch.nn, hidden_mod))
+        self.agent = PPO_Agent(self.env, hidden_sizes, getattr(torch.nn, hidden_mod)).to(DEVICE)
 
         # Create the Batch Buffer
         self.buffer = BatchBuffer()
@@ -127,6 +127,8 @@ class PPO(LightningModule):
         return actions, log_probs, value
 
     def anneal_lr(self, optimizer, initial_lr):
+
+        """ Anneal the Learning Rate """
 
         # Fraction Variable that Linearly Decrease to 0
         frac = 1.0 - (self.current_epoch - 1.0) / self.hparams.max_epochs
@@ -284,8 +286,8 @@ class PPO(LightningModule):
         # Create a Dataset from the ExperienceSourceDataset
         dataset = ExperienceSourceDataset(self.generate_trajectory_samples)
 
-        # Create a DataLoader -> Fetch the Data from Dataset into Training Process with some Optimization
-        dataloader = DataLoader(dataset=dataset, batch_size=self.hparams.batch_size, pin_memory=True)
+        # Create a DataLoader -> Fetch the Data from Dataset into Training Process
+        dataloader = DataLoader(dataset=dataset, batch_size=self.hparams.batch_size)
 
         return dataloader
 
@@ -397,7 +399,6 @@ class PPO(LightningModule):
             self.manual_optimization_step(actor_opt, self.agent.actor.parameters(), actor_loss)
             self.manual_optimization_step(critic_opt, self.agent.critic.parameters(), critic_loss)
 
-    """ Anneal the Learning Rate """
     def on_train_epoch_start(self):
 
         # Annealing the Rate
