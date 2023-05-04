@@ -156,8 +156,8 @@ class ActorCriticAgent(nn.Module):
         super(ActorCriticAgent, self).__init__()
 
         # Instance the Actor and Critic Networks
-        self.actor_net = actor_net
-        self.critic_net = critic_net
+        self.actor = actor_net
+        self.critic = critic_net
 
     @torch.no_grad()
     def __call__(self, state: torch.Tensor, device: str = DEVICE) -> Tuple: #():
@@ -178,11 +178,11 @@ class ActorCriticAgent(nn.Module):
         state = state.to(device=device)
 
         # Get Distribution, Action and Log Probability
-        pi, actions = self.actor_net(state)
+        pi, actions = self.actor(state)
         log_probs = self.get_log_prob(pi, actions)
 
         # Get the Value of the State
-        value = self.critic_net(state)
+        value = self.critic(state)
 
         return pi, actions, log_probs, value
 
@@ -200,7 +200,7 @@ class ActorCriticAgent(nn.Module):
             Log Probability of the Action under pi
         """
 
-        return self.actor_net.get_log_prob(pi, actions)
+        return self.actor.get_log_prob(pi, actions)
 
 
 class PPO_Agent(ActorCriticAgent):
