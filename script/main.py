@@ -50,8 +50,7 @@ def main(cfg: Params):
     if (not TP.record_video or TP.fast_dev_run): cfg.agent.environment_config.test_episode_number = 0
 
     # Instantiate Algorithm Model
-    model = hydra.utils.instantiate(cfg.agent, seed=seed, record_video=(TP.record_video and not TP.fast_dev_run),
-                                    initial_samples = TP.initial_samples if not TP.fast_dev_run else 1)
+    model = hydra.utils.instantiate(cfg.agent, seed=seed, record_video=(TP.record_video and not TP.fast_dev_run))
 
     # Instantiate Default Callbacks
     callbacks = [PrintCallback()]

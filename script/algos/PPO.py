@@ -1,14 +1,13 @@
 # Import RL Modules
 from networks.Agents import PPO_Agent, DEVICE
-from networks.Buffers import RLDataset
+from networks.Buffers import ExperienceSourceDataset, BatchBuffer
 from envs.Environment import create_environment, record_violation_episode
 from envs.DefaultEnvironment import custom_environment_config
 from utils.Utils import CostMonitor, FOLDER, AUTO
 
 # Import Utilities
 import os, sys, gym
-from termcolor import colored
-from typing import List, Optional, Union
+from typing import Any, List, Optional, Tuple
 from tqdm import tqdm
 import numpy as np
 
@@ -72,7 +71,29 @@ class PPO(LightningModule):
         torch.set_float32_matmul_precision('high')
 
         # Remove Automatic Optimization (Multiple Optimizers)
-        # self.automatic_optimization = False
+        self.automatic_optimization = False
+
+        # Configure Environment
+        self.configure_environment(environment_config, seed, record_video, record_epochs)
+
+        # Create PPO Agent (Policy and Value Networks)
+        self.agent = PPO_Agent(self.env, hidden_sizes, getattr(torch.nn, hidden_mod)).to(DEVICE)
+
+        # Create the Batch Buffer
+        self.buffer = BatchBuffer()
+
+        # Initialize Observation State
+        self.state, _ = self.env.reset()
+
+        # Save Hyperparameters in Internal Properties that we can Reference in our Code
+        self.save_hyperparameters()
+
+        # Compute Mini-Batch Size and Add it to Hyperparameters
+        self.hparams.mini_batch_size = batch_size // num_mini_batches
+
+    def configure_environment(self, environment_config, seed, record_video, record_epochs):
+
+        """ Configure Environment """
 
         # Create Environment
         env_name, env_config = custom_environment_config(environment_config)
@@ -96,23 +117,58 @@ class PPO(LightningModule):
         self.max_episode_steps = self.env.spec.max_episode_steps
         assert self.max_episode_steps is not None, (f'self.env.spec.max_episode_steps = None')
 
-        # Create PPO Agent (Policy and Value Networks)
-        self.agent = PPO_Agent(self.env, hidden_sizes, getattr(torch.nn, hidden_mod)).to(DEVICE)
+    def forward(self, x:torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]: #():
 
-        # Instantiate Optimizer
-        self.optim = getattr(torch.optim, optim)
+        """ Forward Pass of the PPO Agent """
 
-        # Create Optimizer for the Agent
-        self.optimizer = self.optim(self.agent.parameters(), lr=lr, eps=epsilon)
+        # Pass Observation State through Actor and Critic Networks
+        _, actions, log_probs, value = self.agent(x)
 
-        # Save Hyperparameters in Internal Properties that we can Reference in our Code
-        self.save_hyperparameters()
+        return actions, log_probs, value
 
-        # Compute Mini-Batch Size
-        self.hparams.mini_batch_size = batch_size // num_mini_batches
+    def discount_rewards(self, rewards: List[float], discount:float) -> List[float]: #():
 
-        # FIX: Run PPO Algorithm
-        self.ppo_run()
+        """ Compute Discounted Rewards of all Rewards in the List
+        Args:
+            rewards: List of Rewards/Advantages
+        Returns:
+            List of Discounted Rewards/Advantages
+        """
+
+        # Check if Rewards are Floats
+        assert isinstance(rewards[0], float), 'Rewards Items must be Floats'
+
+        # Initialize Discounted Rewards
+        cumulative_rewards, sum_r = [], 0.0
+
+        for reward in reversed(rewards):
+
+            # Compute Discounted Reward
+            sum_r = reward + discount * sum_r
+            cumulative_rewards.append(sum_r)
+
+        return list(reversed(cumulative_rewards))
+
+    def calc_advantage(self, rewards: List[float], values: List[float], last_value: float) -> List[float]: #():
+
+        """Calculate the Advantage given Rewards, State Values, and the Last Value of the Episode
+        Args:
+            rewards:    List of Episode Rewards
+            values:     List of State Values from Critic
+            last_value: Value of Last State of Episode
+        Returns:
+            list of Advantages
+        """
+
+        # Add Last Value to Rewards and Values Lists
+        rews = rewards + [last_value]
+        vals = values + [last_value]
+
+        # GAE (Generalized Advantage Estimation) Computation
+        delta = [rews[i] + self.hparams.gae_gamma * vals[i + 1] - vals[i] for i in range(len(rews) - 1)]
+        adv = self.discount_rewards(delta, self.hparams.gae_gamma * self.hparams.gae_lambda)
+
+        return adv
 
     def ppo_run(self):
 
@@ -317,68 +373,205 @@ class PPO(LightningModule):
         # Close Gym Environments
         self.env.close()
 
-    @torch.no_grad()
-    def play_episode(self, policy=None):
-
-        # Compute Environment Seeding
-        seed = np.random.randint(0,2**32)
-
-        # Reset Environment
-        obs, _ = self.env.reset(seed=seed)
-        done, truncated = False, False
-
-        while not done and not truncated:
-
-            # Select an Action using our Policy (Random Action in the Beginning)
-            if policy:
-
-                # Get only the Action, not the Log Probability
-                action, _, _ = policy(obs)
-                action = action.cpu().detach().numpy()
-
-            # Sample from the Action Space
-            else: action = self.env.action_space.sample()
-
-            # Execute Safe Action on the Environment
-            next_obs, reward, done, truncated, next_info = self.env.step(action)
-
-            # Save Safe Experience in Replay Buffer
-            # self.buffer.append((obs, action, reward, float(done), next_obs))
-
-            # Update Observations
-            obs, info = next_obs, next_info
-
     def forward(self, x):
 
         # Input: State of Environment | Output: Policy Computed by our Network
         return self.policy(x)
 
-    def configure_optimizers(self):
+    @torch.no_grad()
+    def play_test_episodes(self):
 
-        # Agent Optimizer
-        agent_optimizer = self.optim(self.agent.parameters(), lr=self.hparams.lr, eps=self.hparams.epsilon)
+        for _ in tqdm(range(self.EC.test_episode_number)):
 
-        return [agent_optimizer]
+            # Reset Environment
+            obs, _ = self.test_env.reset(seed=np.random.randint(0,2**32))
+            done, truncated = False, False
 
-    def train_dataloader(self):
+            while not done and not truncated:
 
-        # Create a Dataset from the ReplayBuffer
-        dataset = RLDataset(self.buffer, self.hparams.batch_size)
+                # Get the Action Mean
+                action, _, _ = self.agent.actor(obs)
+
+                # Execute Action on the Environment
+                obs, _, done, truncated, _ = self.test_env.step(action.cpu().detach().numpy())
+
+    def generate_trajectory_samples(self) -> Tuple[List[torch.Tensor], List[torch.Tensor], List[torch.Tensor]]: #():
+
+        """
+        Generate Trajectory Data to Train Policy and Value Networks
+        Yield Tuple of Lists Containing Tensors for: States, Actions, Log Probabilities, Q-Values, Advantage
+        """
+
+        # For a Fixed Number of Steps per Epoch
+        for step in range(self.hparams.steps_per_epoch):
+
+            # Get Action and Log Probability from Policy Network
+            _, action, log_prob, value = self.agent(self.state)
+            next_state, reward, done, truncated, _ = self.env.step(action.cpu().numpy())
+
+            # Update Episode Step
+            self.buffer.episode_step += 1
+
+            # Store Experience Data
+            self.buffer.append_experience((self.state, action, log_prob, reward, value.item()))
+
+            # Update State
+            self.state = torch.FloatTensor(next_state)
+
+            # Check Epoch End or Episode End
+            epoch_end = step == (self.hparams.steps_per_epoch - 1)
+            terminal = len(self.ep_rewards) == self.max_episode_steps
+
+            # Check if Epoch End or Episode is Done or Truncated 
+            if epoch_end or done or truncated or terminal:
+
+                # Trajectory Ends Abruptly -> Bootstrap Value of Next State
+                if (truncated or terminal or epoch_end) and not done:
+
+                    with torch.no_grad():
+
+                        # Get Last Value of the Next
+                        _, _, _, value = self.agent(self.state)
+                        last_value = value.item()
+
+                        # Get Number of Steps Before Cutoff
+                        steps_before_cutoff = self.buffer.episode_step
+
+                # Trajectory Ends Normally -> Bootstrap Value of Last State
+                else: last_value, steps_before_cutoff = 0, 0
+
+                # Discounted Cumulative Reward and Advantage
+                q_vals = self.discount_rewards(self.buffer.episode_rewards + [last_value], self.hparams.gae_gamma)[:-1]
+                advantage = self.calc_advantage(self.buffer.episode_rewards, self.buffer.episode_values, last_value)
+
+                # Add Trajectory Data to Batch
+                self.buffer.append_trajectory(sum(self.buffer.episode_rewards), advantage, q_vals)
+
+                # Reset Episode Parameters
+                self.buffer.reset_episode()
+
+                # Reset Environment
+                obs, _ = self.env.reset()
+                self.state = torch.FloatTensor(obs)
+
+            if epoch_end:
+
+                # Yield Trajectory Data (States, Actions, Log Probabilities, Q-Values, Advantage)
+                for state, action, old_log_prob, q_value, advantage in self.buffer.train_data:
+                    yield state, action, old_log_prob, q_value, advantage
+
+                # Save Average Reward
+                self.buffer.avg_reward = sum(self.buffer.epoch_rewards) / self.hparams.steps_per_epoch
+
+                # If Epoch Ended Abruptly, Exclude Last Cut-Short Episode to Prevent Stats Skewness
+                epoch_rewards = self.buffer.epoch_rewards[:-1] if not done else self.buffer.epoch_rewards
+
+                # Compute Average Episode Reward (Total Reward / Episode Length) and Average Episode Length
+                self.buffer.avg_ep_reward = sum(epoch_rewards) / len(epoch_rewards)
+                self.buffer.avg_ep_len = (self.hparams.steps_per_epoch - steps_before_cutoff) / len(epoch_rewards)
+
+                # Clear Buffer Batch Data
+                self.buffer.reset_batch()
+
+    def train_dataloader(self) -> DataLoader: #():
+
+        """ Initialize the Replay Buffer Dataset used for Retrieving Experiences """
+
+        # Create a Dataset from the ExperienceSourceDataset
+        dataset = ExperienceSourceDataset(self.generate_trajectory_samples)
 
         # Create a DataLoader -> Fetch the Data from Dataset into Training Process with some Optimization
         dataloader = DataLoader(dataset=dataset, batch_size=self.hparams.batch_size, shuffle=True, num_workers=os.cpu_count(), pin_memory=True)
 
         return dataloader
 
+    def configure_optimizers(self):
+
+        # Instantiate Optimizer
+        optim = getattr(torch.optim, self.hparams.optim)
+
+        # Create Optimizer for the Actor and Critic Networks
+        actor_optimizer  = optim(self.agent.actor.parameters(),  lr=self.hparams.lr_actor,  eps=self.hparams.epsilon)
+        critic_optimizer = optim(self.agent.critic.parameters(), lr=self.hparams.lr_critic, eps=self.hparams.epsilon)
+        self.optimizers_list = ['actor_optimizer', 'critic_optimizer']
+
+        return [actor_optimizer, critic_optimizer]
+
+    def manual_optimization_step(self, optimizer, loss, num_update):
+
+        """ Run 'optim_update' Number of Iterations of Gradient Descent """
+
+        # Call Optimizer Step for 'optim_update' Number of Iterations
+        for _ in range(num_update):
+
+            optimizer.zero_grad()
+            self.manual_backward(loss)
+            optimizer.step()
+
+    def actor_loss(self, state, action, advantage, q_value, old_log_prob) -> torch.Tensor: #():
+
+        """ Compute the Actor Loss """
+
+        # Get the Policy Distribution and Log Probability of the Action
+        pi, _ = self.agent.actor(state)
+        log_prob = self.agent.actor.get_log_prob(pi, action)
+
+        # Clip the Advantage
+        ratio = torch.exp(log_prob - old_log_prob)
+        clip_adv = torch.clamp(ratio, 1 - self.hparams.clip_ratio, 1 + self.hparams.clip_ratio) * advantage
+
+        # Compute the Actor Loss
+        return -(torch.min(ratio * advantage, clip_adv)).mean()
+
+    def critic_loss(self, state, action, advantage, q_value, old_log_prob) -> torch.Tensor: #():
+
+        """ Compute the Critic Loss """
+
+        # Get the Value Function
+        value = self.agent.critic(state)
+
+        # Compute the Critic Loss
+        return (q_value - value).pow(2).mean()
+
     def training_step(self, batch, batch_idx):
 
-        pass
+        """ Carries Out a Single Update to Actor and Critic Network from a Batch of Replay Buffer """
 
-    def on_train_epoch_end(self):
+        # state, action, old_logp, q_val, adv = batch
+        state, action, _, advantage, q_value, log_prob = batch
 
-        # Play Episode
-        # self.play_episode(policy=self.target_policy)
-        self.play_episode(policy=None)
+        # Advantages Normalization
+        advantage = (advantage - advantage.mean()) / advantage.std()
 
-        # Log Episode Return
-        self.log("episode/Return", self.env.return_queue[-1].item(), on_epoch=True)
+        self.log("avg_ep_len", self.avg_ep_len, prog_bar=True, on_step=False, on_epoch=True)
+        self.log("avg_ep_reward", self.avg_ep_reward, prog_bar=True, on_step=False, on_epoch=True)
+        self.log("avg_reward", self.avg_reward, prog_bar=True, on_step=False, on_epoch=True)
+
+        # Get List of Optimizers
+        optimizers = self.optimizers()
+
+        # Update Actor Policy
+        if 'actor_optimizer' in self.optimizers_list:
+
+            # Get Critic Optimizer
+            actor_opt = optimizers[self.optimizers_list.index('actor_optimizer')]
+
+            # Compute Actor Loss
+            actor_loss = self.actor_loss(state, action, advantage, q_value, log_prob)
+            self.log('loss_actor', actor_loss, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+
+            # Optimizer Step
+            self.manual_optimization_step(actor_opt, actor_loss, self.hparams.optim_update)
+
+        # Update Critic Q-Networks
+        if 'critic_optimizer' in self.optimizers_list:
+
+            # Get Critic Optimizer
+            critic_opt = optimizers[self.optimizers_list.index('critic_optimizer')]
+
+            # Compute Critic Loss
+            critic_loss = self.critic_loss(state, action, advantage, q_value, log_prob)
+            self.log('loss_critic', critic_loss, on_step=False, on_epoch=True, prog_bar=False, logger=True)
+
+            # Optimizer Step
+            self.manual_optimization_step(critic_opt, critic_loss, self.hparams.optim_update)
