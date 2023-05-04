@@ -1,5 +1,5 @@
 # Import RL Modules
-from networks.Agents import PPO_Agent, DEVICE
+from networks.Agents import PPO_Agent
 from networks.Buffers import ExperienceSourceDataset, BatchBuffer
 from envs.Environment import create_environment, record_violation_episode
 from envs.DefaultEnvironment import custom_environment_config
@@ -76,13 +76,14 @@ class PPO(LightningModule):
         self.configure_environment(environment_config, seed, record_video, record_epochs)
 
         # Create PPO Agent (Policy and Value Networks)
-        self.agent = PPO_Agent(self.env, hidden_sizes, getattr(torch.nn, hidden_mod)).to(DEVICE)
+        self.agent = PPO_Agent(self.env, hidden_sizes, getattr(torch.nn, hidden_mod))
 
         # Create the Batch Buffer
         self.buffer = BatchBuffer()
 
         # Initialize Observation State
-        self.state, _ = self.env.reset()
+        state, _ = self.env.reset()
+        self.state = torch.FloatTensor(state)
 
         # Save Hyperparameters in Internal Properties that we can Reference in our Code
         self.save_hyperparameters()
@@ -223,7 +224,7 @@ class PPO(LightningModule):
 
             # Check Epoch End or Episode End
             epoch_end = step == (self.hparams.steps_per_epoch - 1)
-            terminal = len(self.ep_rewards) == self.max_episode_steps
+            terminal = len(self.buffer.episode_rewards) == self.max_episode_steps
 
             # Check if Epoch End or Episode is Done or Truncated 
             if epoch_end or done or truncated or terminal:
@@ -248,7 +249,7 @@ class PPO(LightningModule):
                 advantage = self.calc_advantage(self.buffer.episode_rewards, self.buffer.episode_values, last_value)
 
                 # Add Trajectory Data to Batch
-                self.buffer.append_trajectory(sum(self.buffer.episode_rewards), advantage, q_vals)
+                self.buffer.append_trajectory((sum(self.buffer.episode_rewards), advantage, q_vals))
 
                 # Reset Episode Parameters
                 self.buffer.reset_episode()
@@ -284,7 +285,7 @@ class PPO(LightningModule):
         dataset = ExperienceSourceDataset(self.generate_trajectory_samples)
 
         # Create a DataLoader -> Fetch the Data from Dataset into Training Process with some Optimization
-        dataloader = DataLoader(dataset=dataset, batch_size=self.hparams.batch_size, shuffle=True, num_workers=os.cpu_count(), pin_memory=True)
+        dataloader = DataLoader(dataset=dataset, batch_size=self.hparams.batch_size, num_workers=os.cpu_count(), pin_memory=True)
 
         return dataloader
 
@@ -300,17 +301,15 @@ class PPO(LightningModule):
 
         return [actor_optimizer, critic_optimizer]
 
-    def manual_optimization_step(self, optimizer, parameters, loss, num_update):
+    def manual_optimization_step(self, optimizer:torch.optim.Optimizer, parameters, loss):
 
-        """ Run 'optim_update' Number of Iterations of Gradient Descent """
+        """ Execute Manual Optimizer Step and Gradient Clipping """
 
-        # Call Optimizer Step for 'optim_update' Number of Iterations
-        for _ in range(num_update):
-
-            optimizer.zero_grad()
-            self.manual_backward(loss)
-            torch.nn.utils.clip_grad_norm_(parameters, self.hparams.max_grad_norm)
-            optimizer.step()
+        # Execute Optimizer Step and Gradient Clipping
+        optimizer.zero_grad()
+        self.manual_backward(loss)
+        torch.nn.utils.clip_grad_norm_(parameters, self.hparams.max_grad_norm)
+        optimizer.step()
 
     def actor_loss(self, state, action, advantage, q_value, old_log_prob) -> torch.Tensor: #():
 
@@ -339,7 +338,7 @@ class PPO(LightningModule):
         # Compute the Actor Loss
         return -(torch.min(ratio * advantage, clip_adv)).mean()
 
-    def critic_loss(self, state, advantage, q_value, old_log_prob) -> torch.Tensor: #():
+    def critic_loss(self, state, action, advantage, q_value, old_log_prob) -> torch.Tensor: #():
 
         """ Compute the Critic Loss """
 
@@ -381,31 +380,22 @@ class PPO(LightningModule):
         # Get List of Optimizers
         optimizers = self.optimizers()
 
-        # Update Actor Policy
-        if 'actor_optimizer' in self.optimizers_list:
+        # Optimizer Step for 'optim_update' Number of Iterations
+        for _ in range(self.hparams.optim_update):
 
-            # Get Critic Optimizer
+            # Get Actor and Critic Optimizers
             actor_opt = optimizers[self.optimizers_list.index('actor_optimizer')]
-
-            # Compute Actor Loss
-            actor_loss = self.actor_loss(state, action, advantage, q_value, log_prob)
-            self.log('loss_actor', actor_loss, on_step=False, on_epoch=True, prog_bar=True, logger=True)
-
-            # Optimizer Step
-            self.manual_optimization_step(actor_opt, self.agent.actor.parameters(), actor_loss, self.hparams.optim_update)
-
-        # Update Critic Q-Networks
-        if 'critic_optimizer' in self.optimizers_list:
-
-            # Get Critic Optimizer
             critic_opt = optimizers[self.optimizers_list.index('critic_optimizer')]
 
-            # Compute Critic Loss
+            # Compute Actor and Critic Losses
+            actor_loss = self.actor_loss(state, action, advantage, q_value, log_prob)
             critic_loss = self.critic_loss(state, action, advantage, q_value, log_prob)
+            self.log('loss_actor', actor_loss, on_step=False, on_epoch=True, prog_bar=True, logger=True)
             self.log('loss_critic', critic_loss, on_step=False, on_epoch=True, prog_bar=False, logger=True)
 
             # Optimizer Step
-            self.manual_optimization_step(critic_opt, self.agent.critic.parameters(), critic_loss, self.hparams.optim_update)
+            self.manual_optimization_step(actor_opt, self.agent.actor.parameters(), actor_loss)
+            self.manual_optimization_step(critic_opt, self.agent.critic.parameters(), critic_loss)
 
     """ Anneal the Learning Rate """
     def on_train_epoch_start(self):

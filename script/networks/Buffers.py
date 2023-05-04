@@ -149,9 +149,9 @@ class BatchBuffer():
         self.epoch_rewards   = []
 
         # Initialize Average Episode Reward and Length
-        self.avg_ep_reward   = 0
-        self.avg_ep_len      = 0
-        self.avg_reward      = 0
+        self.avg_ep_reward   = 0.0
+        self.avg_ep_len      = 0.0
+        self.avg_reward      = 0.0
 
     @property
     def train_data(self):

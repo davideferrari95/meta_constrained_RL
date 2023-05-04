@@ -160,7 +160,7 @@ class ActorCriticAgent(nn.Module):
         self.critic = critic_net
 
     @torch.no_grad()
-    def __call__(self, state: torch.Tensor, device: str = DEVICE) -> Tuple: #():
+    def __call__(self, state: torch.Tensor) -> Tuple: #():
 
         """
         Takes in the Current State and Returns:
@@ -173,9 +173,6 @@ class ActorCriticAgent(nn.Module):
         Returns:
             Torch Distribution and Randomly Sampled Action
         """
-
-        # Move the State to the Device
-        state = state.to(device=device)
 
         # Get Distribution, Action and Log Probability
         pi, actions = self.actor(state)

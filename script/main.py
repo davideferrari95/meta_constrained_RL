@@ -75,9 +75,11 @@ def main(cfg: Params):
     trainer = Trainer(
 
         # Devices
-        devices = AUTO,
-        accelerator = AUTO,
-        strategy = AUTO,
+        # devices = 'cpu',
+        accelerator = 'cpu',
+        # devices = AUTO,
+        # accelerator = AUTO,
+        # strategy = AUTO,
         precision = TP.precision,
 
         # Hyperparameters
