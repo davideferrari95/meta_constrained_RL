@@ -2,16 +2,16 @@
 _target_: algos.PPO.PPO
 
 # Training Parameters:
-max_epochs:         1000        # Maximum Number of Epochs
-steps_per_epoch:    2048        # How Action-State Pairs to Rollout for Trajectory Collection per Epoch
-batch_size:         512         # Batch Size for Training
-num_mini_batches:   32          # Number of Mini-Batches for Training
+max_epochs:         ${training_params.max_epochs}       # Maximum Number of Epochs
+steps_per_epoch:    4000        # How Action-State Pairs to Rollout for Trajectory Collection per Epoch
+batch_size:         1024        # Batch Size for Training
+num_mini_batches:   128         # Number of Mini-Batches for Training
 hidden_sizes:       [128,128]   # Hidden Layer Sizes for Actor and Critic Networks
 hidden_mod:         Tanh        # Hidden Layer Activation Function for Actor and Critic Networks
 
 # Optimization Parameters:
 optim:              Adam        # Optimizer for Critic and Actor Networks
-optim_update:       4           # Number of Gradient Descent to Perform on Each Batch        
+optim_update:       80          # Number of Gradient Descent to Perform on Each Batch        
 lr_actor:           3e-4        # Learning Rate for Actor Network
 lr_critic:          1e-3        # Learning Rate for Critic Network
 
@@ -21,7 +21,7 @@ gae_lambda:         0.95        # Advantage Discount Factor (Lambda) for GAE
 adv_normalize:      True        # Normalize Advantage Function
 
 # PPO (Proximal Policy Optimization) Parameters:
-anneal_lr:          False       # Anneal Learning Rate
+anneal_lr:          True        # Anneal Learning Rate
 epsilon:            1e-5        # Epsilon for Annealing Learning Rate
 clip_ratio:         0.2         # Clipping Parameter for PPO
 clip_vloss:         True        # Clip Value Loss
