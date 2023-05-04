@@ -30,7 +30,6 @@ class EnvironmentParams:
   # Rewards
   reward_distance:    float   # Dense reward multiplied by the distance moved to the goal
   reward_goal:        float   # Sparse reward for being inside the goal area
-  penalty_step:		    float   # Reward Every Non-Goal Step
 
   # World Limits
   world_limits:       List[float]   # Soft world limits (min X, min Y, max X, max Y)
