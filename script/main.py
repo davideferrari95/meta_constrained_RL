@@ -62,7 +62,7 @@ def main(cfg: Params):
     # callbacks.append(ModelCheckpoint())
 
     # Optional Callbacks
-    if TP.early_stopping: callbacks.append(EarlyStopping(monitor='episode/Return', mode='max', patience=TP.patience, verbose=True, check_on_train_epoch_end=True))
+    if TP.early_stopping: callbacks.append(EarlyStopping(monitor='kl_divergence', mode='min', patience=TP.patience, verbose=True, check_on_train_epoch_end=True))
 
     # Test Callback
     if EP.test_environment: callbacks.append(TestCallback())

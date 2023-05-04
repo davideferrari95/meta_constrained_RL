@@ -42,15 +42,14 @@ class PPO(LightningModule):
         lr_critic:          float = 1e-3,                       # Learning Rate for Critic Network
 
         # GAE (General Advantage Estimation) Parameters:
-        gae:                bool  = True,                       # Use Generalized Advantage Estimation
         gae_gamma:          float = 0.99,                       # Discount Factor for GAE
         gae_lambda:         float = 0.95,                       # Advantage Discount Factor (Lambda) for GAE
         adv_normalize:      bool  = True,                       # Normalize Advantage Function
 
         # PPO (Proximal Policy Optimization) Parameters:
-        clip_ratio:         float = 0.2,                        # Clipping Parameter for PPO
         anneal_lr:          bool  = True,                       # Anneal Learning Rate
         epsilon:            float = 1e-5,                       # Epsilon for Annealing Learning Rate
+        clip_ratio:         float = 0.2,                        # Clipping Parameter for PPO
         clip_vloss:         bool  = True,                       # Clip Value Loss
         vloss_coef:         float = 0.5,                        # Value Loss Coefficient
         entropy_coef:       float = 0.01,                       # Entropy Coefficient
@@ -126,6 +125,15 @@ class PPO(LightningModule):
 
         return actions, log_probs, value
 
+    def anneal_lr(self, optimizer, initial_lr):
+
+        # Fraction Variable that Linearly Decrease to 0
+        frac = 1.0 - (self.current_epoch - 1.0) / self.hparams.max_epochs
+        lr_now = frac * initial_lr
+
+        # Update the Optimizer Learning Rate
+        optimizer.param_groups[0]['lr'] = lr_now
+
     def discount_rewards(self, rewards: List[float], discount:float) -> List[float]: #():
 
         """ Compute Discounted Rewards of all Rewards in the List
@@ -157,7 +165,7 @@ class PPO(LightningModule):
             values:     List of State Values from Critic
             last_value: Value of Last State of Episode
         Returns:
-            list of Advantages
+            List of Advantages
         """
 
         # Add Last Value to Rewards and Values Lists
@@ -409,13 +417,11 @@ class PPO(LightningModule):
             _, action, log_prob, value = self.agent(self.state)
             next_state, reward, done, truncated, _ = self.env.step(action.cpu().numpy())
 
-            # Update Episode Step
-            self.buffer.episode_step += 1
-
             # Store Experience Data
             self.buffer.append_experience((self.state, action, log_prob, reward, value.item()))
 
-            # Update State
+            # Update State and Episode Step
+            self.buffer.episode_step += 1
             self.state = torch.FloatTensor(next_state)
 
             # Check Epoch End or Episode End
@@ -497,7 +503,7 @@ class PPO(LightningModule):
 
         return [actor_optimizer, critic_optimizer]
 
-    def manual_optimization_step(self, optimizer, loss, num_update):
+    def manual_optimization_step(self, optimizer, parameters, loss, num_update):
 
         """ Run 'optim_update' Number of Iterations of Gradient Descent """
 
@@ -506,6 +512,7 @@ class PPO(LightningModule):
 
             optimizer.zero_grad()
             self.manual_backward(loss)
+            torch.nn.utils.clip_grad_norm_(parameters, self.hparams.max_grad_norm)
             optimizer.step()
 
     def actor_loss(self, state, action, advantage, q_value, old_log_prob) -> torch.Tensor: #():
@@ -520,32 +527,59 @@ class PPO(LightningModule):
         ratio = torch.exp(log_prob - old_log_prob)
         clip_adv = torch.clamp(ratio, 1 - self.hparams.clip_ratio, 1 + self.hparams.clip_ratio) * advantage
 
+        # Log Metrics
+        with torch.no_grad():
+
+            # Compute KL Divergence and Clip Fraction (How Often the Ratio is Outside the Clipping Range)
+            approx_kl = ((ratio - 1) - torch.log(ratio)).mean().item()
+            clip_fraction = torch.as_tensor(ratio.gt(1 + self.hparams.clip_ratio) | ratio.lt(1 - self.hparams.clip_ratio), dtype=torch.float32).mean().item()
+
+            # Log the KL Divergence and Clip Fraction
+            self.log("approx_kl", approx_kl, prog_bar=True, on_step=False, on_epoch=True)
+            self.log("kl_divergence", 1.5 * self.hparams.target_kl - approx_kl, prog_bar=True, on_step=False, on_epoch=True)
+            self.log("clip_fraction", clip_fraction, prog_bar=True, on_step=False, on_epoch=True)
+
         # Compute the Actor Loss
         return -(torch.min(ratio * advantage, clip_adv)).mean()
 
-    def critic_loss(self, state, action, advantage, q_value, old_log_prob) -> torch.Tensor: #():
+    def critic_loss(self, state, advantage, q_value, old_log_prob) -> torch.Tensor: #():
 
         """ Compute the Critic Loss """
 
-        # Get the Value Function
+        # Get the Value Function and the Policy Distribution
         value = self.agent.critic(state)
+        pi, _ = self.agent.actor(state)
+
+        # Compute Returns
+        returns = advantage + q_value
+
+        if self.hparams.clip_vloss:
+
+            # Clip the Value Function
+            value = q_value + torch.clamp(value - q_value, -self.hparams.clip_ratio, self.hparams.clip_ratio)
+
+        # Compute Value and Entropy Losses
+        value_loss = torch.nn.functional.mse_loss(returns, value)
+        entropy_loss = - torch.mean(pi.entropy())
 
         # Compute the Critic Loss
-        return (q_value - value).pow(2).mean()
+        return self.hparams.entropy_coef * entropy_loss + self.hparams.vloss_coef * value_loss
+        # return (q_value - value).pow(2).mean()
 
     def training_step(self, batch, batch_idx):
 
         """ Carries Out a Single Update to Actor and Critic Network from a Batch of Replay Buffer """
 
-        # state, action, old_logp, q_val, adv = batch
-        state, action, _, advantage, q_value, log_prob = batch
+        # Unpack the Batch of Tuple (state, action, old_log_prob, q_value, advantage)
+        state, action, log_prob, q_value, advantage = batch
 
         # Advantages Normalization
-        advantage = (advantage - advantage.mean()) / advantage.std()
+        if self.hparams.adv_normalize: advantage = (advantage - advantage.mean()) / advantage.std()
 
-        self.log("avg_ep_len", self.avg_ep_len, prog_bar=True, on_step=False, on_epoch=True)
-        self.log("avg_ep_reward", self.avg_ep_reward, prog_bar=True, on_step=False, on_epoch=True)
-        self.log("avg_reward", self.avg_reward, prog_bar=True, on_step=False, on_epoch=True)
+        # Log the Average Episode Length, Episode Reward and Reward
+        self.log("avg_ep_len", self.buffer.avg_ep_len, prog_bar=True, on_step=False, on_epoch=True)
+        self.log("avg_ep_reward", self.buffer.avg_ep_reward, prog_bar=True, on_step=False, on_epoch=True)
+        self.log("avg_reward", self.buffer.avg_reward, prog_bar=True, on_step=False, on_epoch=True)
 
         # Get List of Optimizers
         optimizers = self.optimizers()
@@ -561,7 +595,7 @@ class PPO(LightningModule):
             self.log('loss_actor', actor_loss, on_step=False, on_epoch=True, prog_bar=True, logger=True)
 
             # Optimizer Step
-            self.manual_optimization_step(actor_opt, actor_loss, self.hparams.optim_update)
+            self.manual_optimization_step(actor_opt, self.agent.actor.parameters(), actor_loss, self.hparams.optim_update)
 
         # Update Critic Q-Networks
         if 'critic_optimizer' in self.optimizers_list:
@@ -574,4 +608,14 @@ class PPO(LightningModule):
             self.log('loss_critic', critic_loss, on_step=False, on_epoch=True, prog_bar=False, logger=True)
 
             # Optimizer Step
-            self.manual_optimization_step(critic_opt, critic_loss, self.hparams.optim_update)
+            self.manual_optimization_step(critic_opt, self.agent.critic.parameters(), critic_loss, self.hparams.optim_update)
+
+    """ Anneal the Learning Rate """
+    def on_train_epoch_start(self):
+
+        # Annealing the Rate
+        if self.hparams.anneal_lr:
+
+            # Anneal Actor and Critic Learning Rates
+            self.anneal_lr(self.optimizers()[self.optimizers_list.index('actor_optimizer')], self.hparams.lr_actor)
+            self.anneal_lr(self.optimizers()[self.optimizers_list.index('critic_optimizer')], self.hparams.lr_critic)
