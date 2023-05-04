@@ -285,7 +285,7 @@ class PPO(LightningModule):
         dataset = ExperienceSourceDataset(self.generate_trajectory_samples)
 
         # Create a DataLoader -> Fetch the Data from Dataset into Training Process with some Optimization
-        dataloader = DataLoader(dataset=dataset, batch_size=self.hparams.batch_size,  pin_memory=True)
+        dataloader = DataLoader(dataset=dataset, batch_size=self.hparams.batch_size, pin_memory=True)
 
         return dataloader
 
@@ -343,7 +343,7 @@ class PPO(LightningModule):
         """ Compute the Critic Loss """
 
         # Get the Value Function and the Policy Distribution
-        value = self.agent.critic(state)
+        value = self.agent.critic(state).reshape(-1)
         pi, _ = self.agent.actor(state)
 
         # Compute Returns
