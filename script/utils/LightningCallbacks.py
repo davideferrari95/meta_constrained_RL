@@ -27,7 +27,8 @@ class TestCallback(Callback):
         if pl_module.EC.test_unconstrained:
 
             # Play a Bunch of Un-Constrained Test Episodes
-            pl_module.play_test_episodes(test_constrained = False)
+            # pl_module.play_test_episodes(test_constrained = False)
+            pl_module.play_test_episodes()
 
             # Rename Unconstrained Episodes
             rename_test_episodes(prefix='unconstrained')
@@ -35,7 +36,8 @@ class TestCallback(Callback):
         if pl_module.EC.test_constrained:
 
             # Play a Bunch of Constrained Test Episodes
-            pl_module.play_test_episodes(test_constrained = True)
+            # pl_module.play_test_episodes(test_constrained = True)
+            pl_module.play_test_episodes()
 
             # Rename Constrained Episodes
             rename_test_episodes(prefix='constrained')
