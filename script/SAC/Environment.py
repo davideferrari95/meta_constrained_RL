@@ -37,7 +37,7 @@ def create_environment(name, seed=-1, record_video=True, record_epochs=100, rend
   env = __apply_wrappers(env, record_video, record_epochs, folder=VIDEO_FOLDER, env_type=ENV_TYPE)
   
   # Apply Seed
-  env.seed(seed)
+  # env.seed(seed)
   
   return env
 
