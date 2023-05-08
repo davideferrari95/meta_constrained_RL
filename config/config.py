@@ -9,6 +9,7 @@ class TrainingParams:
   max_epochs:         int
   precision:          int
   early_stopping:     bool
+  early_stop_metric:  str
   patience:           int
   record_video:       bool
   record_epochs:      int

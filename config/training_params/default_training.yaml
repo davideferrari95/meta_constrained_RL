@@ -3,10 +3,11 @@ max_epochs:         4_000
 precision:          16-mixed
 
 early_stopping:     True
+early_stop_metric:  episode/avg_ep_reward
 patience:           750
 
 record_video:       True
-record_epochs:      150
+record_epochs:      500
 
 profiler:           simple
 use_profiler:       False
