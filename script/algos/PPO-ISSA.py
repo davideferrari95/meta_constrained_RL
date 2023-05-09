@@ -29,6 +29,8 @@ class PPO(LightningModule):
 
         # Training Parameters:
         max_epochs:         int = 1000,                         # Maximum Number of Epochs
+        early_stop_metric:  str = 'episode/avg_ep_reward',      # Metric for Early Stopping
+
         steps_per_epoch:    int = 2048,                         # How Action-State Pairs to Rollout for Trajectory Collection per Epoch
         batch_size:         int = 512,                          # Batch Size for Training
         num_mini_batches:   int = 32,                           # Number of Mini-Batches for Training

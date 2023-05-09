@@ -2,7 +2,9 @@
 _target_: algos.PPO.PPO
 
 # Training Parameters:
-max_epochs:         ${training_params.max_epochs}       # Maximum Number of Epochs
+max_epochs:         ${training_params.max_epochs}   # Maximum Number of Epochs
+early_stop_metric:  episode/avg_ep_reward           # Metric for Early Stopping
+
 steps_per_epoch:    4000        # How Action-State Pairs to Rollout for Trajectory Collection per Epoch
 batch_size:         1024        # Batch Size for Training
 num_mini_batches:   128         # Number of Mini-Batches for Training

@@ -3,7 +3,7 @@ max_epochs:         4_000
 precision:          16-mixed
 
 early_stopping:     True
-early_stop_metric:  episode/avg_ep_reward
+early_stop_metric:  ${agent.early_stop_metric}
 patience:           750
 
 record_video:       True
