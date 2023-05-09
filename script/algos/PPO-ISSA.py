@@ -50,6 +50,7 @@ class PPO(LightningModule):
         anneal_lr:          bool  = True,                       # Anneal Learning Rate
         epsilon:            float = 1e-5,                       # Epsilon for Annealing Learning Rate
         clip_ratio:         float = 0.2,                        # Clipping Parameter for PPO
+        clip_gradient:      bool  = True,                       # Clip Gradient SGD
         clip_vloss:         bool  = True,                       # Clip Value Loss
         vloss_coef:         float = 0.5,                        # Value Loss Coefficient
         entropy_coef:       float = 0.01,                       # Entropy Coefficient
@@ -303,14 +304,14 @@ class PPO(LightningModule):
 
         return [actor_optimizer, critic_optimizer]
 
-    def manual_optimization_step(self, optimizer:torch.optim.Optimizer, parameters, loss):
+    def manual_optimization_step(self, optimizer:torch.optim.Optimizer, parameters, loss, clip_gradient=True):
 
         """ Execute Manual Optimizer Step and Gradient Clipping """
 
         # Execute Optimizer Step and Gradient Clipping
         optimizer.zero_grad()
         self.manual_backward(loss)
-        torch.nn.utils.clip_grad_norm_(parameters, self.hparams.max_grad_norm)
+        if clip_gradient: torch.nn.utils.clip_grad_norm_(parameters, self.hparams.max_grad_norm)
         optimizer.step()
 
     def actor_loss(self, state, action, advantage, q_value, old_log_prob) -> torch.Tensor: #():
@@ -333,9 +334,9 @@ class PPO(LightningModule):
             clip_fraction = torch.as_tensor(ratio.gt(1 + self.hparams.clip_ratio) | ratio.lt(1 - self.hparams.clip_ratio), dtype=torch.float32).mean().item()
 
             # Log the KL Divergence and Clip Fraction
-            self.log("approx_kl", approx_kl, prog_bar=True, on_step=False, on_epoch=True)
-            self.log("kl_divergence", 1.5 * self.hparams.target_kl - approx_kl, prog_bar=True, on_step=False, on_epoch=True)
-            self.log("clip_fraction", clip_fraction, prog_bar=True, on_step=False, on_epoch=True)
+            self.log("metrics/approx_kl", approx_kl, prog_bar=False, on_step=False, on_epoch=True)
+            self.log("metrics/kl_divergence", 1.5 * self.hparams.target_kl - approx_kl, prog_bar=False, on_step=False, on_epoch=True)
+            self.log("metrics/clip_fraction", clip_fraction, prog_bar=False, on_step=False, on_epoch=True)
 
         # Compute the Actor Loss
         return -(torch.min(ratio * advantage, clip_adv)).mean()
@@ -375,9 +376,9 @@ class PPO(LightningModule):
         if self.hparams.adv_normalize: advantage = (advantage - advantage.mean()) / advantage.std()
 
         # Log the Average Episode Length, Episode Reward and Reward
-        self.log("avg_ep_len", self.buffer.avg_ep_len, prog_bar=True, on_step=False, on_epoch=True)
-        self.log("avg_ep_reward", self.buffer.avg_ep_reward, prog_bar=True, on_step=False, on_epoch=True)
-        self.log("avg_reward", self.buffer.avg_reward, prog_bar=True, on_step=False, on_epoch=True)
+        self.log("episode/avg_ep_len", self.buffer.avg_ep_len, prog_bar=False, on_step=False, on_epoch=True)
+        self.log("episode/avg_ep_reward", self.buffer.avg_ep_reward, prog_bar=True, on_step=False, on_epoch=True)
+        self.log("episode/avg_reward", self.buffer.avg_reward, prog_bar=True, on_step=False, on_epoch=True)
 
         # Get List of Optimizers
         optimizers = self.optimizers()
@@ -392,12 +393,12 @@ class PPO(LightningModule):
             # Compute Actor and Critic Losses
             actor_loss = self.actor_loss(state, action, advantage, q_value, log_prob)
             critic_loss = self.critic_loss(state, action, advantage, q_value, log_prob)
-            self.log('loss_actor', actor_loss, on_step=False, on_epoch=True, prog_bar=True, logger=True)
-            self.log('loss_critic', critic_loss, on_step=False, on_epoch=True, prog_bar=False, logger=True)
+            self.log('losses/actor_loss', actor_loss, on_step=False, on_epoch=True, prog_bar=False, logger=True)
+            self.log('losses/critic_loss', critic_loss, on_step=False, on_epoch=True, prog_bar=False, logger=True)
 
             # Optimizer Step
-            self.manual_optimization_step(actor_opt, self.agent.actor.parameters(), actor_loss)
-            self.manual_optimization_step(critic_opt, self.agent.critic.parameters(), critic_loss)
+            self.manual_optimization_step(actor_opt, self.agent.actor.parameters(), actor_loss, self.hparams.clip_gradient)
+            self.manual_optimization_step(critic_opt, self.agent.critic.parameters(), critic_loss, self.hparams.clip_gradient)
 
     def on_train_epoch_start(self):
 
