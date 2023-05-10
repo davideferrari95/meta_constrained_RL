@@ -329,3 +329,21 @@ class PPO_ISSA_PyTorch(LightningModule):
         return PPOBuffer(size, self.env.observation_space.shape, self.env.action_space.shape,
                         self.hparams.gae_gamma, self.hparams.gae_lambda,
                         self.hparams.cost_gamma, self.hparams.cost_lambda)
+
+    def init_penalty(self):
+
+        # if agent.use_penalty:
+        if self.use_penalty:
+            self.penalty_param = torch.nn.Parameter(torch.tensor(np.log(max(np.exp(self.hparams.penalty_init)-1, 1e-8)), dtype=torch.float32))
+            self.penalty = torch.nn.functional.softplus(self.penalty_param)
+
+        if self.learn_penalty: self.penalty_optimizer = torch.optim.Adam([self.penalty_param], lr=self.hparams.lr_penalty)
+
+    def init_optimizers(self):
+
+        # Create an Iterator with the Parameters of the Q-Critic and the Safety-Critic
+        critic_params = itertools.chain(self.agent.critic.parameters(), self.agent.cost_critic.parameters())
+
+        # Critic and Actor Optimizers
+        self.actor_optimizer = torch.optim.Adam(self.agent.actor.parameters(), lr=self.hparams.lr_actor)
+        self.critic_optimizer = torch.optim.Adam(critic_params, lr=self.hparams.lr_critic)
