@@ -2,6 +2,7 @@
 hydra-core>=1.3.1
 numba>=0.56.4
 numpy<=1.24
+scipy
 termcolor
 tqdm
 
