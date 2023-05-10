@@ -347,3 +347,104 @@ class PPO_ISSA_PyTorch(LightningModule):
         # Critic and Actor Optimizers
         self.actor_optimizer = torch.optim.Adam(self.agent.actor.parameters(), lr=self.hparams.lr_actor)
         self.critic_optimizer = torch.optim.Adam(critic_params, lr=self.hparams.lr_critic)
+
+    def compute_penalty_loss(self, episode_cost):
+
+        # if agent.penalty_param_loss:
+        if self.penalty_param_loss: return -self.penalty_param * (episode_cost - self.hparams.cost_lim)
+        else: return -self.penalty * (episode_cost - self.hparams.cost_lim)
+
+    def compute_dkl(self, dist: TD.Distribution, mu_old, std_old):
+
+        """ Returns KL-Divergence Between Two Distributions """
+
+        # Compute Old Distribution from Mean and Std
+        old_dist = TD.Normal(mu_old, std_old)
+
+        # Compute KL-Divergence
+        kl = torch.distributions.kl_divergence(dist, old_dist)
+        return torch.mean(kl)
+
+    def compute_actor_loss(self, data):
+
+        """ Compute the Actor Loss """
+
+        # Unpack Data from Buffer
+        obs, act, adv = data['observations'], data['actions'], data['advantages'],
+        pi_mean_old, pi_std_old, logp_old = data['pi_mean'], data['pi_std'], data['log_probs']
+        cost_adv, ret, cost_ret = data['cost_advantages'], data['returns'], data['cost_returns']
+
+        # Get the Policy Distribution and Log Probability of the Action
+        # pi, logp = ac.pi(obs, act)
+        pi, _ = self.agent.actor(obs)
+        log_prob = self.agent.actor.get_log_prob(pi, act)
+        # log_prob = self.agent.actor.get_log_prob(obs, act)
+
+        # Compute the Log Probability Ratio
+        ratio = torch.exp(log_prob - logp_old)
+
+        # Clip the Advantage
+        clipped_adv = True
+
+        if clipped_adv:
+
+            # Clipped Surrogate Advantage
+            min_adv = torch.where(adv > 0, (1 + self.hparams.clip_ratio) * adv, (1 - self.hparams.clip_ratio) * adv)
+            surr_adv = torch.mean(torch.min(ratio * adv, min_adv))
+            # clip_adv = torch.clamp(ratio, 1 - self.hparams.clip_ratio, 1 + self.hparams.clip_ratio) * adv
+            # surr_adv = torch.mean(torch.min(ratio * adv, clip_adv))
+
+        else:
+
+            # Surrogate Advantage
+            surr_adv = torch.mean(ratio * adv)
+
+        # Surrogate Cost
+        surr_cost = torch.mean(ratio * cost_adv)
+
+        # Entropy of the Policy
+        # entropy = pi.entropy().mean().item()
+        entropy = pi.entropy().mean()
+
+        # Create Policy Objective Function, Including Entropy Regularization
+        pi_objective = surr_adv + self.hparams.entropy_reg * entropy
+
+        # Possibly include surr_cost in pi_objective
+        # if agent.objective_penalized:
+        if self.objective_penalized:
+            pi_objective -= self.penalty * surr_cost
+            pi_objective /= (1 + self.penalty)
+
+        # Loss function for pi is negative of pi_objective
+        loss_pi = -pi_objective
+        # loss_pi = -(torch.min(ratio * adv, clip_adv)).mean()
+
+        # Useful extra info
+        d_kl = self.compute_dkl(pi, pi_mean_old, pi_std_old)
+        approx_kl = (logp_old - log_prob).mean().item()
+        ent = pi.entropy().mean().item()
+        clipped = ratio.gt(1 + self.hparams.clip_ratio) | ratio.lt(1 - self.hparams.clip_ratio)
+        clip_frac = torch.as_tensor(clipped, dtype=torch.float32).mean().item()
+
+        return loss_pi, dict(d_kl=d_kl, approx_kl=approx_kl, ent=ent, clip_frac=clip_frac)
+
+    def compute_critic_loss(self, data):
+
+        """ Compute the Critic-Value Loss """
+
+        # Unpack Data from Buffer
+        obs, ret, cost_ret = data['observations'], data['returns'], data['cost_returns']
+
+        # Get the Value Function Predictions
+        value = self.agent.critic(obs)
+        cost_value = self.agent.cost_critic(obs)
+
+        # Value / Cost Value Losses
+        v_loss = torch.mean((ret - value)**2)
+        vc_loss = torch.mean((cost_ret - cost_value)**2)
+
+        # If agent uses penalty directly in reward function, don't train a separate
+        # value function for predicting cost returns. (Only use one vf for r - p*c.)
+        # if agent.reward_penalized:
+        if self.reward_penalized: return v_loss
+        else: return v_loss + vc_loss
