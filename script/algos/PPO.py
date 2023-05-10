@@ -120,7 +120,7 @@ class PPO(LightningModule):
         """ Forward Pass of the PPO Agent """
 
         # Pass Observation State through Actor and Critic Networks
-        _, actions, log_probs, value = self.agent(x)
+        _, actions, log_probs, value, cost_value = self.agent(x)
 
         return actions, log_probs, value
 
@@ -212,7 +212,7 @@ class PPO(LightningModule):
         for step in range(self.hparams.steps_per_epoch):
 
             # Get Action and Log Probability from Policy Network
-            _, action, log_prob, value = self.agent(self.state)
+            _, action, log_prob, value, cost_value = self.agent(self.state)
             next_state, reward, done, truncated, _ = self.env.step(action.cpu().numpy())
 
             # Store Experience Tuple in Batch Buffer
@@ -235,7 +235,7 @@ class PPO(LightningModule):
                     with torch.no_grad():
 
                         # Get Last Value of the Next
-                        _, _, _, value = self.agent(self.state)
+                        _, _, _, value, cost_value = self.agent(self.state)
                         last_value = value.item()
 
                         # Get Number of Steps Before Cutoff

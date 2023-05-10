@@ -9,7 +9,7 @@ DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 # Neural Network Creation Function
 def create_mlp(input_dim: int, output_dim: int, hidden_sizes: Optional[List[int]] = [128, 128], 
-               hidden_mod: Optional[nn.Module] = nn.ReLU(), output_mod: Optional[nn.Module] = None):
+               hidden_mod: Optional[nn.Module] = nn.ReLU(), output_mod: Optional[nn.Module] = None) -> nn.Sequential:
 
     ''' Neural Network Creation Function '''
 
@@ -57,7 +57,7 @@ class ActorCategorical(nn.Module):
         # Instance the Actor Network
         self.actor_net = actor_net
 
-    def forward(self, states):
+    def forward(self, states) -> Tuple(TD.Categorical, torch.Tensor):
 
         """ Pass Observations through the Actor Network """
 
@@ -72,7 +72,7 @@ class ActorCategorical(nn.Module):
 
         return pi, actions
 
-    def get_log_prob(self, pi: TD.Categorical, actions: torch.Tensor):
+    def get_log_prob(self, pi: TD.Categorical, actions: torch.Tensor) -> torch.Tensor:
 
         """
         Takes in a Distribution and Actions and Returns log_prob of Actions under the Distribution
@@ -111,7 +111,7 @@ class ActorContinuous(nn.Module):
         log_std = -0.5 * torch.ones(act_dim, dtype=torch.float)
         self.log_std = torch.nn.Parameter(log_std)
 
-    def forward(self, states):
+    def forward(self, states) -> Tuple(TD.Normal, torch.Tensor):
 
         """ Pass Observations through the Actor Network """
 
@@ -127,7 +127,7 @@ class ActorContinuous(nn.Module):
 
         return pi, actions
 
-    def get_log_prob(self, pi: TD.Normal, actions: torch.Tensor):
+    def get_log_prob(self, pi: TD.Normal, actions: torch.Tensor) -> torch.Tensor:
 
         """
         Takes in a Distribution and Actions and Returns log_prob of Actions under the Distribution
@@ -151,16 +151,17 @@ class ActorCriticAgent(nn.Module):
 
     # https://github.com/Shmuma/ptan/blob/master/ptan/agent.py
 
-    def __init__(self, actor_net: nn.Module, critic_net: nn.Module):
+    def __init__(self, actor_net: nn.Module, critic_net: nn.Module, cost_critic_net: nn.Module):
 
         super(ActorCriticAgent, self).__init__()
 
-        # Instance the Actor and Critic Networks
+        # Instance Actor and Critic Networks
         self.actor = actor_net
         self.critic = critic_net
+        self.cost_critic = cost_critic_net
 
     @torch.no_grad()
-    def __call__(self, state: torch.Tensor) -> Tuple: #():
+    def __call__(self, state: torch.Tensor) -> Tuple:
 
         """
         Takes in the Current State and Returns:
@@ -178,15 +179,16 @@ class ActorCriticAgent(nn.Module):
         pi, actions = self.actor(state)
         log_probs = self.get_log_prob(pi, actions)
 
-        # Get the Value of the State
+        # Get Value and Cost-Value of the State
         value = self.critic(state)
+        cost_value = self.cost_critic(state)
 
-        return pi, actions, log_probs, value
+        return pi, actions, log_probs, value, cost_value
 
-    def get_log_prob(self, pi: Union[TD.Categorical, TD.Normal], actions: torch.Tensor) -> torch.Tensor: #():
+    def get_log_prob(self, pi: Union[TD.Categorical, TD.Normal], actions: torch.Tensor) -> torch.Tensor:
 
         """
-        Takes in the Current State and Returns:
+        Takes in the Current Distribution and Action and Returns:
         Log Probability of the Action under the Distribution
 
         Args:
@@ -197,15 +199,36 @@ class ActorCriticAgent(nn.Module):
             Log Probability of the Action under pi
         """
 
+        # Get the Log Probability of the Action under the Distribution
         return self.actor.get_log_prob(pi, actions)
 
+    def get_log_prob(self, states: torch.Tensor, actions: torch.Tensor) -> torch.Tensor:
+
+        """
+        Takes in the Current State and Action and Returns:
+        Log Probability of the Action under the Distribution
+
+        Args:
+            states:  States to Pass Thought the Network to get the Distribution
+            actions: Actions Taken by the Distribution
+
+        Returns:
+            Log Probability of the Action under the Distribution
+        """
+
+        # Get the Distribution
+        pi, _ = self.actor(states)
+
+        # Get the Log Probability of the Action under the Distribution
+        return self.actor.get_log_prob(pi, actions)
 
 class PPO_Agent(ActorCriticAgent):
 
-    def __init__(self, env:gym.Env, hidden_sizes:Optional[List[int]] = [128,128], hidden_mod:Optional[nn.Module] = nn.Tanh):
+    def __init__(self, env:gym.Env, hidden_sizes:Optional[List[int]] = [128,128], hidden_mod:Optional[nn.Module] = nn.Tanh) -> ActorCriticAgent:
 
         # Create Critic Network -> 3 Linear Layers with Hyperbolic Tangent Activation Function
         critic = create_mlp(env.observation_space.shape[0], 1, hidden_sizes, hidden_mod(), nn.Identity())
+        cost_critic = create_mlp(env.observation_space.shape[0], 1, hidden_sizes, hidden_mod(), nn.Identity())
 
         # Create Continuous Actor Network -> 3 Linear Layers with Hyperbolic Tangent Activation Function
         if isinstance(env.action_space, spaces.Box):
@@ -222,4 +245,4 @@ class PPO_Agent(ActorCriticAgent):
                                        f'Got type: {type(env.action_space)}')
 
         # Instance the Actor Critic Agent
-        super(PPO_Agent, self).__init__(actor, critic)
+        super(PPO_Agent, self).__init__(actor, critic, cost_critic)
