@@ -1,5 +1,5 @@
 # WCSACP Algorithm Class
-_target_: algos.PPO.PPO
+_target_: algos.PPO-ISSA.PPO_ISSA
 
 # Training Parameters:
 max_epochs:         ${training_params.max_epochs}   # Maximum Number of Epochs

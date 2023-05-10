@@ -21,7 +21,7 @@ from torch.utils.data import DataLoader
 from pytorch_lightning import LightningModule
 
 # Create PPO Algorithm
-class PPO(LightningModule):
+class PPO_ISSA(LightningModule):
 
     def __init__(
 
