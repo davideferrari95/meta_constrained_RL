@@ -448,3 +448,58 @@ class PPO_ISSA_PyTorch(LightningModule):
         # if agent.reward_penalized:
         if self.reward_penalized: return v_loss
         else: return v_loss + vc_loss
+
+    def update(self):
+
+        data = self.buffer.get()
+
+        def cares_about_cost(use_penalty, constrained):
+            # return self.use_penalty or self.constrained
+            return use_penalty or constrained
+
+        # cur_cost = logger.get_stats('EpCost')[0]
+        c = self.cur_cost - self.hparams.cost_lim
+        if c > 0 and cares_about_cost(self.use_penalty, self.constrained):
+            print(colored('Warning! Safety constraint is already violated.', 'red'))
+
+        if self.learn_penalty:
+
+            # Compute Penalty Loss
+            penalty_loss = self.compute_penalty_loss(data)
+
+            # Update Penalty
+            self.penalty_optimizer.zero_grad()
+            penalty_loss.backward()
+            self.penalty_optimizer.step()
+
+        # Train Policy with Multiple Steps of SGD
+        for i in range(self.hparams.actor_update):
+
+            # Compute Policy Loss
+            loss_pi, pi_info = self.compute_actor_loss(data)
+
+            # Get KL-Divergence
+            d_kl = pi_info['d_kl']
+
+            # Stop Training if KL-Divergence is Too Large
+            if d_kl > 1.5 * self.hparams.target_kl:
+                print(colored(f'Early stopping at step {i} due to reaching max kl.', 'red'))
+                break
+
+            # Take Optimizer Step
+            self.actor_optimizer.zero_grad()
+            loss_pi.backward()
+            # mpi_avg_grads(ac.pi)    # average grads across MPI processes
+            self.actor_optimizer.step()
+
+        # Value Function Learning
+        for i in range(self.hparams.critic_update):
+
+            # Compute Value Loss
+            total_value_loss = self.compute_critic_loss(data)
+
+            # Take Optimizer Step
+            self.critic_optimizer.zero_grad()
+            total_value_loss.backward()
+            # mpi_avg_grads(ac.v)    # average grads across MPI processes
+            self.critic_optimizer.step()
