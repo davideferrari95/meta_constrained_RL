@@ -309,3 +309,23 @@ class PPO_ISSA_PyTorch(LightningModule):
                                     hvp=hvp,
                                     get_pi_params=get_pi_params,
                                     set_pi_params=set_pi_params)
+
+
+# ------------------------------------------------------------------------------
+#  PyTorch Correct Code
+# ------------------------------------------------------------------------------
+
+    def create_replay_buffer(self) -> PPOBuffer:
+
+        """ Create the Replay Buffer for the PPO Algorithm. """
+
+        # Experience buffer
+        local_steps_per_epoch = int(self.hparams.steps_per_epoch / self.num_workers)
+        # pi_info_shapes = {k: v.shape.as_list()[1:] for k,v in pi_info_phs.items()}
+
+        # Buffer Size
+        size = local_steps_per_epoch * 2 if self.hparams.cpc else local_steps_per_epoch 
+
+        return PPOBuffer(size, self.env.observation_space.shape, self.env.action_space.shape,
+                        self.hparams.gae_gamma, self.hparams.gae_lambda,
+                        self.hparams.cost_gamma, self.hparams.cost_lambda)
