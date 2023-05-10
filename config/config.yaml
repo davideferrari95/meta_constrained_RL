@@ -1,5 +1,5 @@
 defaults:
-- agent: ppo
+- agent: ppo-issa-pytorch
 - training_params: default_training
 - environment_params: common_environment
 - _self_

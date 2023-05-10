@@ -1,0 +1,61 @@
+# WCSACP Algorithm Class
+_target_: algos.PPO-ISSA-PyTorch.PPO_ISSA_PyTorch
+
+# Training Parameters:
+max_epochs:         ${training_params.max_epochs}   # Maximum Number of Epochs
+early_stop_metric:  episode/avg_ep_reward           # Metric for Early Stopping
+
+steps_per_epoch:    4000        # How Action-State Pairs to Rollout for Trajectory Collection per Epoch
+batch_size:         1024        # Batch Size for Training
+num_mini_batches:   128         # Number of Mini-Batches for Training
+hidden_sizes:       [128,128]   # Hidden Layer Sizes for Actor and Critic Networks
+hidden_mod:         Tanh        # Hidden Layer Activation Function for Actor and Critic Networks
+
+# Optimization Parameters:
+optim:              Adam        # Optimizer for Critic and Actor Networks
+actor_update:       80          # Number of Actor SDG to Perform on Each Batch
+critic_update:      80          # Number of Critic SDG to Perform on Each Batch
+lr_actor:           3e-4        # Learning Rate for Actor Network
+lr_critic:          1e-3        # Learning Rate for Critic Network
+lr_penalty:         5e-2        # Learning Rate for Penalty
+
+# GAE (General Advantage Estimation) Parameters:
+gae_gamma:          0.99        # Discount Factor for GAE
+gae_lambda:         0.97        # Advantage Discount Factor (Lambda) for GAE
+cost_gamma:         0.99        # Discount Factor for Cost GAE
+cost_lambda:        0.97        # Advantage Discount Factor (Lambda) for Cost GAE
+# adv_normalize:      True        # Normalize Advantage Function
+    
+# PPO (Proximal Policy Optimization) Parameters:
+entropy_reg:        0.0         # Entropy Regularization for PPO
+# anneal_lr:          True        # Anneal Learning Rate
+# epsilon:            1e-5        # Epsilon for Annealing Learning Rate
+# clip_ratio:         0.2         # Clipping Parameter for PPO
+# clip_gradient:      True        # Clip Gradient SGD
+# clip_vloss:         True        # Clip Value Loss
+# vloss_coef:         0.5         # Value Loss Coefficient
+# entropy_coef:       0.01        # Entropy Coefficient
+# max_grad_norm:      0.5         # Maximum Gradient Norm
+target_kl:          0.01        # Target KL Divergence
+
+# Cost Constraints / Penalties Parameters:
+cost_lim:           25          # Cost Constraint Limit
+penalty_init:       1.0         # Initial Penalty for Cost Constraint
+
+# AdamBA Safety Constrained Parameters:
+margin:               0.4         # Margin for Safety Constraint
+threshold:            0.0         # Threshold for Safety Constraint
+ctrlrange:            10.0        # Control Range for Safety Constraint
+k:                    3.0         # K for Safety Constraint
+n:                    1.0         # N for Safety Constraint
+sigma:                0.04        # Sigma for Safety Constraint
+cpc:                  False       # Use CPC Safety Constraint
+cpc_coef:             0.01        # CPC Coefficient
+pre_execute:          False       # Use Pre-Execute Safety Constraint
+pre_execute_coef:     0.0         # Pre-Execute Coefficient
+
+# Environment Configuration Parameters:
+seed:               ${environment_params.seed}          # Random Seed for Environment, Torch and Numpy
+record_video:       ${training_params.record_video}     # Record Video of the Environment
+record_epochs:      ${training_params.record_epochs}    # Record Video Every N Epochs
+environment_config: ${environment_params}               # Environment Configuration Parameters
