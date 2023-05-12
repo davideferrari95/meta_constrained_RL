@@ -161,7 +161,7 @@ class ActorCriticAgent(nn.Module):
         self.cost_critic = cost_critic_net
 
     @torch.no_grad()
-    def __call__(self, state: torch.Tensor) -> Tuple:
+    def __call__(self, state: torch.Tensor) -> Tuple(torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor):
 
         """
         Takes in the Current State and Returns:
@@ -172,7 +172,8 @@ class ActorCriticAgent(nn.Module):
             device: Device Used for the Current Batch
 
         Returns:
-            Torch Distribution and Randomly Sampled Action
+            Torch Distribution and Randomly Sampled Action:
+            pi, actions, log_probs, value, cost_value
         """
 
         # Get Distribution, Action and Log Probability
