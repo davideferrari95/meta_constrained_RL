@@ -225,7 +225,7 @@ class ActorCriticAgent(nn.Module):
 
 class PPO_Agent(ActorCriticAgent):
 
-    def __init__(self, env:gym.Env, hidden_sizes:List[int] = [128,128], hidden_mod:nn.Module = nn.Tanh)
+    def __init__(self, env:gym.Env, hidden_sizes:List[int] = [128,128], hidden_mod:nn.Module = nn.Tanh):
 
         # Create Critic Network -> 3 Linear Layers with Hyperbolic Tangent Activation Function
         critic = create_mlp(env.observation_space.shape[0], 1, hidden_sizes, hidden_mod(), nn.Identity())
