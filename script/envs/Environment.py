@@ -13,9 +13,9 @@ import mujoco_py
 def create_vectorized_environment(name:str, config:dict=None, env_num:int=10, seed:int=-1, 
                                   record_video:bool=True, record_epochs:int=100, 
                                   render_mode='rgb_array', apply_wrappers:bool=True,
-                                  environment_type:Optional[str]=None, env_epochs:int=1) -> gym.vector.SyncVectorEnv: #():
+                                  environment_type:Optional[str]=None, env_epochs:int=1) -> gym.vector.SyncVectorEnv:
 
-    " Create Vectorized Gym Environment "
+    """ Create Vectorized Gym Environment """
 
     def make_env(seed, record_video):
         def thunk(): return create_environment(name, config, seed, record_video, record_epochs, 
@@ -31,7 +31,7 @@ def create_vectorized_environment(name:str, config:dict=None, env_num:int=10, se
 def create_environment(name:str, config:dict=None, seed:int=-1, 
                        record_video:bool=True, record_epochs:int=100, 
                        render_mode='rgb_array', apply_wrappers:bool=True,
-                       environment_type:Optional[str]=None, env_epochs:int=1) -> gym.Env: #():
+                       environment_type:Optional[str]=None, env_epochs:int=1) -> gym.Env:
 
     """ Create Gym Environment """
 
@@ -51,9 +51,9 @@ def create_environment(name:str, config:dict=None, seed:int=-1,
 
     return env
 
-def __make_custom_env(name, config:dict, render_mode='rgb_array') -> gym.Env: #():
+def __make_custom_env(name, config:dict, render_mode='rgb_array') -> gym.Env:
 
-    """ Custom environments used in the paper (taken from the official implementation) """
+    """ Custom Environments used in the Paper (Official Implementation) """
 
     from envs.DefaultEnvironment import static_config, dynamic_config
     from safety_gym.envs.engine import Engine
@@ -81,7 +81,7 @@ def __make_custom_env(name, config:dict, render_mode='rgb_array') -> gym.Env: #(
 
     return gym.make(name, render_mode=render_mode)
 
-def __apply_wrappers(env, record_video, record_epochs, folder) -> gym.Env: #():
+def __apply_wrappers(env, record_video, record_epochs, folder) -> gym.Env:
 
     """ Apply Gym Wrappers """
 
