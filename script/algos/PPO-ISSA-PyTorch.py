@@ -5,8 +5,12 @@ from envs.Environment import create_environment, record_violation_episode
 from envs.DefaultEnvironment import custom_environment_config
 from utils.Utils import CostMonitor, FOLDER, combined_shape
 
+# Import AdamBA Algorithm
+from utils.AdamBA import AdamBA, AdamBA_SC, store_heatmap, quadratic_programming
+
 # Import Utilities
-import os, sys, gym, itertools
+import os, sys, gym
+import copy, itertools
 import numpy as np
 from tqdm import tqdm
 from termcolor import colored
@@ -77,7 +81,7 @@ class PPO_ISSA_PyTorch(LightningModule):
         k:                  float = 3.0,                        # K for Safety Constraint
         n:                  float = 1.0,                        # N for Safety Constraint
         sigma:              float = 0.04,                       # Sigma for Safety Constraint
-        cpc:                bool  = False,                      # Use CPC Safety Constraint
+        cpc:                bool  = False,                      # Use Compute Predicted Cost Safety Constraint
         cpc_coef:           float = 0.01,                       # CPC Coefficient
         pre_execute:        bool  = False,                      # Use Pre-Execute Safety Constraint
         pre_execute_coef:   float = 0.0,                        # Pre-Execute Coefficient
@@ -101,24 +105,32 @@ class PPO_ISSA_PyTorch(LightningModule):
         # Create PPO Agent (Policy and Value Networks)
         self.agent = PPO_Agent(self.env, hidden_sizes, getattr(torch.nn, hidden_mod)).to(DEVICE)
 
+        # Initialize PPOBuffer
+        self.buffer: PPOBuffer = self.create_replay_buffer()
+
         # Save Hyperparameters in Internal Properties that we can Reference in our Code
         self.save_hyperparameters()
-        
+
         # Get Number of Workers for Data Loader
         # self.num_workers = os.cpu_count()
         self.num_workers = 1
-        
-        self.objective_penalized = False
+        self.local_steps_per_epoch = steps_per_epoch / self.num_workers
+
         self.reward_penalized = False
+        self.objective_penalized = False
         self.learn_penalty = False
         self.penalty_param_loss = False
         self.trust_region = False
         self.first_order = True
         self.use_penalty = False
         self.constrained = False
+        self.adamba_layer = False
+        self.adamba_sc = False
 
-        self.initialize()
-        self.train()
+        # Main
+        self.init_penalty()
+        self.init_optimizers()
+        self.main()
 
     def configure_environment(self, environment_config, seed, record_video, record_epochs):
 
@@ -135,7 +147,7 @@ class PPO_ISSA_PyTorch(LightningModule):
     def computational_graph_placeholders(self):
 
         def placeholder_from_space(space):
-            
+
             if isinstance(space, gym.spaces.Box):
                 return torch.zeros(combined_shape(None, space.shape), dtype=torch.float32)
             elif isinstance(space, gym.spaces.Discrete):
@@ -158,7 +170,7 @@ class PPO_ISSA_PyTorch(LightningModule):
 
         # Inputs to computation graph for special purposes
         surr_cost_rescale_ph = torch.zeros((), torch.float32)
-        self.cur_cost_ph = torch.zeros((), torch.float32)
+        cur_cost_ph = torch.zeros((), torch.float32)
 
         # Outputs from actor critic
         ac_outs = PPO_Agent(self.env, self.hparams.hidden_sizes, getattr(torch.nn, self.hparams.hidden_mod)).to(DEVICE)
@@ -457,7 +469,7 @@ class PPO_ISSA_PyTorch(LightningModule):
             # return self.use_penalty or self.constrained
             return use_penalty or constrained
 
-        # cur_cost = logger.get_stats('EpCost')[0]
+        # TODO: cur_cost = logger.get_stats('EpCost')[0]
         c = self.cur_cost - self.hparams.cost_lim
         if c > 0 and cares_about_cost(self.use_penalty, self.constrained):
             print(colored('Warning! Safety constraint is already violated.', 'red'))
@@ -503,3 +515,442 @@ class PPO_ISSA_PyTorch(LightningModule):
             total_value_loss.backward()
             # mpi_avg_grads(ac.v)    # average grads across MPI processes
             self.critic_optimizer.step()
+
+    def main(self):
+
+        # Initialize Variables Environment
+        o, _ = self.env.reset()
+        r, d, c, ep_ret, ep_cost, ep_len = 0, False, 0, 0, 0, 0
+
+        # Initialize AdamBA Variables
+        ep_positive_safety_index, ep_projection_cost_max_margin = 0, 0
+        ep_projection_cost_max_0, ep_projection_cost_max_0_2 = 0, 0
+        ep_projection_cost_max_0_4, ep_projection_cost_max_0_8 = 0, 0
+        ep_adaptive_safety_index_max_sigma, ep_adaptive_safety_index_max_0 = 0, 0
+
+        # Initialize Loggers
+        true_cost_logger, closest_distance_cost_logger = [], []
+        projection_cost_max_margin_logger, projection_cost_max_0_logger = [], []
+        projection_cost_argmin_0_logger, projection_cost_argmin_margin_logger = [], []
+        index_argmin_dis_change_logger, index_max_projection_cost_change_logger = [], []
+        adaptive_safety_index_default_logger, adaptive_safety_index_sigma_0_00_logger = [], []
+        index_adaptive_max_change_logger, all_out_logger = [], []
+        store_logger, cnt_store_json = False, 0
+
+        # HeatMap Loggers
+        store_heatmap_video, store_heatmap_trigger = False, False
+        cnt_store_heatmap, cnt_store_heatmap_trigger = 0, 0
+
+        # Initialize Vars
+        cur_penalty, cum_cost = 0, 0
+        cnt_positive_cost, cnt_valid_adamba, cnt_all_out, cnt_one_valid = 0, 0, 0, 0
+        cnt_exception, cnt_itself_satisfy, cnt_timestep = 0, 0, 0
+
+        # Main Training Loop
+        for epoch in range(self.hparams.max_epochs):
+
+            # if agent.use_penalty:
+            if self.use_penalty:
+                cur_penalty = self.penalty
+
+            for t in range(self.local_steps_per_epoch):
+
+                cnt_timestep += 1
+
+                # Get outputs from policy
+                # pi, actions, log_probs, value, cost_value = self.agent(o)
+                pi, a, logp_t, v_t, vc_t = self.agent(torch.as_tensor(o, dtype=torch.float32))
+
+                # AdamBA Safety  Layer
+
+                # Logging for Plotting: Adaptive Safety-Index
+                valid_adamba_sc = "Not activated"
+                u_new = None
+
+                # Index
+                index_max_1 = self.env.projection_cost_index_max(self.hparams.margin)
+                index_argmin_dis_1 = self.env.projection_cost_index_argmin_dis(self.hparams.margin)
+                index_adaptive_max_1 = self.env.adaptive_safety_index_index(k=self.hparams.k, n=self.hparams.n, sigma=self.hparams.sigma)
+
+                # Projection Cost Max
+                projection_cost_max_margin_logger.append(self.env.projection_cost_max(self.hparams.margin))
+                projection_cost_max_0_logger.append(self.env.projection_cost_max(0))
+
+                # Projection Cost Argmin
+                projection_cost_argmin_margin_logger.append(self.env.projection_cost_argmin_dis(self.hparams.margin))
+                projection_cost_argmin_0_logger.append(self.env.projection_cost_argmin_dis(0))
+
+                # Distribution Cost
+                true_cost_logger.append(c)
+                closest_distance_cost_logger.append(self.env.closest_distance_cost())
+
+                # Synthesis Safety Index
+                safe_index_now = self.env.adaptive_safety_index(k=self.hparams.k, sigma=self.hparams.sigma, n=self.hparams.n)
+                adaptive_safety_index_default_logger.append(safe_index_now)
+                adaptive_safety_index_sigma_0_00_logger.append(self.env.adaptive_safety_index(k=self.hparams.k, n=self.hparams.n, sigma=0.00))
+
+                trigger_by_pre_execute = False
+
+                # Pre-Execute to Determine Whether `trigger_by_pre_execute` is True
+                if self.hparams.pre_execute and safe_index_now < 0: # if current safety index > 0, we should run normal AdamBA
+
+                    stored_state = copy.deepcopy(self.env.sim.get_state())
+
+                    # Simulate the Action in AdamBA
+                    s_new = self.env.step(a, simulate_in_adamba=True)
+
+                    # Get the Safety Index
+                    safe_index_future = self.env.adaptive_safety_index(k=self.hparams.k, sigma=self.hparams.sigma, n=self.hparams.n)
+
+                    # Check Safe Index
+                    if safe_index_future >= self.hparams.pre_execute_coef: trigger_by_pre_execute = True
+                    else: trigger_by_pre_execute = False
+
+                    # Reset Env (Set q_pos and q_vel)
+                    self.env.sim.set_state(stored_state)
+
+                    """
+                    Note that the Position-Dependent Stages of the Computation Must Have Been Executed
+                    for the Current State in order for These Functions to Return Correct Results.
+
+                    So to be Safe, do `mj_forward` and then `mj_jac` -> The Jacobians will Correspond to the
+                    State Before the Integration of Positions and Velocities Took Place.
+                    """
+
+                    # Environment Forward
+                    self.env.sim.forward()
+
+                # If Adaptive Safety Index > 0 or Triggered by Pre-Execute
+                if self.hparams.adamba_layer and (trigger_by_pre_execute or safe_index_now >= 0):
+
+                    # Increase Counters
+                    cnt_positive_cost += 1
+                    ep_positive_safety_index += 1
+
+                    # AdamBA for Safety Control
+                    if self.hparams.adamba_sc == True:
+
+                        # Run AdamBA SC Algorithm -> dt_ration = 1.0 -> Do Not Rely on Small dt
+                        adamba_results = AdamBA_SC(o, a, env=self.env, threshold=self.hparams.threshold, dt_ratio=1.0, ctrlrange=self.hparams.ctrlrange,
+                                                   margin=self.hparams.margin, adaptive_k=self.hparams.k, adaptive_n=self.hparams.n, adaptive_sigma=self.hparams.sigma,
+                                                   trigger_by_pre_execute=trigger_by_pre_execute, pre_execute_coef=self.hparams.pre_execute_coef)
+
+                        # Un-Pack AdamBA Results
+                        u_new, valid_adamba_sc, env, all_satisfied_u = adamba_results
+
+                        if store_heatmap_trigger:
+
+                            # Store HeatMap Function
+                            self.env, cnt_store_heatmap_trigger =  store_heatmap(self.env, cnt_store_heatmap_trigger, trigger_by_pre_execute,
+                                                                                 safe_index_now, self.hparams.threshold, self.hparams.n,
+                                                                                 self.hparams.k, self.hparams.sigma, self.hparams.pre_execute)
+
+                        # If AdamBA Status = Success
+                        if valid_adamba_sc == "adamba_sc success":
+
+                            # Increase AdamBA Counter
+                            cnt_valid_adamba += 1
+
+                            # Step in Environment with AdamBA Action (u_new)
+                            o2, r, d, truncated, info = self.env.step(np.array([u_new]))
+
+                        else:
+
+                            # Step in Environment with Agent Action
+                            o2, r, d, truncated, info = self.env.step(a)
+
+                            # Increase Other AdamBA Counters
+                            if valid_adamba_sc == "all out": cnt_all_out += 1
+                            elif valid_adamba_sc == "itself satisfy": cnt_itself_satisfy += 1
+                            elif valid_adamba_sc == "exception": cnt_exception += 1
+
+                    # Continuous AdamBA (Half Plane with QP-Solving) (note: not working in safety gym due to non-control-affine)
+                    else:
+
+                        # Run AdamBA Algorithm
+                        [A, b], valid_adamba = AdamBA(o, a, env=self.env, threshold=self.hparams.threshold, dt_ratio=0.1,
+                                                      ctrlrange=self.hparams.ctrlrange, margin=self.hparams.margin)
+
+                        if valid_adamba == "adamba success":
+
+                            # Increase Counter
+                            cnt_valid_adamba += 1
+
+                            # Set the QP-Objective
+                            H, f = np.eye(2, 2), [-a[0][0], -a[0][1]]
+                            u_new, status = quadratic_programming(H, f, A, [b], initvals=np.array(a[0]), verbose=False)
+
+                            # Step in Environment
+                            o2, r, d, truncated, info = self.env.step(np.array([u_new]))
+
+                        else:
+
+                            # Increase Other AdamBA Counters
+                            if valid_adamba == "all out": cnt_all_out += 1
+                            elif valid_adamba == "itself satisfy": cnt_itself_satisfy += 1
+                            elif valid_adamba == "one valid": cnt_one_valid += 1
+                            elif valid_adamba == "exception": cnt_exception += 1
+
+                            # Step in Environment
+                            o2, r, d, truncated, info = self.env.step(a)
+
+                else:
+
+                    # Step in Environment
+                    o2, r, d, truncated, info = self.env.step(a)
+
+                # Logging
+                all_out_logger.append(valid_adamba_sc)
+                index_max_2 = env.projection_cost_index_max(self.hparams.margin)
+                index_argmin_dis_2 = env.projection_cost_index_argmin_dis(self.hparams.margin)
+                index_adaptive_max_2 = env.adaptive_safety_index_index(k=self.hparams.k, n=self.hparams.n, sigma=self.hparams.sigma)                
+                index_argmin_dis_change_logger.append(index_argmin_dis_1 != index_argmin_dis_2)
+                index_max_projection_cost_change_logger.append(index_max_1 != index_max_2)
+                index_adaptive_max_change_logger.append(index_adaptive_max_1 != index_adaptive_max_2)
+
+                # Store Logger only if Cost > 0
+                if c > 0: store_logger = True
+
+                # Get Cost from Environment
+                c = info.get('cost', 0)
+
+                # Track Cumulative Cost Over Training
+                cum_cost += c
+
+                # Reward Penalized Buffer Saving
+                if self.reward_penalized:
+
+                    # Compute Total Reward
+                    r_total = r - cur_penalty * c / (1 + cur_penalty)
+
+                    # Store in PPO Buffer
+                    self.buffer.store(pi, o, a, r_total, v_t, 0, 0, logp_t)
+
+                else:
+
+                    # Not Compute Predicted Cost
+                    if self.hparams.cpc == False:
+
+                        # Store in PPO Buffer
+                        self.buffer.store(pi, o, a, r, v_t, c, vc_t, logp_t)
+
+                    else:
+
+                        # Compute Predicted Cost
+                        adaptive_cost = max(0, env.adaptive_safety_index(k=self.hparams.k, n=self.hparams.n, sigma=self.hparams.sigma))
+                        r_hat = r - self.hparams.cpc_coef * adaptive_cost
+
+                        if valid_adamba_sc == "adamba_sc success":
+
+                            # Store AdamBA in PPO Buffer
+                            self.buffer.store(pi, o, a, r_hat, v_t, c, vc_t, logp_t)
+                            self.buffer.store(pi, o, np.array([u_new]), r, v_t, c, vc_t, logp_t)
+
+                        else:
+
+                            # Store Invalid AdamBA in PPO Buffer
+                            self.buffer.store(pi, o, a, r_hat, v_t, c, vc_t, logp_t)
+                            self.buffer.store(pi, o, a, r, v_t, c, vc_t, logp_t)
+
+                # TODO: Logger
+                # logger.store(VVals=v_t, CostVVals=vc_t)
+
+                # Update Observations
+                o = o2
+
+                # Increase Episode Return, Cost and Length
+                ep_ret, ep_cost, ep_len = ep_ret + r, ep_cost + c, ep_len + 1
+
+                # Increase Projection Cost
+                ep_projection_cost_max_margin += max(0, self.env.projection_cost_max(self.hparams.margin))
+                ep_projection_cost_max_0      += max(0, self.env.projection_cost_max(0))
+                ep_projection_cost_max_0_2    += max(0, self.env.projection_cost_max(0.2))
+                ep_projection_cost_max_0_4    += max(0, self.env.projection_cost_max(0.4))
+                ep_projection_cost_max_0_8    += max(0, self.env.projection_cost_max(0.8))
+
+                # Increase Adaptive Safety Index
+                ep_adaptive_safety_index_max_sigma += max(0, self.env.adaptive_safety_index(k=self.hparams.k, n=self.hparams.n, sigma=self.hparams.sigma))
+                ep_adaptive_safety_index_max_0     += max(0, self.env.adaptive_safety_index(k=self.hparams.k, n=self.hparams.n,sigma=0))
+
+                # Compute `timeout`, `terminal` and `epoch_ended` Episode
+                timeout = ep_len == self.max_episode_steps
+                terminal = d or timeout
+                epoch_ended = t == self.local_steps_per_epoch - 1
+
+                # Episode Terminal Procedure
+                if terminal or epoch_ended:
+
+                    if epoch_ended and not terminal: print(colored(f'WARNING: Trajectory Cut-Off by Epoch at {ep_len} Steps.', 'yellow'), flush=True)
+
+                    # If Trajectory Didn't Reach Terminal State -> Bootstrap Value Target(s)
+                    if d and not timeout: last_value, last_cost_value = 0, 0
+                    else:
+
+                        # Get Last Value
+                        _, _, _, last_value, last_cost_value = self.agent(torch.as_tensor(o, dtype=torch.float32))
+
+                        # Last Cost Value = 0 if Reward Penalized
+                        if self.reward_penalized: last_cost_value = 0
+
+                    # Finish Path
+                    self.buffer.finish_path(last_value, last_cost_value)
+
+                    # Only Save Episode Return / Length if Trajectory Finished
+                    if terminal:
+
+                        # TODO: Logger
+                        # logger.store(EpRet=ep_ret, EpLen=ep_len, EpCost=ep_cost)
+                        ep_activation_ratio = ep_positive_safety_index / ep_len
+                        # logger.store(EpActivationRatio=ep_activation_ratio)
+                        # logger.store(EpProjectionCostMaxMargin=ep_projection_cost_max_margin)
+                        # logger.store(EpProjectionCostMax0=ep_projection_cost_max_0)
+                        # logger.store(EpAdaptiveSafetyIndexMaxSigma=ep_adaptive_safety_index_max_sigma)
+                        # logger.store(EpAdaptiveSafetyIndexMax0=ep_adaptive_safety_index_max_0)
+
+                        # logger.store(EpProjectionCostMax0_2=ep_projection_cost_max_0_2)
+                        # logger.store(EpProjectionCostMax0_4=ep_projection_cost_max_0_4)
+                        # logger.store(EpProjectionCost0_8=ep_projection_cost_0_8)
+
+                    # Reset environment
+                    o, _ = self.env.reset()
+                    r, d, c, ep_ret, ep_len, ep_cost = 0, False, 0, 0, 0, 0
+
+                    # Reset AdamBA Variables
+                    ep_positive_safety_index, ep_projection_cost_max_margin = 0, 0
+                    ep_projection_cost_max_0, ep_projection_cost_max_0_2 = 0, 0
+                    ep_projection_cost_max_0_4, ep_projection_cost_max_0_8 = 0, 0
+                    ep_adaptive_safety_index_max_sigma, ep_adaptive_safety_index_max_0 = 0, 0
+
+                    # AdamBA Store Logger
+                    if self.adamba_layer and self.adamba_sc:
+
+                        # Store Logger if Violation in Episode
+                        if store_logger:
+
+                            # TODO: ???
+                            if cnt_store_json >= 0: pass
+
+                            else:
+
+                                import os, json, time
+
+                                # Increase JSON Counter
+                                cnt_store_json += 1
+                                print("Violation Episode Coming")
+                                print("Storing %d/10 file" %(cnt_store_json))
+
+                                # Logger Dictionary
+                                data_all_out = {"closest_distance_cost":closest_distance_cost_logger,
+                                                "true_cost": true_cost_logger,
+                                                "projection_cost_max_margin": projection_cost_max_margin_logger,
+                                                "projection_cost_max_0": projection_cost_max_0_logger,
+                                                "all_out": all_out_logger,
+                                                "index_argmin_dis_change": index_argmin_dis_change_logger,
+                                                "index_max_projection_cost_change": index_max_projection_cost_change_logger,
+                                                "index_adaptive_max_change": index_adaptive_max_change_logger,
+                                                "adaptive_safety_index_default": adaptive_safety_index_default_logger,
+                                                "adaptive_safety_index_sigma_0_00": adaptive_safety_index_sigma_0_00_logger}
+
+                                # Dump Data as JSON
+                                json_data_all_out = json.dumps(data_all_out, indent=1)
+
+                                # Prepare JSON File Path
+                                time_str = time.strftime("%Y-%m-%d-%H:%M:%S", time.localtime())
+                                if self.env.constrain_hazards:   json_dir_path = os.path.join(FOLDER, 'data/json_data/fixed_adaptive_hazard_%s_size_%s_threshold_%s_sigma_%s_n_%s_k_%s_pre_execute_%s_fixed_simulation/' % (str(env.hazards_num), str(env.hazards_size), str(self.hparams.threshold), str(self.hparams.sigma), str(self.hparams.n), str(self.hparams.k), str(self.hparams.pre_execute)))
+                                elif self.env.constrain_pillars: json_dir_path = os.path.join(FOLDER, 'data/json_data/fixed_adaptive_pillar_%s_size_%s_threshold_%s_sigma_%s_n_%s_k_%s_pre_execute_%s_fixed_simulation/' % (str(env.pillars_num), str(env.pillars_size), str(self.hparams.threshold), str(self.hparams.sigma), str(self.hparams.n), str(self.hparams.k), str(self.hparams.pre_execute)))
+                                else: raise NotImplementedError
+
+                                # Make JSON Directory
+                                if not os.path.exists(json_dir_path): os.makedirs(json_dir_path)
+
+                                # Write File
+                                json_file_path = json_dir_path + '%s.json' % (time_str)
+                                with open(json_file_path, 'w') as json_file: json_file.write(json_data_all_out)
+
+                                # Reset Store Logger Flag
+                                store_logger = False
+
+                        else: print('No Violations in this Episode')
+
+                    # Reset Loggers
+                    closest_distance_cost_logger, true_cost_logger = [], []
+                    projection_cost_max_margin_logger, projection_cost_max_0_logger = [], []
+                    projection_cost_argmin_0_logger, projection_cost_argmin_margin_logger = [], []
+                    all_out_logger, index_argmin_dis_change_logger = [], []
+                    index_max_projection_cost_change_logger, index_adaptive_max_change_logger = [], []
+                    adaptive_safety_index_default_logger, adaptive_safety_index_sigma_0_00_logger = [], []
+
+            # TODO: Save Model
+            # if (epoch % save_freq == 0) or (epoch == epochs-1):
+            #     logger.save_state({'env': env}, None)
+
+            # Run Policy Update
+            self.update()
+
+            # Cumulative Cost Calculations
+            cumulative_cost = cum_cost
+            cost_rate = cumulative_cost / ((epoch+1) * self.hparams.steps_per_epoch)
+
+            """
+            # Loggers
+            logger.log_tabular('Epoch', epoch)
+
+            # Performance stats
+            logger.log_tabular('EpRet', with_min_and_max=True)
+            logger.log_tabular('EpCost', with_min_and_max=True)
+            logger.log_tabular('EpActivationRatio', with_min_and_max=True)
+            logger.log_tabular('EpProjectionCostMaxMargin', with_min_and_max=True)
+            logger.log_tabular('EpProjectionCostMax0', with_min_and_max=True)
+            # logger.log_tabular('EpProjectionCost0_2', with_min_and_max=True)
+            # logger.log_tabular('EpProjectionCost0_4', with_min_and_max=True)
+            # logger.log_tabular('EpProjectionCost0_8', with_min_and_max=True)
+
+            logger.log_tabular('EpAdaptiveSafetyIndexMaxSigma', with_min_and_max=True)
+            logger.log_tabular('EpAdaptiveSafetyIndexMax0', with_min_and_max=True)
+
+            logger.log_tabular('EpLen', average_only=True)
+            logger.log_tabular('CumulativeCost', cumulative_cost)
+            logger.log_tabular('CostRate', cost_rate)
+
+            # Value function values
+            logger.log_tabular('VVals', with_min_and_max=True)
+            logger.log_tabular('CostVVals', with_min_and_max=True)
+
+            # Pi loss and change
+            logger.log_tabular('LossPi', average_only=True)
+            logger.log_tabular('DeltaLossPi', average_only=True)
+
+            # Surr cost and change
+            logger.log_tabular('SurrCost', average_only=True)
+            logger.log_tabular('DeltaSurrCost', average_only=True)
+
+            # V loss and change
+            logger.log_tabular('LossV', average_only=True)
+            logger.log_tabular('DeltaLossV', average_only=True)
+
+            # Vc loss and change, if applicable (reward_penalized agents don't use vc)
+            if not(self.reward_penalized):
+                logger.log_tabular('LossVC', average_only=True)
+                logger.log_tabular('DeltaLossVC', average_only=True)
+
+            if self.use_penalty or self.save_penalty:
+                logger.log_tabular('Penalty', average_only=True)
+                logger.log_tabular('DeltaPenalty', average_only=True)
+            else:
+                logger.log_tabular('Penalty', 0)
+                logger.log_tabular('DeltaPenalty', 0)
+
+            # Anything from the agent?
+            agent.log()
+
+            # Policy stats
+            logger.log_tabular('Entropy', average_only=True)
+            logger.log_tabular('KL', average_only=True)
+
+            # Time and steps elapsed
+            logger.log_tabular('TotalEnvInteracts', (epoch + 1) * self.hparams.steps_per_epoch)
+            logger.log_tabular('Time', time.time()-start_time)
+
+            # Show results!
+            logger.dump_tabular()
+            """
