@@ -8,8 +8,8 @@ from torch import distributions as TD
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 # Neural Network Creation Function
-def create_mlp(input_dim: int, output_dim: int, hidden_sizes: Optional[List[int]] = [128, 128], 
-               hidden_mod: Optional[nn.Module] = nn.ReLU(), output_mod: Optional[nn.Module] = None) -> nn.Sequential:
+def create_mlp(input_dim: int, output_dim: int, hidden_sizes: List[int] = [128, 128], 
+               hidden_mod: Optional[nn.Module] = nn.ReLU(), output_mod: Optional[nn.Module] = nn.Identity()) -> nn.Sequential:
 
     ''' Neural Network Creation Function '''
 
@@ -57,7 +57,7 @@ class ActorCategorical(nn.Module):
         # Instance the Actor Network
         self.actor_net = actor_net
 
-    def forward(self, states) -> Tuple(TD.Categorical, torch.Tensor):
+    def forward(self, states) -> Tuple[TD.Categorical, torch.Tensor]:
 
         """ Pass Observations through the Actor Network """
 
@@ -111,7 +111,7 @@ class ActorContinuous(nn.Module):
         log_std = -0.5 * torch.ones(act_dim, dtype=torch.float)
         self.log_std = torch.nn.Parameter(log_std)
 
-    def forward(self, states) -> Tuple(TD.Normal, torch.Tensor):
+    def forward(self, states) -> Tuple[TD.Normal, torch.Tensor]:
 
         """ Pass Observations through the Actor Network """
 
@@ -151,7 +151,7 @@ class ActorCriticAgent(nn.Module):
 
     # https://github.com/Shmuma/ptan/blob/master/ptan/agent.py
 
-    def __init__(self, actor_net: nn.Module, critic_net: nn.Module, cost_critic_net: nn.Module):
+    def __init__(self, actor_net: Union[ActorContinuous, ActorCategorical], critic_net: nn.Module, cost_critic_net: nn.Module):
 
         super(ActorCriticAgent, self).__init__()
 
@@ -161,7 +161,7 @@ class ActorCriticAgent(nn.Module):
         self.cost_critic = cost_critic_net
 
     @torch.no_grad()
-    def __call__(self, state: torch.Tensor) -> Tuple(torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor):
+    def __call__(self, state: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
 
         """
         Takes in the Current State and Returns:
@@ -225,7 +225,7 @@ class ActorCriticAgent(nn.Module):
 
 class PPO_Agent(ActorCriticAgent):
 
-    def __init__(self, env:gym.Env, hidden_sizes:Optional[List[int]] = [128,128], hidden_mod:Optional[nn.Module] = nn.Tanh) -> ActorCriticAgent:
+    def __init__(self, env:gym.Env, hidden_sizes:List[int] = [128,128], hidden_mod:nn.Module = nn.Tanh)
 
         # Create Critic Network -> 3 Linear Layers with Hyperbolic Tangent Activation Function
         critic = create_mlp(env.observation_space.shape[0], 1, hidden_sizes, hidden_mod(), nn.Identity())

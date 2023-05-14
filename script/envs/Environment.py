@@ -9,11 +9,22 @@ from utils.Utils import video_rename
 import gym, safety_gym
 import mujoco_py
 
+# Import Gym Wrappers
+from gym.wrappers.record_video import RecordVideo
+from gym.wrappers.record_episode_statistics import RecordEpisodeStatistics
+from gym.wrappers.clip_action import ClipAction
+from gym.wrappers.normalize import NormalizeObservation, NormalizeReward
+from gym.wrappers.transform_observation import TransformObservation
+from gym.wrappers.transform_reward import TransformReward
+
+# Import Vectorized Environment
+from gym.vector import SyncVectorEnv
+
 # Create Vectorized Environments
-def create_vectorized_environment(name:str, config:dict=None, env_num:int=10, seed:int=-1, 
+def create_vectorized_environment(name:str, config:Optional[dict]=None, env_num:int=10, seed:int=-1, 
                                   record_video:bool=True, record_epochs:int=100, 
                                   render_mode='rgb_array', apply_wrappers:bool=True,
-                                  environment_type:Optional[str]=None, env_epochs:int=1) -> gym.vector.SyncVectorEnv:
+                                  environment_type:Optional[str]=None, env_epochs:int=1) -> SyncVectorEnv:
 
     """ Create Vectorized Gym Environment """
 
@@ -23,12 +34,10 @@ def create_vectorized_environment(name:str, config:dict=None, env_num:int=10, se
         return thunk
 
     # Create Vectorized Environment (Record Video Only for First Environment)
-    envs = gym.vector.SyncVectorEnv([make_env(seed + i, record_video if i == 0 else False) for i in range(env_num)])
-
-    return envs
+    return SyncVectorEnv([make_env(seed + i, record_video if i == 0 else False) for i in range(env_num)])
 
 # Create Single Environment
-def create_environment(name:str, config:dict=None, seed:int=-1, 
+def create_environment(name:str, config:Optional[dict]=None, seed:int=-1, 
                        record_video:bool=True, record_epochs:int=100, 
                        render_mode='rgb_array', apply_wrappers:bool=True,
                        environment_type:Optional[str]=None, env_epochs:int=1) -> gym.Env:
@@ -42,8 +51,8 @@ def create_environment(name:str, config:dict=None, seed:int=-1,
     else: env = gym.make(name, render_mode=render_mode)
 
     # Apply Wrappers
-    if   environment_type == 'test'      and record_video: env = gym.wrappers.RecordVideo(env, video_folder=TEST_FOLDER,       episode_trigger=lambda x: x % env_epochs == 0, name_prefix='test_')
-    elif environment_type == 'violation' and record_video: env = gym.wrappers.RecordVideo(env, video_folder=VIOLATIONS_FOLDER, episode_trigger=lambda x: x % env_epochs == 0, name_prefix='new_')
+    if   environment_type == 'test'      and record_video: env = RecordVideo(env, video_folder=TEST_FOLDER,       episode_trigger=lambda x: x % env_epochs == 0, name_prefix='test_')
+    elif environment_type == 'violation' and record_video: env = RecordVideo(env, video_folder=VIOLATIONS_FOLDER, episode_trigger=lambda x: x % env_epochs == 0, name_prefix='new_')
     elif apply_wrappers: env = __apply_wrappers(env, record_video, record_epochs, folder=VIDEO_FOLDER)
 
     # TODO: Apply Seed -> In env.reset() ?
@@ -51,13 +60,14 @@ def create_environment(name:str, config:dict=None, seed:int=-1,
 
     return env
 
-def __make_custom_env(name, config:dict, render_mode='rgb_array') -> gym.Env:
+def __make_custom_env(name, config:Optional[dict]=None, render_mode='rgb_array') -> gym.Env:
 
     """ Custom Environments used in the Paper (Official Implementation) """
 
     from envs.DefaultEnvironment import static_config, dynamic_config
     from safety_gym.envs.engine import Engine
     from gym import register
+    from gym.envs.registration import registry
 
     # Build Static / Dynamic Custom Environment
     if   "static"  in name: name, config = 'StaticEnv-v0',  static_config
@@ -70,7 +80,7 @@ def __make_custom_env(name, config:dict, render_mode='rgb_array') -> gym.Env:
     else: name = (''.join(name)).replace('custom','') + '-v0'
 
     # Check if Environment is Already Registered
-    if name not in gym.envs.registry:
+    if name not in registry:
 
         register(
         id=name,
@@ -87,17 +97,17 @@ def __apply_wrappers(env, record_video, record_epochs, folder) -> gym.Env:
 
     # FIX: MoviePy Log Removed
     # Record Environment Videos in the specified folder, trigger specifies which episode to record and which to ignore (1 in record_epochs)
-    if record_video: env = gym.wrappers.RecordVideo(env, video_folder=folder, episode_trigger=lambda x: x % record_epochs == 0 and x != 0)
+    if record_video: env = RecordVideo(env, video_folder=folder, episode_trigger=lambda x: x % record_epochs == 0 and x != 0)
 
     # Keep Track of the Reward the Agent Obtain and Save them into a Property
-    env = gym.wrappers.RecordEpisodeStatistics(env)
+    env = RecordEpisodeStatistics(env)
 
     # Preprocess the Environment
-    env = gym.wrappers.ClipAction(env)
-    env = gym.wrappers.NormalizeObservation(env)
-    env = gym.wrappers.TransformObservation(env, lambda obs: np.clip(obs, -10,10))
-    env = gym.wrappers.NormalizeReward(env)
-    env = gym.wrappers.TransformReward(env, lambda reward: np.clip(reward, -10,10))
+    env = ClipAction(env)
+    env = NormalizeObservation(env)
+    env = TransformObservation(env, lambda obs: np.clip(obs, -10,10))
+    env = NormalizeReward(env)
+    env = TransformReward(env, lambda reward: np.clip(reward, -10,10))
 
     return env
 
@@ -124,5 +134,6 @@ def rename_test_episodes(prefix=''):
         # Check if .mp4 or .json
         if filename.endswith('.mp4'):    number = filename[14:-4]
         elif filename.endswith('.json'): number = filename[14:-10]
+        else: number = None
 
         if filename.startswith('test_'): video_rename(TEST_FOLDER, filename, f'{prefix}-test-episode-{number}')

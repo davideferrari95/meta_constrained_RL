@@ -42,7 +42,7 @@ class PPOBuffer:
         # Buffer Pointer and Maximum Size
         self.ptr, self.path_start_idx, self.max_size = 0, 0, size
 
-    def store(self, distribution: torch.distributions.Distribution, 
+    def store(self, distribution: torch.distributions.Normal, 
               observation, action, reward, value, cost, cost_value, log_probs):
 
         """ Append one timestep of agent-environment interaction to the buffer. """

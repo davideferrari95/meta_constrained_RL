@@ -1,8 +1,9 @@
-import os, random, omegaconf
+import os, io, random, omegaconf
 import torch
 import numpy as np
 from scipy import signal
 from termcolor import colored
+from typing import Optional, Tuple
 
 # Utils
 AUTO = 'auto'
@@ -57,13 +58,15 @@ def print_arguments(cfg, term_print = True, save_file = False):
 
         file.write('Arguments:\n')
 
+    else: file = None
+
     # Recursive Print Function
-    _recursive_print(cfg, (file if save_file else None), space='   ', term_print=term_print, save_file=save_file)
+    _recursive_print(cfg, file, space='   ', term_print=term_print)
 
     # Close Save File
-    if save_file: file.close()
+    if file is not None: file.close()
 
-def _recursive_print(cfg, file=None, space='   ', term_print=True, save_file=False):
+def _recursive_print(cfg, file: Optional[io.TextIOWrapper]=None, space='   ', term_print=True):
 
     new_line = False
 
@@ -76,9 +79,9 @@ def _recursive_print(cfg, file=None, space='   ', term_print=True, save_file=Fal
             if term_print: print(f"\n{colored(f'{space}{arg}:', 'yellow', attrs=['bold'])}\n")
 
             # Save File Info Arguments
-            if save_file: file.write(f'\n{space}{arg}:\n\n')
+            if file is not None: file.write(f'\n{space}{arg}:\n\n')
 
-            _recursive_print(cfg[arg], file=file, space=f'{space}   ', term_print=term_print, save_file=save_file)
+            _recursive_print(cfg[arg], file=file, space=f'{space}   ', term_print=term_print)
 
             # New Line Required for New Group
             new_line = True
@@ -95,7 +98,7 @@ def _recursive_print(cfg, file=None, space='   ', term_print=True, save_file=Fal
                                   f'{cfg[arg]}', '\n' if arg == '_target_' else '')
 
             # Save into File
-            if save_file:
+            if file is not None:
                 file.write(('\n' if new_line else ''))
                 file.write(f'{space}{arg_name:25}{cfg[arg]}\n')
 
@@ -113,7 +116,7 @@ def _recursive_print(cfg, file=None, space='   ', term_print=True, save_file=Fal
                 print(colored(f'{space}   {"learn_beta:":25}',  'white', attrs=['bold']), f'{learn_beta}')
 
             # Save Info Arguments
-            if save_file:
+            if file is not None:
                 file.write(f'{space}   {"use_costs:":25}{use_costs}\n')
                 file.write(f'{space}   {"learn_alpha:":25}{learn_alpha}\n')
                 file.write(f'{space}   {"learn_beta:":25}{learn_beta}\n')
@@ -214,7 +217,7 @@ def video_rename(folder:str, old_name:str, new_name:str):
     # Rename Files
     os.rename(os.path.join(folder, old_name), os.path.join(folder, new_name))
 
-def combined_shape(length, shape=None):
+def combined_shape(length, shape=None) -> Tuple:
 
     """ Combine Length and Shape of an Array """
 
@@ -233,7 +236,7 @@ def discount_cumulative_sum(x, discount):
 
     return signal.lfilter([1], [1, float(-discount)], x[::-1], axis=0)[::-1]
 
-def statistics_scalar(x, with_min_and_max=False):
+def statistics_scalar(x, with_min_and_max=False) -> Tuple:
 
     """
     Get mean/std and optional min/max of scalar x.
