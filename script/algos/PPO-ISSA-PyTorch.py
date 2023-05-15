@@ -288,8 +288,8 @@ class PPO_ISSA_PyTorch(LightningModule):
             # return self.use_penalty or self.constrained
             return use_penalty or constrained
 
-        # TODO: cur_cost = logger.get_stats('EpCost')[0]
-        c = self.cur_cost - self.hparams.cost_lim
+        # Get Current Cost
+        c = self.current_cost - self.hparams.cost_lim
         if c > 0 and cares_about_cost(self.use_penalty, self.constrained):
             print(colored('Warning! Safety constraint is already violated.', 'red'))
 
@@ -623,6 +623,7 @@ class PPO_ISSA_PyTorch(LightningModule):
 
                         # TODO: Logger
                         # logger.store(EpRet=ep_ret, EpLen=ep_len, EpCost=ep_cost)
+                        self.current_cost = ep_cost
                         ep_activation_ratio = ep_positive_safety_index / ep_len
                         # logger.store(EpActivationRatio=ep_activation_ratio)
                         # logger.store(EpProjectionCostMaxMargin=ep_projection_cost_max_margin)
