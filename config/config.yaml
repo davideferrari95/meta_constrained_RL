@@ -1,7 +1,7 @@
 defaults:
 - agent: ppo-issa-pytorch
 - training_params: default_training
-- environment_params: common_environment
+- environment_params: hazard_environment
 - _self_
 hydra:
   run:
