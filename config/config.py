@@ -32,8 +32,7 @@ class EnvironmentParams:
   reward_distance:    float   # Dense reward multiplied by the distance moved to the goal
   reward_goal:        float   # Sparse reward for being inside the goal area
 
-  # World Limits
-  world_limits:       List[float]   # Soft world limits (min X, min Y, max X, max Y)
+  # World Spawn Limits
   placements_extents: List[float]   # Placement limits (min X, min Y, max X, max Y)
 
   # Activation Bool
@@ -44,7 +43,6 @@ class EnvironmentParams:
   observe_pillars:    bool    # Lidar observation of pillar object positions
   observe_gremlins:   bool    # Gremlins are observed with lidar-like space
   observe_walls:      bool    # Observe the walls with a lidar space
-  observe_world_lim:  bool    # Observe world limits
 
   constrain_hazards:  bool    # Penalty Entering in Hazards
   constrain_vases:    bool    # Constrain robot from touching objects
