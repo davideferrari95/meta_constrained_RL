@@ -26,8 +26,8 @@ class PPOBuffer:
         self.return_buffer      = np.zeros(size, dtype=np.float32)
         self.value_buffer       = np.zeros(size, dtype=np.float32)
         self.log_probs_buffer   = np.zeros(size, dtype=np.float32)
-        self.pi_mean_buffer     = np.zeros(size, dtype=np.float32)
-        self.pi_std_buffer      = np.zeros(size, dtype=np.float32)
+        self.pi_mean_buffer     = np.zeros(combined_shape(size, act_shape), dtype=np.float32)
+        self.pi_std_buffer      = np.zeros(combined_shape(size, act_shape), dtype=np.float32)
 
         # Initialize Cost Buffers
         self.cost_buffer            = np.zeros(size, dtype=np.float32)
@@ -58,8 +58,8 @@ class PPOBuffer:
         self.cost_buffer[self.ptr]        = cost
         self.cost_value_buffer[self.ptr]  = cost_value
         self.log_probs_buffer[self.ptr]   = log_probs
-        self.pi_mean_buffer[self.ptr]     = distribution.mean()
-        self.pi_std_buffer[self.ptr]      = distribution.stddev()
+        self.pi_mean_buffer[self.ptr]     = distribution.mean
+        self.pi_std_buffer[self.ptr]      = distribution.stddev
         self.ptr += 1
 
     def finish_path(self, last_value=0, last_cost_value=0):
@@ -88,7 +88,7 @@ class PPOBuffer:
 
         # GAE-Lambda Advantage Calculation
         deltas = rews[:-1] + self.gae_gamma * vals[1:] - vals[:-1]
-        self.advantage_buffer[path_slice] = discount_cumulative_sum(deltas, self.gae_gamma * self.gae_lambda)[:-1]
+        self.advantage_buffer[path_slice] = discount_cumulative_sum(deltas, self.gae_gamma * self.gae_lambda)
 
         # Rewards-To-Go -> Targets for the Value Function
         self.return_buffer[path_slice] = discount_cumulative_sum(rews, self.gae_gamma)[:-1]
