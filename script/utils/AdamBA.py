@@ -352,7 +352,7 @@ def store_heatmap(env:gym.Env, cnt_store_heatmap_trigger:int, trigger_by_pre_exe
     for _ in range(200):
 
         # Initialize u(0), u(1)
-        u_0, u_1 -= 0.1, -10.05
+        u_0, u_1 = u_0 - 0.1, -10.05
 
         for _ in range(200):
 
