@@ -243,8 +243,8 @@ def AdamBA_SC(obs, act, env:gym.Env, threshold:float=0, dt_ratio:float=1.0, ctrl
                 while True:
 
                     # Check Environment Safety
-                    flag, env = check_unsafe(obs, NP_vec_tmp_i, dt_ratio, dt_adamba, env, threshold, margin,
-                                             adaptive_k, adaptive_n, adaptive_sigma, trigger_by_pre_execute, pre_execute_coef)
+                    flag, env = check_unsafe_sc(obs, NP_vec_tmp_i, dt_ratio, dt_adamba, env, threshold, margin,
+                                                adaptive_k, adaptive_n, adaptive_sigma, trigger_by_pre_execute, pre_execute_coef)
 
                     # Check Safety-Gym Env out-of-bound
                     if out_of_bound(limits, NP_vec_tmp_i, sc=True): break
@@ -526,9 +526,9 @@ def check_unsafe(s, point, dt_ratio:float, dt_adamba:float, env:gym.Env, thresho
 
     return flag, env
 
-def check_unsafe(s, point, dt_ratio:float, dt_adamba:float, env:gym.Env, threshold:float,
-                 margin:float, adaptive_k:float, adaptive_n:float, adaptive_sigma:float,
-                 trigger_by_pre_execute:bool, pre_execute_coef:float):
+def check_unsafe_sc(s, point, dt_ratio:float, dt_adamba:float, env:gym.Env, threshold:float,
+                    margin:float, adaptive_k:float, adaptive_n:float, adaptive_sigma:float,
+                    trigger_by_pre_execute:bool, pre_execute_coef:float):
 
     # Create Action
     action = point.tolist()
