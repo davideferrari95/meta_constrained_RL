@@ -5,7 +5,8 @@ import torch, torch.nn as nn
 from torch import distributions as TD
 
 # Select Training Device
-DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+# DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+DEVICE = torch.device('cpu')
 
 # Neural Network Creation Function
 def create_mlp(input_dim: int, output_dim: int, hidden_sizes: List[int] = [128, 128], 
@@ -186,31 +187,15 @@ class ActorCriticAgent(nn.Module):
 
         return pi, actions, log_probs, value, cost_value
 
-    def get_log_prob(self, pi: Union[TD.Categorical, TD.Normal], actions: torch.Tensor) -> torch.Tensor:
+    def get_log_prob(self, pi: Optional[Union[TD.Categorical, TD.Normal]], actions: torch.Tensor, states: Optional[torch.Tensor] = None) -> torch.Tensor:
 
         """
-        Takes in the Current Distribution and Action and Returns:
+        Takes in the Current Distribution (or State) and Action and Returns:
         Log Probability of the Action under the Distribution
 
         Args:
             pi:      Torch Distribution
-            actions: Actions Taken by the Distribution
-
-        Returns:
-            Log Probability of the Action under pi
-        """
-
-        # Get the Log Probability of the Action under the Distribution
-        return self.actor.get_log_prob(pi, actions)
-
-    def get_log_prob(self, states: torch.Tensor, actions: torch.Tensor) -> torch.Tensor:
-
-        """
-        Takes in the Current State and Action and Returns:
-        Log Probability of the Action under the Distribution
-
-        Args:
-            states:  States to Pass Thought the Network to get the Distribution
+            states:  States to Pass Through the Network to get the Distribution
             actions: Actions Taken by the Distribution
 
         Returns:
@@ -218,7 +203,7 @@ class ActorCriticAgent(nn.Module):
         """
 
         # Get the Distribution
-        pi, _ = self.actor(states)
+        if states is not None: pi, _ = self.actor(states)
 
         # Get the Log Probability of the Action under the Distribution
         return self.actor.get_log_prob(pi, actions)
