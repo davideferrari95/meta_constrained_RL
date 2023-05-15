@@ -99,22 +99,33 @@ class PPO_ISSA_PyTorch(LightningModule):
         # Properly Utilize Tensor Cores of the CUDA device ('NVIDIA RTX A4000 Laptop GPU')
         torch.set_float32_matmul_precision('high')
 
+        # Save Hyperparameters in Internal Properties that we can Reference in our Code
+        self.save_hyperparameters()
+
+        # Initialize Variables
+        self.init_variables()
+
         # Configure Environment
         self.configure_environment(environment_config, seed, record_video, record_epochs)
 
         # Create PPO Agent (Policy and Value Networks)
         self.agent = PPO_Agent(self.env, hidden_sizes, getattr(torch.nn, hidden_mod)).to(DEVICE)
 
-        # Initialize PPOBuffer
+        # Initialize PPO Buffer
         self.buffer: PPOBuffer = self.create_replay_buffer()
 
-        # Save Hyperparameters in Internal Properties that we can Reference in our Code
-        self.save_hyperparameters()
+        # Main
+        self.init_penalty()
+        self.init_optimizers()
+        self.main()
+        exit(0)
+
+    def init_variables(self):
 
         # Get Number of Workers for Data Loader
         # self.num_workers = os.cpu_count()
         self.num_workers = 1
-        self.local_steps_per_epoch = steps_per_epoch / self.num_workers
+        self.local_steps_per_epoch = int(self.hparams.steps_per_epoch / self.num_workers)
 
         self.reward_penalized = False
         self.objective_penalized = False
@@ -126,11 +137,6 @@ class PPO_ISSA_PyTorch(LightningModule):
         self.constrained = False
         self.adamba_layer = False
         self.adamba_sc = False
-
-        # Main
-        self.init_penalty()
-        self.init_optimizers()
-        self.main()
 
     def configure_environment(self, environment_config, seed, record_video, record_epochs):
 
@@ -331,13 +337,10 @@ class PPO_ISSA_PyTorch(LightningModule):
 
         """ Create the Replay Buffer for the PPO Algorithm. """
 
-        # Experience buffer
-        local_steps_per_epoch = int(self.hparams.steps_per_epoch / self.num_workers)
-        # pi_info_shapes = {k: v.shape.as_list()[1:] for k,v in pi_info_phs.items()}
-
         # Buffer Size
-        size = local_steps_per_epoch * 2 if self.hparams.cpc else local_steps_per_epoch 
+        size = self.local_steps_per_epoch * 2 if self.hparams.cpc else self.local_steps_per_epoch
 
+        # Create PPO Buffer
         return PPOBuffer(size, self.env.observation_space.shape, self.env.action_space.shape,
                         self.hparams.gae_gamma, self.hparams.gae_lambda,
                         self.hparams.cost_gamma, self.hparams.cost_lambda)
@@ -387,10 +390,9 @@ class PPO_ISSA_PyTorch(LightningModule):
         cost_adv, ret, cost_ret = data['cost_advantages'], data['returns'], data['cost_returns']
 
         # Get the Policy Distribution and Log Probability of the Action
-        # pi, logp = ac.pi(obs, act)
         pi, _ = self.agent.actor(obs)
         log_prob = self.agent.actor.get_log_prob(pi, act)
-        # log_prob = self.agent.actor.get_log_prob(obs, act)
+        # log_prob = self.agent.get_log_prob(None, act, obs)
 
         # Compute the Log Probability Ratio
         ratio = torch.exp(log_prob - logp_old)
@@ -549,11 +551,15 @@ class PPO_ISSA_PyTorch(LightningModule):
         # Main Training Loop
         for epoch in range(self.hparams.max_epochs):
 
+            print(f'Epoch: {epoch+1}')
+
             # if agent.use_penalty:
             if self.use_penalty:
                 cur_penalty = self.penalty
 
             for t in range(self.local_steps_per_epoch):
+
+                print(f'Local Step: {t+1}')
 
                 cnt_timestep += 1
 
@@ -621,14 +627,14 @@ class PPO_ISSA_PyTorch(LightningModule):
                     self.env.sim.forward()
 
                 # If Adaptive Safety Index > 0 or Triggered by Pre-Execute
-                if self.hparams.adamba_layer and (trigger_by_pre_execute or safe_index_now >= 0):
+                if self.adamba_layer and (trigger_by_pre_execute or safe_index_now >= 0):
 
                     # Increase Counters
                     cnt_positive_cost += 1
                     ep_positive_safety_index += 1
 
                     # AdamBA for Safety Control
-                    if self.hparams.adamba_sc == True:
+                    if self.adamba_sc == True:
 
                         # Run AdamBA SC Algorithm -> dt_ration = 1.0 -> Do Not Rely on Small dt
                         adamba_results = AdamBA_SC(o, a, env=self.env, threshold=self.hparams.threshold, dt_ratio=1.0, ctrlrange=self.hparams.ctrlrange,
@@ -701,9 +707,9 @@ class PPO_ISSA_PyTorch(LightningModule):
 
                 # Logging
                 all_out_logger.append(valid_adamba_sc)
-                index_max_2 = env.projection_cost_index_max(self.hparams.margin)
-                index_argmin_dis_2 = env.projection_cost_index_argmin_dis(self.hparams.margin)
-                index_adaptive_max_2 = env.adaptive_safety_index_index(k=self.hparams.k, n=self.hparams.n, sigma=self.hparams.sigma)                
+                index_max_2 = self.env.projection_cost_index_max(self.hparams.margin)
+                index_argmin_dis_2 = self.env.projection_cost_index_argmin_dis(self.hparams.margin)
+                index_adaptive_max_2 = self.env.adaptive_safety_index_index(k=self.hparams.k, n=self.hparams.n, sigma=self.hparams.sigma)                
                 index_argmin_dis_change_logger.append(index_argmin_dis_1 != index_argmin_dis_2)
                 index_max_projection_cost_change_logger.append(index_max_1 != index_max_2)
                 index_adaptive_max_change_logger.append(index_adaptive_max_1 != index_adaptive_max_2)
