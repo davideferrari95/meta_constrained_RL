@@ -312,9 +312,9 @@ class PPO_ISSA_PyTorch(LightningModule):
             # Get KL-Divergence
             d_kl = pi_info['d_kl']
 
-            # Stop Training if KL-Divergence is Too Large
+            # Stop Policy Update if KL-Divergence is Too Large
             if d_kl > 1.5 * self.hparams.target_kl:
-                print(colored(f'Early stopping at step {i} due to reaching max kl.', 'red'))
+                # print(colored(f'Early stopping at step {i} due to reaching max kl.', 'red'))
                 break
 
             # Take Optimizer Step
@@ -375,8 +375,6 @@ class PPO_ISSA_PyTorch(LightningModule):
                 cur_penalty = self.penalty
 
             for t in range(self.local_steps_per_epoch):
-
-                print(f'Local Step: {t+1}')
 
                 cnt_timestep += 1
 
