@@ -1,3 +1,8 @@
+defaults:
+
+  - default_environment
+  - _self_
+
 # Environment Name
 env_name:           ['custom','CommonEnv']
 seed:               123
@@ -29,7 +34,7 @@ constrain_gremlins: False     # Moving objects that must be avoided
 constrain_buttons:  False     # Penalize pressing incorrect buttons
 
 # Lidar Config
-lidar_num_bins:     32        # Number of Lidar Dots
+lidar_num_bins:     16        # Number of Lidar Dots
 lidar_max_dist:     null      # Maximum distance for lidar sensitivity (if None, exponential distance)
 lidar_exp_gain:     1.0       # 'pseudo', 'natural', see self.obs_lidar()
 lidar_type:         'pseudo'  # Scaling factor for distance in exponential distance lidar
@@ -57,9 +62,6 @@ vases_velocity_cost: 1.0      # Cost (per step) per m/s of velocity for a vase
 # HardCoded Location of Goal and Hazards
 # goal_locations: [[0,1]]                     # Explicitly Place Goal XY Coordinates
 # hazards_locations: [[1,0],[-1,0],[0,-1]]    # Explicitly Place Hazards XY Coordinates
-
-# Robot Sensors (Mujoco Sensors)
-sensors_obs: ['accelerometer', 'velocimeter', 'gyro', 'magnetometer']   # Mujoco Sensors
 
 # Test and Violation Environments
 test_environment:       true

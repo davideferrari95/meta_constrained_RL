@@ -64,20 +64,15 @@ def __make_custom_env(name, config:Optional[dict]=None, render_mode='rgb_array')
 
     """ Custom Environments used in the Paper (Official Implementation) """
 
-    from envs.DefaultEnvironment import static_config, dynamic_config
     from safety_gym.envs.engine import Engine
     from gym import register
     from gym.envs.registration import registry
 
-    # Build Static / Dynamic Custom Environment
-    if   "static"  in name: name, config = 'StaticEnv-v0',  static_config
-    elif "dynamic" in name: name, config = 'DynamicEnv-v0', dynamic_config
-
     # If Name is not in Pre-Configured Environments and Config is None
-    elif config is None: raise Exception(f"{name} Environment Not Implemented")
+    if config is None: raise Exception(f"{name} Environment Not Implemented")
 
     # Use Given Config | Remove 'custom' from name, Capitalize and add '-v0'
-    else: name = (''.join(name)).replace('custom','') + '-v0'
+    name = (''.join(name)).replace('custom','') + '-v0'
 
     # Check if Environment is Already Registered
     if name not in registry:

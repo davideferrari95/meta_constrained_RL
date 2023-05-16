@@ -7,7 +7,7 @@ from utils.Utils import FOLDER
 sys.path.append(FOLDER)
 from config.config import EnvironmentParams
 
-def custom_environment_config(config:EnvironmentParams) -> dict: #():
+def custom_environment_config(config:EnvironmentParams) -> dict:
 
     ''' Return the Safety-Gym Configuration Dictionary '''
 
@@ -24,74 +24,18 @@ def custom_environment_config(config:EnvironmentParams) -> dict: #():
     # Return None if not Custom Environment
     if config is None or not 'custom' in config.env_name: return config.env_name, None
 
-    # Custom Environment
-    env_config = {
+    # Load Default Configuration
+    env_config = DEFAULT_CONFIG
 
-        # Task Configuration
-        'robot_base': config.robot_base,
-        'task': config.task,
+    for param in config:
 
-        # Rewards
-        'reward_distance': config.reward_distance,   # Dense reward multiplied by the distance moved to the goal
-        'reward_goal':     config.reward_goal,       # Sparse reward for being inside the goal area
-
-        # World Spawn Limits
-        'placements_extents': config.placements_extents,    # Placement limits (min X, min Y, max X, max Y)
-
-        # Activation Bool
-        'observe_goal_lidar': config.observe_goal_lidar,    # Enable Goal Lidar
-        'observe_buttons':    config.observe_buttons,       # Lidar observation of button object positions
-        'observe_hazards':    config.observe_hazards,       # Enable Hazard Lidar
-        'observe_vases':      config.observe_vases,         # Observe the vector from agent to vases
-        'observe_pillars':    config.observe_pillars,       # Lidar observation of pillar object positions
-        'observe_gremlins':   config.observe_gremlins,      # Gremlins are observed with lidar-like space
-        'observe_walls':      config.observe_walls,         # Observe the walls with a lidar space
-
-        'constrain_hazards':  config.constrain_hazards,     # Penalty Entering in Hazards
-        'constrain_vases':    config.constrain_vases,       # Constrain robot from touching objects
-        'constrain_pillars':  config.constrain_pillars,     # Immovable obstacles in the environment
-        'constrain_gremlins': config.constrain_gremlins,    # Moving objects that must be avoided
-        'constrain_buttons':  config.constrain_buttons,     # Penalize pressing incorrect buttons
-
-        # Lidar Config
-        'lidar_num_bins': config.lidar_num_bins,    # Number of Lidar Dots
-        'lidar_max_dist': config.lidar_max_dist,    # Maximum distance for lidar sensitivity (if None, exponential distance)
-        'lidar_exp_gain': config.lidar_exp_gain,    # Scaling factor for distance in exponential distance lidar
-        'lidar_type':     config.lidar_type,        # 'pseudo', 'natural', see self.obs_lidar()
-
-        # Goal Config
-        'goal_size':    config.goal_size,           # Size of Goal (0.3)
-        'goal_keepout': config.goal_keepout,        # Min Spawn Distance to Hazard
-
-        # Hazard Config
-        'hazards_num':     config.hazards_num,      # Number of Hazards
-        'hazards_size':    config.hazards_size,     # Size of Hazard (0.2)
-        'hazards_keepout': config.hazards_keepout,  # Min Spawn Distance to Hazard
-        'hazards_cost':    config.hazards_cost,     # Cost (per step) for violating the constraint
-
-        # Vases Config
-        'vases_num':           config.vases_num,              # Number of vases in the world
-        'vases_contact_cost':  config.vases_contact_cost,     # Cost (per step) for being in contact with a vase
-        'vases_displace_cost': config.vases_displace_cost,    # Cost (per step) per meter of displacement for a vase
-        'vases_velocity_cost': config.vases_velocity_cost,    # Cost (per step) per m/s of velocity for a vase
-
-        # Robot Starting Location
-        # 'robot_locations': config.robot_locations,    # Explicitly Place Robot XY Coordinates
-        # 'robot_rot':       config.robot_rot,          # Override Robot Starting Angle
-
-        # HardCoded Location of Goal and Hazards
-        # 'goal_locations':    config.goal_locations,     # Explicitly Place Goal XY Coordinates
-        # 'hazards_locations': config.hazards_locations,  # Explicitly Place Hazards XY Coordinates
-
-        # Robot Sensors (Mujoco Sensors)
-        'sensors_obs': config.sensors_obs,
-
-    }
+        # Overwrite DEFAULT Config Parameters
+        if param in DEFAULT_CONFIG: env_config[param] = config[param]
 
     return config.env_name, env_config
 
 # Default Configuration
-DEFAULT = {
+DEFAULT_CONFIG = {
 
     'max_episode_steps': 1000,  # Maximum number of environment steps in an episode
     'action_noise': 0.0,        # Magnitude of independent per-component gaussian action noise
@@ -181,11 +125,9 @@ DEFAULT = {
     'box_density': 0.001,       # Box density
     'box_null_dist': 2,         # Within box_null_dist * box_size radius of box, no box reward given
 
-    ''' 
-    Reward is distance towards goal plus a constant for being within range of goal
-    reward_distance should be positive to encourage moving towards the goal
-    if reward_distance is 0, then the reward function is sparse 
-    '''
+    # Reward is distance towards goal plus a constant for being within range of goal
+    # reward_distance should be positive to encourage moving towards the goal
+    # if reward_distance is 0, then the reward function is sparse
 
     # Reward Parameters
     'reward_distance': 1.0,             # Dense reward multiplied by the distance moved to the goal
@@ -253,11 +195,9 @@ DEFAULT = {
     'vases_density': 0.001,         # Density of vases
     'vases_sink': 4e-5,             # Experimentally measured, based on size and density, how far vases "sink" into the floor.
 
-    '''
-    Mujoco has soft contacts, so vases slightly sink into the floor,
-    in a way which can be hard to precisely calculate (and varies with time)
-    Ignore some costs below a small threshold, to reduce noise.
-    '''
+    # Mujoco has soft contacts, so vases slightly sink into the floor,
+    # in a way which can be hard to precisely calculate (and varies with time)
+    # Ignore some costs below a small threshold, to reduce noise.
 
     'vases_contact_cost': 1.0,          # Cost (per step) for being in contact with a vase
     'vases_displace_cost': 0.0,         # Cost (per step) per meter of displacement for a vase
@@ -297,43 +237,5 @@ DEFAULT = {
 
     # Random State Seed (avoid name conflict with self.seed)
     '_seed': None,  
-
-}
-
-static_config = {
-
-    "placements_extents": [-1.5, -1.5, 1.5, 1.5],
-    "robot_base": "xmls/point.xml",
-    "task": "goal",
-    "goal_size": 0.3,
-    "goal_keepout": 0.305,
-    "goal_locations": [(1.1, 1.1)],
-    "observe_goal_lidar": True,
-    "observe_hazards": True,
-    "constrain_hazards": True,
-    "lidar_max_dist": 3,
-    "lidar_num_bins": 16,
-    "hazards_num": 1,
-    "hazards_size": 0.7,
-    "hazards_keepout": 0.705,
-    "hazards_locations": [(0, 0)],
-
-}
-
-dynamic_config = {
-
-    "placements_extents": [-1.5, -1.5, 1.5, 1.5],
-    "robot_base": "xmls/point.xml",
-    "task": "goal",
-    "goal_size": 0.3,
-    "goal_keepout": 0.305,
-    "observe_goal_lidar": True,
-    "observe_hazards": True,
-    "constrain_hazards": True,
-    "lidar_max_dist": 3,
-    "lidar_num_bins": 16,
-    "hazards_num": 3,
-    "hazards_size": 0.3,
-    "hazards_keepout": 0.305,
 
 }
