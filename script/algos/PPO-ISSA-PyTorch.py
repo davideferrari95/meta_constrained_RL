@@ -34,57 +34,65 @@ class PPO_ISSA_PyTorch(LightningModule):
         self,
 
         # Training Parameters:
-        max_epochs:         int = 1000,                         # Maximum Number of Epochs
-        early_stop_metric:  str = 'episode/avg_ep_reward',      # Metric for Early Stopping
+        max_epochs:             int = 1000,                         # Maximum Number of Epochs
+        early_stop_metric:      str = 'episode/avg_ep_reward',      # Metric for Early Stopping
 
-        steps_per_epoch:    int = 2048,                         # How Action-State Pairs to Rollout for Trajectory Collection per Epoch
-        batch_size:         int = 512,                          # Batch Size for Training
-        num_mini_batches:   int = 32,                           # Number of Mini-Batches for Training
-        hidden_sizes:       Optional[List[int]] = [128,128],    # Hidden Layer Sizes for Actor and Critic Networks
-        hidden_mod:         Optional[str]       = 'Tanh',       # Hidden Layer Activation Function for Actor and Critic Networks
+        steps_per_epoch:        int = 2048,                         # How Action-State Pairs to Rollout for Trajectory Collection per Epoch
+        batch_size:             int = 512,                          # Batch Size for Training
+        num_mini_batches:       int = 32,                           # Number of Mini-Batches for Training
+        hidden_sizes:           Optional[List[int]] = [128,128],    # Hidden Layer Sizes for Actor and Critic Networks
+        hidden_mod:             Optional[str]       = 'Tanh',       # Hidden Layer Activation Function for Actor and Critic Networks
 
         # Optimization Parameters:
-        optim:              str = 'Adam',                       # Optimizer for Critic and Actor Networks
-        actor_update:       int = 80,                           # Number of Gradient Descent to Perform on Each Batch        
-        critic_update:      int = 80,                           # Number of Gradient Descent to Perform on Each Batch        
-        lr_actor:           float = 3e-4,                       # Learning Rate for Actor Network
-        lr_critic:          float = 1e-3,                       # Learning Rate for Critic Network
-        lr_penalty:         float = 5e-2,                       # Learning Rate for Penalty
+        optim:                  str = 'Adam',                       # Optimizer for Critic and Actor Networks
+        actor_update:           int = 80,                           # Number of Gradient Descent to Perform on Each Batch        
+        critic_update:          int = 80,                           # Number of Gradient Descent to Perform on Each Batch        
+        lr_actor:               float = 3e-4,                       # Learning Rate for Actor Network
+        lr_critic:              float = 1e-3,                       # Learning Rate for Critic Network
+        lr_penalty:             float = 5e-2,                       # Learning Rate for Penalty
 
         # GAE (General Advantage Estimation) Parameters:
-        gae_gamma:          float = 0.99,                       # Discount Factor for GAE
-        gae_lambda:         float = 0.95,                       # Advantage Discount Factor (Lambda) for GAE
-        cost_gamma:         float = 0.99,                       # Discount Factor for Cost GAE
-        cost_lambda:        float = 0.97,                       # Advantage Discount Factor (Lambda) for Cost GAE
-        # adv_normalize:      bool  = True,                       # Normalize Advantage Function
+        gae_gamma:              float = 0.99,                       # Discount Factor for GAE
+        gae_lambda:             float = 0.95,                       # Advantage Discount Factor (Lambda) for GAE
+        cost_gamma:             float = 0.99,                       # Discount Factor for Cost GAE
+        cost_lambda:            float = 0.97,                       # Advantage Discount Factor (Lambda) for Cost GAE
+        # adv_normalize:          bool  = True,                       # Normalize Advantage Function
 
         # PPO (Proximal Policy Optimization) Parameters:
-        entropy_reg:        float = 0.0,                        # Entropy Regularization for PPO
-        # anneal_lr:          bool  = True,                       # Anneal Learning Rate
-        # epsilon:            float = 1e-5,                       # Epsilon for Annealing Learning Rate
-        clip_ratio:         float = 0.2,                        # Clipping Parameter for PPO
-        # clip_gradient:      bool  = True,                       # Clip Gradient SGD
-        # clip_vloss:         bool  = True,                       # Clip Value Loss
-        # vloss_coef:         float = 0.5,                        # Value Loss Coefficient
-        # entropy_coef:       float = 0.01,                       # Entropy Coefficient
-        # max_grad_norm:      float = 0.5,                        # Maximum Gradient Norm
-        target_kl:          float = 0.01,                       # Target KL Divergence
+        entropy_reg:            float = 0.0,                        # Entropy Regularization for PPO
+        # anneal_lr:              bool  = True,                       # Anneal Learning Rate
+        # epsilon:                float = 1e-5,                       # Epsilon for Annealing Learning Rate
+        clip_ratio:             float = 0.2,                        # Clipping Parameter for PPO
+        # clip_gradient:          bool  = True,                       # Clip Gradient SGD
+        # clip_vloss:             bool  = True,                       # Clip Value Loss
+        # vloss_coef:             float = 0.5,                        # Value Loss Coefficient
+        # entropy_coef:           float = 0.01,                       # Entropy Coefficient
+        # max_grad_norm:          float = 0.5,                        # Maximum Gradient Norm
+        target_kl:              float = 0.01,                       # Target KL Divergence
 
         # Cost Constraints / Penalties Parameters:
-        cost_lim:           int   = 25,                         # Cost Constraint Limit
-        penalty_init:       float = 1.0,                        # Initial Penalty for Cost Constraint
+        cost_lim:               int   = 25,                         # Cost Constraint Limit
+        penalty_init:           float = 1.0,                        # Initial Penalty for Cost Constraint
 
         # AdamBA Safety Constrained Parameters:
-        margin:             float = 0.4,                        # Margin for Safety Constraint
-        threshold:          float = 0.0,                        # Threshold for Safety Constraint
-        ctrlrange:          float = 10.0,                       # Control Range for Safety Constraint
-        k:                  float = 3.0,                        # K for Safety Constraint
-        n:                  float = 1.0,                        # N for Safety Constraint
-        sigma:              float = 0.04,                       # Sigma for Safety Constraint
-        cpc:                bool  = False,                      # Use Compute Predicted Cost Safety Constraint
-        cpc_coef:           float = 0.01,                       # CPC Coefficient
-        pre_execute:        bool  = False,                      # Use Pre-Execute Safety Constraint
-        pre_execute_coef:   float = 0.0,                        # Pre-Execute Coefficient
+        margin:                 float = 0.4,                        # Margin for Safety Constraint
+        threshold:              float = 0.0,                        # Threshold for Safety Constraint
+        ctrlrange:              float = 10.0,                       # Control Range for Safety Constraint
+        k:                      float = 3.0,                        # K for Safety Constraint
+        n:                      float = 1.0,                        # N for Safety Constraint
+        sigma:                  float = 0.04,                       # Sigma for Safety Constraint
+        cpc:                    bool  = False,                      # Use Compute Predicted Cost Safety Constraint
+        cpc_coef:               float = 0.01,                       # CPC Coefficient
+        pre_execute:            bool  = False,                      # Use Pre-Execute Safety Constraint
+        pre_execute_coef:       float = 0.0,                        # Pre-Execute Coefficient
+
+        # Algorithm / Agent Flags
+        reward_penalized:       bool = False,                       # Cost / Penalty Inside the Reward
+        objective_penalized:    bool = False,                       # Lagrangian Objective Penalized
+        learn_penalty:          bool = False,                       # Learn Penalty if Penalized
+        penalty_loss:           bool = False,                       # Compute Penalty Loss
+        adamba_layer:           bool = False,                       # Use AdamBA Layer
+        adamba_sc:              bool = False,                       # Use Safety-Constrained AdamBA
 
         # Environment Configuration Parameters:
         seed:               int  = -1,                          # Random Seed for Environment, Torch and Numpy
@@ -102,14 +110,19 @@ class PPO_ISSA_PyTorch(LightningModule):
         # Save Hyperparameters in Internal Properties that we can Reference in our Code
         self.save_hyperparameters()
 
-        # Initialize Variables
-        self.init_variables()
+        # Get Number of Workers for Data Loader
+        # self.num_workers = os.cpu_count()
+        self.num_workers = 1
+
+        # Compute Local Steps per Epoch
+        self.local_steps_per_epoch = int(self.hparams.steps_per_epoch / self.num_workers)
 
         # Configure Environment
         self.configure_environment(environment_config, seed, record_video, record_epochs)
 
         # Create PPO Agent (Policy and Value Networks)
-        self.agent = PPO_Agent(self.env, hidden_sizes, getattr(torch.nn, hidden_mod)).to(DEVICE)
+        agent_kwargs = dict(reward_penalized=reward_penalized, objective_penalized=objective_penalized, learn_penalty=learn_penalty)
+        self.agent = PPO_Agent(self.env, hidden_sizes, getattr(torch.nn, hidden_mod), **agent_kwargs).to(DEVICE)
 
         # Initialize PPO Buffer
         self.buffer: PPOBuffer = self.create_replay_buffer()
@@ -119,24 +132,6 @@ class PPO_ISSA_PyTorch(LightningModule):
         self.init_optimizers()
         self.main()
         exit(0)
-
-    def init_variables(self):
-
-        # Get Number of Workers for Data Loader
-        # self.num_workers = os.cpu_count()
-        self.num_workers = 1
-        self.local_steps_per_epoch = int(self.hparams.steps_per_epoch / self.num_workers)
-
-        self.reward_penalized = False
-        self.objective_penalized = False
-        self.learn_penalty = False
-        self.penalty_param_loss = False
-        self.trust_region = False
-        self.first_order = True
-        self.use_penalty = False
-        self.constrained = False
-        self.adamba_layer = False
-        self.adamba_sc = False
 
     def configure_environment(self, environment_config, seed, record_video, record_epochs):
 
@@ -164,12 +159,11 @@ class PPO_ISSA_PyTorch(LightningModule):
 
     def init_penalty(self):
 
-        # if agent.use_penalty:
-        if self.use_penalty:
+        if self.agent.use_penalty:
             self.penalty_param = torch.nn.Parameter(torch.tensor(np.log(max(np.exp(self.hparams.penalty_init)-1, 1e-8)), dtype=torch.float32))
             self.penalty = torch.nn.functional.softplus(self.penalty_param)
 
-        if self.learn_penalty: self.penalty_optimizer = torch.optim.Adam([self.penalty_param], lr=self.hparams.lr_penalty)
+        if self.agent.learn_penalty: self.penalty_optimizer = torch.optim.Adam([self.penalty_param], lr=self.hparams.lr_penalty)
 
     def init_optimizers(self):
 
@@ -182,8 +176,7 @@ class PPO_ISSA_PyTorch(LightningModule):
 
     def compute_penalty_loss(self, episode_cost):
 
-        # if agent.penalty_param_loss:
-        if self.penalty_param_loss: return -self.penalty_param * (episode_cost - self.hparams.cost_lim)
+        if self.hparams.penalty_loss: return -self.penalty_param * (episode_cost - self.hparams.cost_lim)
         else: return -self.penalty * (episode_cost - self.hparams.cost_lim)
 
     def compute_dkl(self, dist: TD.Distribution, mu_old, std_old):
@@ -241,8 +234,7 @@ class PPO_ISSA_PyTorch(LightningModule):
         pi_objective = surr_adv + self.hparams.entropy_reg * entropy
 
         # Possibly include surr_cost in pi_objective
-        # if agent.objective_penalized:
-        if self.objective_penalized:
+        if self.agent.objective_penalized:
             pi_objective -= self.penalty * surr_cost
             pi_objective /= (1 + self.penalty)
 
@@ -276,24 +268,19 @@ class PPO_ISSA_PyTorch(LightningModule):
 
         # If agent uses penalty directly in reward function, don't train a separate
         # value function for predicting cost returns. (Only use one vf for r - p*c.)
-        # if agent.reward_penalized:
-        if self.reward_penalized: return v_loss
+        if self.agent.reward_penalized: return v_loss
         else: return v_loss + vc_loss
 
     def update(self):
 
         data = self.buffer.get()
 
-        def cares_about_cost(use_penalty, constrained):
-            # return self.use_penalty or self.constrained
-            return use_penalty or constrained
-
         # Get Current Cost
         c = self.current_cost - self.hparams.cost_lim
-        if c > 0 and cares_about_cost(self.use_penalty, self.constrained):
+        if c > 0 and self.agent.cares_about_cost:
             print(colored('Warning! Safety constraint is already violated.', 'red'))
 
-        if self.learn_penalty:
+        if self.agent.learn_penalty:
 
             # Compute Penalty Loss
             penalty_loss = self.compute_penalty_loss(data)
@@ -304,7 +291,7 @@ class PPO_ISSA_PyTorch(LightningModule):
             self.penalty_optimizer.step()
 
         # Train Policy with Multiple Steps of SGD
-        for i in range(self.hparams.actor_update):
+        for _ in range(self.hparams.actor_update):
 
             # Compute Policy Loss
             loss_pi, pi_info = self.compute_actor_loss(data)
@@ -320,11 +307,10 @@ class PPO_ISSA_PyTorch(LightningModule):
             # Take Optimizer Step
             self.actor_optimizer.zero_grad()
             loss_pi.backward()
-            # mpi_avg_grads(ac.pi)    # average grads across MPI processes
             self.actor_optimizer.step()
 
         # Value Function Learning
-        for i in range(self.hparams.critic_update):
+        for _ in range(self.hparams.critic_update):
 
             # Compute Value Loss
             total_value_loss = self.compute_critic_loss(data)
@@ -332,7 +318,6 @@ class PPO_ISSA_PyTorch(LightningModule):
             # Take Optimizer Step
             self.critic_optimizer.zero_grad()
             total_value_loss.backward()
-            # mpi_avg_grads(ac.v)    # average grads across MPI processes
             self.critic_optimizer.step()
 
     def main(self):
@@ -370,9 +355,8 @@ class PPO_ISSA_PyTorch(LightningModule):
 
             print(f'Epoch: {epoch+1}')
 
-            # if agent.use_penalty:
-            if self.use_penalty:
-                cur_penalty = self.penalty
+            # Get Current Penalty
+            if self.agent.use_penalty: cur_penalty = self.penalty
 
             for t in range(self.local_steps_per_epoch):
 
@@ -442,14 +426,14 @@ class PPO_ISSA_PyTorch(LightningModule):
                     self.env.sim.forward()
 
                 # If Adaptive Safety Index > 0 or Triggered by Pre-Execute
-                if self.adamba_layer and (trigger_by_pre_execute or safe_index_now >= 0):
+                if self.hparams.adamba_layer and (trigger_by_pre_execute or safe_index_now >= 0):
 
                     # Increase Counters
                     cnt_positive_cost += 1
                     ep_positive_safety_index += 1
 
                     # AdamBA for Safety Control
-                    if self.adamba_sc == True:
+                    if self.hparams.adamba_sc == True:
 
                         # Run AdamBA SC Algorithm -> dt_ration = 1.0 -> Do Not Rely on Small dt
                         adamba_results = AdamBA_SC(o, a, env=self.env, threshold=self.hparams.threshold, dt_ratio=1.0, ctrlrange=self.hparams.ctrlrange,
@@ -539,7 +523,7 @@ class PPO_ISSA_PyTorch(LightningModule):
                 cum_cost += c
 
                 # Reward Penalized Buffer Saving
-                if self.reward_penalized:
+                if self.agent.reward_penalized:
 
                     # Compute Total Reward
                     r_total = r - cur_penalty * c / (1 + cur_penalty)
@@ -611,7 +595,7 @@ class PPO_ISSA_PyTorch(LightningModule):
                         _, _, _, last_value, last_cost_value = self.agent(torch.as_tensor(o, dtype=torch.float32))
 
                         # Last Cost Value = 0 if Reward Penalized
-                        if self.reward_penalized: last_cost_value = 0
+                        if self.agent.reward_penalized: last_cost_value = 0
 
                     # Finish Path
                     self.buffer.finish_path(last_value, last_cost_value)
@@ -644,7 +628,7 @@ class PPO_ISSA_PyTorch(LightningModule):
                     ep_adaptive_safety_index_max_sigma, ep_adaptive_safety_index_max_0 = 0, 0
 
                     # AdamBA Store Logger
-                    if self.adamba_layer and self.adamba_sc:
+                    if self.hparams.adamba_layer and self.hparams.adamba_sc:
 
                         # Store Logger if Violation in Episode
                         if store_logger:
@@ -751,11 +735,11 @@ class PPO_ISSA_PyTorch(LightningModule):
             logger.log_tabular('DeltaLossV', average_only=True)
 
             # Vc loss and change, if applicable (reward_penalized agents don't use vc)
-            if not(self.reward_penalized):
+            if not(self.agent.reward_penalized):
                 logger.log_tabular('LossVC', average_only=True)
                 logger.log_tabular('DeltaLossVC', average_only=True)
 
-            if self.use_penalty or self.save_penalty:
+            if self.agent.use_penalty or self.save_penalty:
                 logger.log_tabular('Penalty', average_only=True)
                 logger.log_tabular('DeltaPenalty', average_only=True)
             else:

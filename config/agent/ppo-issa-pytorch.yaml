@@ -46,13 +46,21 @@ penalty_init:       1.0         # Initial Penalty for Cost Constraint
 margin:               0.4         # Margin for Safety Constraint
 threshold:            0.0         # Threshold for Safety Constraint
 ctrlrange:            10.0        # Control Range for Safety Constraint
-k:                    3.0         # K for Safety Constraint
+k:                    1.0         # K for Safety Constraint
 n:                    1.0         # N for Safety Constraint
 sigma:                0.04        # Sigma for Safety Constraint
 cpc:                  False       # Use CPC Safety Constraint
 cpc_coef:             0.01        # CPC Coefficient
 pre_execute:          False       # Use Pre-Execute Safety Constraint
 pre_execute_coef:     0.0         # Pre-Execute Coefficient
+
+# Algorithm / Agent Flags
+reward_penalized:     False       # Cost / Penalty Inside the Reward
+objective_penalized:  False       # Lagrangian Objective Penalized
+learn_penalty:        False       # Learn Penalty if Penalized
+penalty_loss:         False       # Compute Penalty Loss
+adamba_layer:         False       # Use AdamBA Layer
+adamba_sc:            False       # Use Safety-Constrained AdamBA
 
 # Environment Configuration Parameters:
 seed:               ${environment_params.seed}          # Random Seed for Environment, Torch and Numpy

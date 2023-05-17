@@ -1,4 +1,5 @@
 import gym, gym.spaces as spaces
+from copy import deepcopy
 from typing import List, Optional, Union, Tuple
 
 import torch, torch.nn as nn
@@ -210,7 +211,7 @@ class ActorCriticAgent(nn.Module):
 
 class PPO_Agent(ActorCriticAgent):
 
-    def __init__(self, env:gym.Env, hidden_sizes:List[int] = [128,128], hidden_mod:nn.Module = nn.Tanh):
+    def __init__(self, env:gym.Env, hidden_sizes:List[int] = [128,128], hidden_mod:nn.Module = nn.Tanh, **kwargs):
 
         # Create Critic Network -> 3 Linear Layers with Hyperbolic Tangent Activation Function
         critic = create_mlp(env.observation_space.shape[0], 1, hidden_sizes, hidden_mod(), nn.Identity())
@@ -230,5 +231,54 @@ class PPO_Agent(ActorCriticAgent):
         else: raise NotImplementedError('Env action space should be of type Box (Continuous) or Discrete (Categorical). '
                                        f'Got type: {type(env.action_space)}')
 
+        # Properties
+        self.params = deepcopy(kwargs)
+        self.params['first_order']  = True
+        self.params['trust_region'] = False
+
         # Instance the Actor Critic Agent
         super(PPO_Agent, self).__init__(actor, critic, cost_critic)
+
+    def ensure_satisfiable_penalty_use(self):
+        assert not(self.params.get('reward_penalized') and self.params.get('objective_penalized')), 'Can only use either reward_penalized OR objective_penalized, not both.'
+        if not(self.params.get('reward_penalized') or self.params.get('objective_penalized')):
+            assert not(self.params.get('learn_penalty')), 'If you are not using a penalty coefficient, you should not try to learn one.'
+
+    def ensure_satisfiable_optimization(self):
+        assert not(self.params.get('first_order') and self.params.get('trust_region')), 'Can only use either first_order OR trust_region, not both.'
+
+    @property
+    def cares_about_cost(self):
+        return self.use_penalty or self.constrained
+
+    @property
+    def trust_region(self):
+        self.ensure_satisfiable_optimization()
+        return self.params.get('trust_region')
+
+    @property
+    def first_order(self):
+        self.ensure_satisfiable_optimization()
+        return self.params.get('first_order')
+
+    @property
+    def constrained(self):
+        return False
+
+    @property
+    def learn_penalty(self):
+        return self.params.get('learn_penalty')
+
+    @property
+    def use_penalty(self):
+        return self.params.get('reward_penalized') or self.params.get('objective_penalized')
+
+    @property
+    def objective_penalized(self):
+        self.ensure_satisfiable_penalty_use()
+        return self.params.get('objective_penalized')
+
+    @property
+    def reward_penalized(self):
+        self.ensure_satisfiable_penalty_use()
+        return self.params.get('reward_penalized')
