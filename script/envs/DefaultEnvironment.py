@@ -1,7 +1,7 @@
 import sys
 
 # Import Utils
-from utils.Utils import FOLDER
+from utils.Utils import FOLDER, DEFAULT
 
 # Import Parameters Class
 sys.path.append(FOLDER)
@@ -30,7 +30,11 @@ def custom_environment_config(config:EnvironmentParams) -> dict:
     for param in config:
 
         # Overwrite DEFAULT Config Parameters
-        if param in DEFAULT_CONFIG: env_config[param] = config[param]
+        if param in DEFAULT_CONFIG:
+
+            # Not Overwrite Params == DEFAULT
+            if type(config[param]) is str and config[param].lower() == DEFAULT: pass
+            else: env_config[param] = config[param]
 
     return config.env_name, env_config
 

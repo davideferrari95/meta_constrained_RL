@@ -7,6 +7,7 @@ from typing import Optional, Tuple
 
 # Utils
 AUTO = 'auto'
+DEFAULT = 'default'
 
 # Project Folder (ROOT Project Location)
 FOLDER = os.path.abspath(os.path.join(os.path.dirname(__file__),"../.."))
