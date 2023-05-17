@@ -63,6 +63,7 @@ class PPO_ISSA_PyTorch(LightningModule):
         # anneal_lr:              bool  = True,                       # Anneal Learning Rate
         # epsilon:                float = 1e-5,                       # Epsilon for Annealing Learning Rate
         clip_ratio:             float = 0.2,                        # Clipping Parameter for PPO
+        clipped_adv:            bool  = True,                       # Clipped Surrogate Advantage
         # clip_gradient:          bool  = True,                       # Clip Gradient SGD
         # clip_vloss:             bool  = True,                       # Clip Value Loss
         # vloss_coef:             float = 0.5,                        # Value Loss Coefficient
@@ -91,8 +92,8 @@ class PPO_ISSA_PyTorch(LightningModule):
         objective_penalized:    bool = False,                       # Lagrangian Objective Penalized
         learn_penalty:          bool = False,                       # Learn Penalty if Penalized
         penalty_loss:           bool = False,                       # Compute Penalty Loss
-        adamba_layer:           bool = False,                       # Use AdamBA Layer
-        adamba_sc:              bool = False,                       # Use Safety-Constrained AdamBA
+        adamba_layer:           bool = True,                        # Use AdamBA Layer
+        adamba_sc:              bool = True,                        # Use Safety-Constrained AdamBA
 
         # Environment Configuration Parameters:
         seed:               int  = -1,                          # Random Seed for Environment, Torch and Numpy
@@ -195,28 +196,22 @@ class PPO_ISSA_PyTorch(LightningModule):
         """ Compute the Actor Loss """
 
         # Unpack Data from Buffer
-        obs, act, adv = data['observations'], data['actions'], data['advantages'],
+        obs, act, adv, cost_adv = data['observations'], data['actions'], data['advantages'], data['cost_advantages']
         pi_mean_old, pi_std_old, logp_old = data['pi_mean'], data['pi_std'], data['log_probs']
-        cost_adv, ret, cost_ret = data['cost_advantages'], data['returns'], data['cost_returns']
 
         # Get the Policy Distribution and Log Probability of the Action
         pi, _ = self.agent.actor(obs)
         log_prob = self.agent.actor.get_log_prob(pi, act)
-        # log_prob = self.agent.get_log_prob(None, act, obs)
 
         # Compute the Log Probability Ratio
         ratio = torch.exp(log_prob - logp_old)
 
-        # Clip the Advantage
-        clipped_adv = True
-
-        if clipped_adv:
+        if self.hparams.clipped_adv:
 
             # Clipped Surrogate Advantage
-            min_adv = torch.where(adv > 0, (1 + self.hparams.clip_ratio) * adv, (1 - self.hparams.clip_ratio) * adv)
-            surr_adv = torch.mean(torch.min(ratio * adv, min_adv))
+            clip_adv = torch.where(adv > 0, (1 + self.hparams.clip_ratio) * adv, (1 - self.hparams.clip_ratio) * adv)
             # clip_adv = torch.clamp(ratio, 1 - self.hparams.clip_ratio, 1 + self.hparams.clip_ratio) * adv
-            # surr_adv = torch.mean(torch.min(ratio * adv, clip_adv))
+            surr_adv = torch.mean(torch.min(ratio * adv, clip_adv))
 
         else:
 
@@ -227,29 +222,26 @@ class PPO_ISSA_PyTorch(LightningModule):
         surr_cost = torch.mean(ratio * cost_adv)
 
         # Entropy of the Policy
-        # entropy = pi.entropy().mean().item()
         entropy = pi.entropy().mean()
 
         # Create Policy Objective Function, Including Entropy Regularization
         pi_objective = surr_adv + self.hparams.entropy_reg * entropy
 
-        # Possibly include surr_cost in pi_objective
+        # Possibly Include `surr_cost` in `pi_objective`
         if self.agent.objective_penalized:
             pi_objective -= self.penalty * surr_cost
             pi_objective /= (1 + self.penalty)
 
-        # Loss function for pi is negative of pi_objective
+        # Loss Function is Negative of `pi_objective`
         loss_pi = -pi_objective
-        # loss_pi = -(torch.min(ratio * adv, clip_adv)).mean()
 
-        # Useful extra info
+        # Useful Extra Info
         d_kl = self.compute_dkl(pi, pi_mean_old, pi_std_old)
         approx_kl = (logp_old - log_prob).mean().item()
-        ent = pi.entropy().mean().item()
         clipped = ratio.gt(1 + self.hparams.clip_ratio) | ratio.lt(1 - self.hparams.clip_ratio)
         clip_frac = torch.as_tensor(clipped, dtype=torch.float32).mean().item()
 
-        return loss_pi, dict(d_kl=d_kl, approx_kl=approx_kl, ent=ent, clip_frac=clip_frac)
+        return loss_pi, dict(d_kl=d_kl, approx_kl=approx_kl, ent=entropy.item(), clip_frac=clip_frac)
 
     def compute_critic_loss(self, data):
 
@@ -273,6 +265,7 @@ class PPO_ISSA_PyTorch(LightningModule):
 
     def update(self):
 
+        # Get Buffer Data
         data = self.buffer.get()
 
         # Get Current Cost
@@ -436,7 +429,7 @@ class PPO_ISSA_PyTorch(LightningModule):
                     if self.hparams.adamba_sc == True:
 
                         # Run AdamBA SC Algorithm -> dt_ration = 1.0 -> Do Not Rely on Small dt
-                        adamba_results = AdamBA_SC(o, a, env=self.env, threshold=self.hparams.threshold, dt_ratio=1.0, ctrlrange=self.hparams.ctrlrange,
+                        adamba_results = AdamBA_SC(o, a.numpy(), env=self.env, threshold=self.hparams.threshold, dt_ratio=1.0, ctrlrange=self.hparams.ctrlrange,
                                                    margin=self.hparams.margin, adaptive_k=self.hparams.k, adaptive_n=self.hparams.n, adaptive_sigma=self.hparams.sigma,
                                                    trigger_by_pre_execute=trigger_by_pre_execute, pre_execute_coef=self.hparams.pre_execute_coef)
 
@@ -473,7 +466,7 @@ class PPO_ISSA_PyTorch(LightningModule):
                     else:
 
                         # Run AdamBA Algorithm
-                        [A, b], valid_adamba = AdamBA(o, a, env=self.env, threshold=self.hparams.threshold, dt_ratio=0.1,
+                        [A, b], valid_adamba = AdamBA(o, a.numpy(), env=self.env, threshold=self.hparams.threshold, dt_ratio=0.1,
                                                       ctrlrange=self.hparams.ctrlrange, margin=self.hparams.margin)
 
                         if valid_adamba == "adamba success":
@@ -633,6 +626,8 @@ class PPO_ISSA_PyTorch(LightningModule):
                         # Store Logger if Violation in Episode
                         if store_logger:
 
+                            print('Violations Found in this Episode')
+
                             # TODO: ???
                             if cnt_store_json >= 0: pass
 
@@ -676,7 +671,7 @@ class PPO_ISSA_PyTorch(LightningModule):
                                 # Reset Store Logger Flag
                                 store_logger = False
 
-                        else: print('No Violations in this Episode')
+                        # else: print('No Violations in this Episode')
 
                     # Reset Loggers
                     closest_distance_cost_logger, true_cost_logger = [], []
