@@ -31,6 +31,7 @@ entropy_reg:        0.0         # Entropy Regularization for PPO
 # anneal_lr:          True        # Anneal Learning Rate
 # epsilon:            1e-5        # Epsilon for Annealing Learning Rate
 # clip_ratio:         0.2         # Clipping Parameter for PPO
+clipped_adv:        True        # Clipped Surrogate Advantage
 # clip_gradient:      True        # Clip Gradient SGD
 # clip_vloss:         True        # Clip Value Loss
 # vloss_coef:         0.5         # Value Loss Coefficient
@@ -59,8 +60,8 @@ reward_penalized:     False       # Cost / Penalty Inside the Reward
 objective_penalized:  False       # Lagrangian Objective Penalized
 learn_penalty:        False       # Learn Penalty if Penalized
 penalty_loss:         False       # Compute Penalty Loss
-adamba_layer:         False       # Use AdamBA Layer
-adamba_sc:            False       # Use Safety-Constrained AdamBA
+adamba_layer:         True        # Use AdamBA Layer
+adamba_sc:            True        # Use Safety-Constrained AdamBA
 
 # Environment Configuration Parameters:
 seed:               ${environment_params.seed}          # Random Seed for Environment, Torch and Numpy
