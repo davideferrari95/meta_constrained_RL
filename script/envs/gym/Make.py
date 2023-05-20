@@ -16,14 +16,11 @@ from gym.envs.registration import (
 # Import Custom Wrappers
 from envs.gym.wrappers.TimeLimit import TimeLimit
 from envs.gym.wrappers.OrderEnforcing import OrderEnforcing
+from envs.gym.wrappers.AutoResetWrapper import AutoResetWrapper
 from envs.gym.wrappers.PassiveEnvChecker import PassiveEnvChecker
 
-from gym.wrappers import (
-    AutoResetWrapper,
-    HumanRendering,
-    RenderCollection,
-)
-
+# Import Other Wrappers
+from gym.wrappers import  HumanRendering, RenderCollection
 from gym.wrappers.compatibility import EnvCompatibility
 
 def make(
