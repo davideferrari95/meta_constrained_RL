@@ -29,11 +29,11 @@ class OrderEnforcing(gym.Wrapper):
         self._has_reset: bool = False
         self._disable_render_order_enforcing: bool = disable_render_order_enforcing
 
-    def step(self, action):
-        """Steps through the environment with `kwargs`."""
+    def step(self, action, ratio:int=1, simulate_in_adamba:bool=False):
+        """ Steps through the environment with `kwargs`. """
         if not self._has_reset:
             raise ResetNeeded("Cannot call env.step() before calling env.reset()")
-        return self.env.step(action)
+        return self.env.step(action, ratio, simulate_in_adamba)
 
     def reset(self, **kwargs):
         """Resets the environment with `kwargs`."""

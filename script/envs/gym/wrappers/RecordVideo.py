@@ -7,27 +7,11 @@ from gym import logger
 
 # FIX: Moviepy Log Removed
 from gym.wrappers.monitoring import video_recorder
-
-
-def capped_cubic_video_schedule(episode_id: int) -> bool:
-    """The default episode trigger.
-
-    This function will trigger recordings at the episode indices 0, 1, 4, 8, 27, ..., :math:`k^3`, ..., 729, 1000, 2000, 3000, ...
-
-    Args:
-        episode_id: The episode number
-
-    Returns:
-        If to apply a video schedule number
-    """
-    if episode_id < 1000:
-        return int(round(episode_id ** (1.0 / 3))) ** 3 == episode_id
-    else:
-        return episode_id % 1000 == 0
-
+from gym.wrappers.record_video import capped_cubic_video_schedule
 
 class RecordVideo(gym.Wrapper):
-    """This wrapper records videos of rollouts.
+
+    """ This wrapper records videos of rollouts.
 
     Usually, you only want to record episodes intermittently, say every hundredth episode.
     To do this, you can specify **either** ``episode_trigger`` **or** ``step_trigger`` (not both).
@@ -37,6 +21,7 @@ class RecordVideo(gym.Wrapper):
     By default, the recording will be stopped once a `terminated` or `truncated` signal has been emitted by the environment. However, you can
     also create recordings of fixed length (possibly spanning several episodes) by passing a strictly positive value for
     ``video_length``.
+
     """
 
     def __init__(
@@ -133,17 +118,14 @@ class RecordVideo(gym.Wrapper):
         else:
             return self.episode_trigger(self.episode_id)
 
-    def step(self, action):
-        """Steps through the environment using action, recording observations if :attr:`self.recording`."""
-        (
-            observations,
-            rewards,
-            terminateds,
-            truncateds,
-            infos,
-        ) = self.env.step(action)
+    def step(self, action, ratio:int=1, simulate_in_adamba:bool=False):
 
-        if not (self.terminated or self.truncated):
+        """ Steps through the environment using action, recording observations if :attr:`self.recording`. """
+
+        # Call Child `env.step` Function
+        (observations, rewards, terminateds, truncateds, infos,) = self.env.step(action, ratio, simulate_in_adamba)
+
+        if not simulate_in_adamba and (self.terminated or self.truncated):
             # increment steps and episodes
             self.step_id += 1
             if not self.is_vector_env:

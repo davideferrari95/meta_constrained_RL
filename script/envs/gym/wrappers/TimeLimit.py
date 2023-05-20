@@ -34,8 +34,9 @@ class TimeLimit(gym.Wrapper):
         self._max_episode_steps = max_episode_steps
         self._elapsed_steps = None
 
-    def step(self, action):
-        """Steps through the environment and if the number of steps elapsed exceeds ``max_episode_steps`` then truncate.
+    def step(self, action, ratio:int=1, simulate_in_adamba:bool=False):
+
+        """ Steps through the environment and if the number of steps elapsed exceeds ``max_episode_steps`` then truncate.
 
         Args:
             action: The environment step action
@@ -45,11 +46,14 @@ class TimeLimit(gym.Wrapper):
             if the number of steps elapsed >= max episode steps
 
         """
-        observation, reward, terminated, truncated, info = self.env.step(action)
-        self._elapsed_steps += 1
 
-        if self._elapsed_steps >= self._max_episode_steps:
-            truncated = True
+        observation, reward, terminated, truncated, info = self.env.step(action, ratio, simulate_in_adamba)
+
+        if not simulate_in_adamba:
+            self._elapsed_steps += 1
+
+            if self._elapsed_steps >= self._max_episode_steps:
+                truncated = True
 
         return observation, reward, terminated, truncated, info
 
