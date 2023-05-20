@@ -9,10 +9,7 @@ from typing import Optional
 from scipy import sparse
 import osqp
 
-def AdamBA(obs, act, env:gym.Env, threshold:float, dt_ratio:float=1.0, ctrlrange:float=10.0):
-
-    # TODO: type for obs, act
-    print(f'Type | obs: {type(obs)} | act: {type(act)}')
+def AdamBA(obs:np.ndarray, act:np.ndarray, env:gym.Env, threshold:float, dt_ratio:float=1.0, ctrlrange:float=10.0):
 
     # Reshape Action
     act, action_space_num = np.clip(act, -ctrlrange, ctrlrange), 2
@@ -122,7 +119,7 @@ def AdamBA(obs, act, env:gym.Env, threshold:float, dt_ratio:float=1.0, ctrlrange
                 out += 1
                 continue
 
-            if NP_vec_tmp[v_num][0] == act[0][0] and NP_vec_tmp[v_num][1] == act[0][1]:
+            if NP_vec_tmp[v_num][0] == act[0] and NP_vec_tmp[v_num][1] == act[1]:
 
                 yes += 1
                 continue
@@ -158,12 +155,9 @@ def AdamBA(obs, act, env:gym.Env, threshold:float, dt_ratio:float=1.0, ctrlrange
     # Return None
     else: return [None, None], valid_adamba
 
-def AdamBA_SC(obs, act, env:gym.Env, threshold:float=0, dt_ratio:float=1.0, ctrlrange:float=10.0, margin:float=0.4,
-              adaptive_k:float=3, adaptive_n:float=1, adaptive_sigma:float=0.04, trigger_by_pre_execute:bool=False,
+def AdamBA_SC(obs:np.ndarray, act:np.ndarray, env:gym.Env, threshold:float=0, dt_ratio:float=1.0, ctrlrange:float=10.0,
+              margin:float=0.4, adaptive_k:float=3, adaptive_n:float=1, adaptive_sigma:float=0.04, trigger_by_pre_execute:bool=False,
               pre_execute_coef:float=0.0, vec_num:Optional[int]=None, max_trial_num:int=1):
-
-    # TODO: type for obs, act
-    print(f'Type | obs: {type(obs)} | act: {type(act)}')
 
     # Reshape Action
     act, action_space_num = np.clip(act, -ctrlrange, ctrlrange), env.action_space.shape[0]
@@ -178,11 +172,10 @@ def AdamBA_SC(obs, act, env:gym.Env, threshold:float=0, dt_ratio:float=1.0, ctrl
     assert dt_ratio == 1
 
     # Generate Direction
-    NP_vec_dir = []
-    NP_vec = []
+    NP_vec_dir, NP_vec = [], []
 
     # Generate `vec_num`
-    if action_space_num ==2: vec_num = 10 if vec_num == None else vec_num
+    if   action_space_num ==  2: vec_num = 10 if vec_num == None else vec_num
     elif action_space_num == 12: vec_num = 20 if vec_num == None else vec_num
     else: raise NotImplementedError
 
@@ -217,7 +210,7 @@ def AdamBA_SC(obs, act, env:gym.Env, threshold:float=0, dt_ratio:float=1.0, ctrl
             NP_vec.append(vec_set)
 
     # Record how many Boundary Points Found
-    valid, cnt, out, yes = 0, 0, 0, 0, 0
+    valid, cnt, out, yes = 0, 0, 0, 0
 
     for n in range(0, action.shape[0]):
 
@@ -299,7 +292,7 @@ def AdamBA_SC(obs, act, env:gym.Env, threshold:float=0, dt_ratio:float=1.0, ctrl
                 out += 1
                 continue
 
-            if NP_vec_tmp[v_num][0] == act[0][0] and NP_vec_tmp[v_num][1] == act[0][1]:
+            if NP_vec_tmp[v_num][0] == act[0] and NP_vec_tmp[v_num][1] == act[1]:
 
                 yes += 1
                 continue
