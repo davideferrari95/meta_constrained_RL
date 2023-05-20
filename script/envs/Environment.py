@@ -1,4 +1,4 @@
-import os, numpy as np
+import os
 from typing import Optional
 
 # Import Utils
@@ -7,15 +7,13 @@ from utils.Utils import video_rename
 
 # Import Environments
 import gym, safety_gym
-import mujoco_py
 
-# Import Gym Wrappers
-from gym.wrappers.record_video import RecordVideo
-from gym.wrappers.record_episode_statistics import RecordEpisodeStatistics
-from gym.wrappers.clip_action import ClipAction
-from gym.wrappers.normalize import NormalizeObservation, NormalizeReward
-from gym.wrappers.transform_observation import TransformObservation
-from gym.wrappers.transform_reward import TransformReward
+# Import Custom `gym.make` Function
+from envs.gym.Make import make
+
+# Import Custom Gym Wrappers
+from envs.gym.wrappers.RecordVideo import RecordVideo
+from envs.gym.wrappers.RecordEpisodeStatistics import RecordEpisodeStatistics
 
 # Import Vectorized Environment
 from gym.vector import SyncVectorEnv
@@ -64,7 +62,6 @@ def __make_custom_env(name, config:Optional[dict]=None, render_mode='rgb_array')
 
     """ Custom Environments used in the Paper (Official Implementation) """
 
-    from safety_gym.envs.engine import Engine
     from gym import register
     from gym.envs.registration import registry
 
@@ -78,17 +75,18 @@ def __make_custom_env(name, config:Optional[dict]=None, render_mode='rgb_array')
     if name not in registry:
 
         register(
-        id=name,
-        entry_point="safety_gym.envs.safety_mujoco:Engine",
-        max_episode_steps=1000,
-        kwargs={"config": config},
+            id=name,
+            entry_point="safety_gym.envs.safety_mujoco:Engine",
+            max_episode_steps=1000,
+            kwargs={"config": config},
         )
 
-    return gym.make(name, render_mode=render_mode)
+    # Custom `make` Function
+    return make(name, render_mode=render_mode)
 
 def __apply_wrappers(env, record_video, record_epochs, folder) -> gym.Env:
 
-    """ Apply Gym Wrappers """
+    """ Apply Custom Gym Wrappers """
 
     # FIX: MoviePy Log Removed
     # Record Environment Videos in the specified folder, trigger specifies which episode to record and which to ignore (1 in record_epochs)
@@ -96,13 +94,6 @@ def __apply_wrappers(env, record_video, record_epochs, folder) -> gym.Env:
 
     # Keep Track of the Reward the Agent Obtain and Save them into a Property
     env = RecordEpisodeStatistics(env)
-
-    # Preprocess the Environment
-    env = ClipAction(env)
-    env = NormalizeObservation(env)
-    env = TransformObservation(env, lambda obs: np.clip(obs, -10,10))
-    env = NormalizeReward(env)
-    env = TransformReward(env, lambda reward: np.clip(reward, -10,10))
 
     return env
 
