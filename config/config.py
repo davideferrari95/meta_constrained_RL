@@ -13,6 +13,7 @@ class TrainingParams:
   patience:           int
   record_video:       bool
   record_epochs:      int
+  record_first_epoch: bool
   profiler:           str
   compilation_mode:   str
   torch_compilation:  bool

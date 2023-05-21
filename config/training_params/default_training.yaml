@@ -8,6 +8,7 @@ patience:           750
 
 record_video:       True
 record_epochs:      100
+record_first_epoch: False
 
 profiler:           simple
 use_profiler:       False

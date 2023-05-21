@@ -164,6 +164,8 @@ def set_seed_everywhere(seed):
     np.random.seed(seed)
     random.seed(seed)
 
+    print('\n\n')
+
     return seed
 
 class CostMonitor():

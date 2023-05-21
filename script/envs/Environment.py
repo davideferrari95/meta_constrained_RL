@@ -19,24 +19,24 @@ from envs.gym.wrappers.RecordEpisodeStatistics import RecordEpisodeStatistics
 from gym.vector import SyncVectorEnv
 
 # Create Vectorized Environments
-def create_vectorized_environment(name:str, config:Optional[dict]=None, env_num:int=10, seed:int=-1, 
-                                  record_video:bool=True, record_epochs:int=100, 
+def create_vectorized_environment(name:str, config:Optional[dict]=None, env_num:int=10, record_video:bool=True,
+                                  record_epochs:int=100, record_first_epoch:bool=False,
                                   render_mode='rgb_array', apply_wrappers:bool=True,
                                   environment_type:Optional[str]=None, env_epochs:int=1) -> SyncVectorEnv:
 
     """ Create Vectorized Gym Environment """
 
-    def make_env(seed, record_video):
-        def thunk(): return create_environment(name, config, seed, record_video, record_epochs, 
+    def make_env(record_video):
+        def thunk(): return create_environment(name, config, record_video, record_epochs, record_first_epoch, 
                                                render_mode, apply_wrappers, environment_type, env_epochs)
         return thunk
 
     # Create Vectorized Environment (Record Video Only for First Environment)
-    return SyncVectorEnv([make_env(seed + i, record_video if i == 0 else False) for i in range(env_num)])
+    return SyncVectorEnv([make_env(record_video if i == 0 else False) for i in range(env_num)])
 
 # Create Single Environment
-def create_environment(name:str, config:Optional[dict]=None, seed:int=-1, 
-                       record_video:bool=True, record_epochs:int=100, 
+def create_environment(name:str, config:Optional[dict]=None, record_video:bool=True,
+                       record_epochs:int=100, record_first_epoch:bool=False,
                        render_mode='rgb_array', apply_wrappers:bool=True,
                        environment_type:Optional[str]=None, env_epochs:int=1) -> gym.Env:
 
@@ -51,10 +51,7 @@ def create_environment(name:str, config:Optional[dict]=None, seed:int=-1,
     # Apply Wrappers
     if   environment_type == 'test'      and record_video: env = RecordVideo(env, video_folder=TEST_FOLDER,       episode_trigger=lambda x: x % env_epochs == 0, name_prefix='test_')
     elif environment_type == 'violation' and record_video: env = RecordVideo(env, video_folder=VIOLATIONS_FOLDER, episode_trigger=lambda x: x % env_epochs == 0, name_prefix='new_')
-    elif apply_wrappers: env = __apply_wrappers(env, record_video, record_epochs, folder=VIDEO_FOLDER)
-
-    # TODO: Apply Seed -> In env.reset() ?
-    # env.seed(seed)
+    elif apply_wrappers: env = __apply_wrappers(env, record_video, record_epochs, record_first_epoch, folder=VIDEO_FOLDER)
 
     return env
 
@@ -84,13 +81,17 @@ def __make_custom_env(name, config:Optional[dict]=None, render_mode='rgb_array')
     # Custom `make` Function
     return make(name, render_mode=render_mode)
 
-def __apply_wrappers(env, record_video, record_epochs, folder) -> gym.Env:
+def __apply_wrappers(env, record_video, record_epochs, record_first_epoch, folder) -> gym.Env:
 
     """ Apply Custom Gym Wrappers """
 
+    # Define Record Episode Trigger Function
+    if record_first_epoch: episode_trigger = lambda x: x % record_epochs == 0
+    else: episode_trigger = lambda x: x % record_epochs == 0 and x != 0
+
     # FIX: MoviePy Log Removed
     # Record Environment Videos in the specified folder, trigger specifies which episode to record and which to ignore (1 in record_epochs)
-    if record_video: env = RecordVideo(env, video_folder=folder, episode_trigger=lambda x: x % record_epochs == 0 and x != 0)
+    if record_video: env = RecordVideo(env, video_folder=folder, episode_trigger=episode_trigger)
 
     # Keep Track of the Reward the Agent Obtain and Save them into a Property
     env = RecordEpisodeStatistics(env)

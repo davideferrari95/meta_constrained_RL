@@ -64,7 +64,8 @@ adamba_layer:         True        # Use AdamBA Layer
 adamba_sc:            True        # Use Safety-Constrained AdamBA
 
 # Environment Configuration Parameters:
-seed:               ${environment_params.seed}          # Random Seed for Environment, Torch and Numpy
-record_video:       ${training_params.record_video}     # Record Video of the Environment
-record_epochs:      ${training_params.record_epochs}    # Record Video Every N Epochs
-environment_config: ${environment_params}               # Environment Configuration Parameters
+seed:               ${environment_params.seed}            # Random Seed for Environment, Torch and Numpy
+record_video:       ${training_params.record_video}       # Record Video of the Environment
+record_epochs:      ${training_params.record_epochs}      # Record Video Every N Epochs
+record_first_epoch: ${training_params.record_first_epoch} # Record First Epoch
+environment_config: ${environment_params}                 # Environment Configuration Parameters

@@ -99,6 +99,7 @@ class PPO_ISSA_PyTorch(LightningModule):
         seed:               int  = -1,                          # Random Seed for Environment, Torch and Numpy
         record_video:       bool = True,                        # Record Video of the Environment
         record_epochs:      int  = 100,                         # Record Video Every N Epochs
+        record_first_epoch: bool = False,                       # Record First Epoch
         environment_config: Optional[EnvironmentParams] = None  # Environment Configuration Parameters
 
     ):
@@ -119,7 +120,7 @@ class PPO_ISSA_PyTorch(LightningModule):
         self.local_steps_per_epoch = int(self.hparams.steps_per_epoch / self.num_workers)
 
         # Configure Environment
-        self.configure_environment(environment_config, seed, record_video, record_epochs)
+        self.configure_environment(environment_config, record_video, record_epochs, record_first_epoch)
 
         # Create PPO Agent (Policy and Value Networks)
         agent_kwargs = dict(reward_penalized=reward_penalized, objective_penalized=objective_penalized, learn_penalty=learn_penalty)
@@ -134,13 +135,13 @@ class PPO_ISSA_PyTorch(LightningModule):
         self.main()
         exit(0)
 
-    def configure_environment(self, environment_config, seed, record_video, record_epochs):
+    def configure_environment(self, environment_config, record_video, record_epochs, record_first_epoch):
 
         """ Configure Environment """
 
         # Create Environment
         env_name, env_config = custom_environment_config(environment_config)
-        self.env = create_environment(env_name, env_config, seed, record_video, record_epochs)
+        self.env = create_environment(env_name, env_config, record_video, record_epochs, record_first_epoch)
 
         # Get max_episode_steps from Environment -> For Safety-Gym = 1000
         self.max_episode_steps = self.env.spec.max_episode_steps
