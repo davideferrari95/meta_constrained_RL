@@ -5,7 +5,7 @@ from typing import Iterable, Callable
 from torch.utils.data.dataset import IterableDataset
 
 # Import Utilities
-from utils.Utils import combined_shape, discount_cumulative_sum, statistics_scalar
+from networks.Utils import combined_shape, discount_cumulative_sum, statistics_scalar
 
 class PPOBuffer:
 

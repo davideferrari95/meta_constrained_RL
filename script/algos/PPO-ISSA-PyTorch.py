@@ -3,7 +3,7 @@ from networks.Agents import PPO_Agent, DEVICE
 from networks.Buffers import ExperienceSourceDataset, BatchBuffer, PPOBuffer
 from envs.Environment import create_environment, record_violation_episode
 from envs.DefaultEnvironment import custom_environment_config
-from utils.Utils import CostMonitor, FOLDER, combined_shape
+from utils.Utils import CostMonitor, FOLDER
 
 # Import AdamBA Algorithm
 from utils.AdamBA import AdamBA, AdamBA_SC, store_heatmap, quadratic_programming
