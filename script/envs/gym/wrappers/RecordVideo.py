@@ -125,7 +125,7 @@ class RecordVideo(gym.Wrapper):
         # Call Child `env.step` Function
         (observations, rewards, terminateds, truncateds, infos,) = self.env.step(action, ratio, simulate_in_adamba)
 
-        if not simulate_in_adamba and (self.terminated or self.truncated):
+        if not simulate_in_adamba and not (self.terminated or self.truncated):
             # increment steps and episodes
             self.step_id += 1
             if not self.is_vector_env:
