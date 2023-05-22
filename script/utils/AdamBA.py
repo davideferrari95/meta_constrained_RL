@@ -359,16 +359,16 @@ def store_heatmap(env:Engine, cnt_store_heatmap_trigger:int, trigger_by_pre_exec
             stored_state = copy.deepcopy(env.sim.get_state())
 
             # Get Safety Index
-            safe_index_u_0_u_1_distance_before, _  = env.closest_distance_cost(n=1)
-            safe_index_u_0_u_1_n_2_k_0_10_before   = env.adaptive_safety_index(k=0.10,   sigma=sigma, n=2)
-            safe_index_u_0_u_1_n_2_k_0_25_before   = env.adaptive_safety_index(k=0.25,   sigma=sigma, n=2)
-            safe_index_u_0_u_1_n_2_k_0_50_before   = env.adaptive_safety_index(k=0.50,   sigma=sigma, n=2)
-            safe_index_u_0_u_1_n_2_k_0_75_before   = env.adaptive_safety_index(k=0.75,   sigma=sigma, n=2)
-            safe_index_u_0_u_1_n_2_k_1_00_before   = env.adaptive_safety_index(k=1.00,   sigma=sigma, n=2)
-            safe_index_u_0_u_1_n_2_k_2_00_before   = env.adaptive_safety_index(k=2.00,   sigma=sigma, n=2)
-            safe_index_u_0_u_1_n_2_k_5_00_before   = env.adaptive_safety_index(k=5.00,   sigma=sigma, n=2)
-            safe_index_u_0_u_1_n_2_k_10_00_before  = env.adaptive_safety_index(k=10.00,  sigma=sigma, n=2)
-            safe_index_u_0_u_1_n_2_k_100_00_before = env.adaptive_safety_index(k=100.00, sigma=sigma, n=2)
+            safe_index_u_0_u_1_distance_before,     _ = env.closest_distance_cost(n=1)
+            safe_index_u_0_u_1_n_2_k_0_10_before,   _ = env.adaptive_safety_index(k=0.10,   sigma=sigma, n=2)
+            safe_index_u_0_u_1_n_2_k_0_25_before,   _ = env.adaptive_safety_index(k=0.25,   sigma=sigma, n=2)
+            safe_index_u_0_u_1_n_2_k_0_50_before,   _ = env.adaptive_safety_index(k=0.50,   sigma=sigma, n=2)
+            safe_index_u_0_u_1_n_2_k_0_75_before,   _ = env.adaptive_safety_index(k=0.75,   sigma=sigma, n=2)
+            safe_index_u_0_u_1_n_2_k_1_00_before,   _ = env.adaptive_safety_index(k=1.00,   sigma=sigma, n=2)
+            safe_index_u_0_u_1_n_2_k_2_00_before,   _ = env.adaptive_safety_index(k=2.00,   sigma=sigma, n=2)
+            safe_index_u_0_u_1_n_2_k_5_00_before,   _ = env.adaptive_safety_index(k=5.00,   sigma=sigma, n=2)
+            safe_index_u_0_u_1_n_2_k_10_00_before,  _ = env.adaptive_safety_index(k=10.00,  sigma=sigma, n=2)
+            safe_index_u_0_u_1_n_2_k_100_00_before, _ = env.adaptive_safety_index(k=100.00, sigma=sigma, n=2)
 
             # Simulate the Action
             s_new = env.step(np.array([[u_0, u_1]]), simulate_in_adamba=True)
@@ -377,15 +377,15 @@ def store_heatmap(env:Engine, cnt_store_heatmap_trigger:int, trigger_by_pre_exec
             safe_index_u_0_u_1_distance_future, _  = env.closest_distance_cost(n=1)
 
             # Get Safety Index
-            safe_index_u_0_u_1_n_2_k_0_10_future   = env.adaptive_safety_index(k=0.10,   sigma=sigma, n=2)
-            safe_index_u_0_u_1_n_2_k_0_25_future   = env.adaptive_safety_index(k=0.25,   sigma=sigma, n=2)
-            safe_index_u_0_u_1_n_2_k_0_50_future   = env.adaptive_safety_index(k=0.50,   sigma=sigma, n=2)
-            safe_index_u_0_u_1_n_2_k_0_75_future   = env.adaptive_safety_index(k=0.75,   sigma=sigma, n=2)
-            safe_index_u_0_u_1_n_2_k_1_00_future   = env.adaptive_safety_index(k=1.00,   sigma=sigma, n=2)
-            safe_index_u_0_u_1_n_2_k_2_00_future   = env.adaptive_safety_index(k=2.00,   sigma=sigma, n=2)
-            safe_index_u_0_u_1_n_2_k_5_00_future   = env.adaptive_safety_index(k=5.00,   sigma=sigma, n=2)
-            safe_index_u_0_u_1_n_2_k_10_00_future  = env.adaptive_safety_index(k=10.00,  sigma=sigma, n=2)
-            safe_index_u_0_u_1_n_2_k_100_00_future = env.adaptive_safety_index(k=100.00, sigma=sigma, n=2)
+            safe_index_u_0_u_1_n_2_k_0_10_future,   _ = env.adaptive_safety_index(k=0.10,   sigma=sigma, n=2)
+            safe_index_u_0_u_1_n_2_k_0_25_future,   _ = env.adaptive_safety_index(k=0.25,   sigma=sigma, n=2)
+            safe_index_u_0_u_1_n_2_k_0_50_future,   _ = env.adaptive_safety_index(k=0.50,   sigma=sigma, n=2)
+            safe_index_u_0_u_1_n_2_k_0_75_future,   _ = env.adaptive_safety_index(k=0.75,   sigma=sigma, n=2)
+            safe_index_u_0_u_1_n_2_k_1_00_future,   _ = env.adaptive_safety_index(k=1.00,   sigma=sigma, n=2)
+            safe_index_u_0_u_1_n_2_k_2_00_future,   _ = env.adaptive_safety_index(k=2.00,   sigma=sigma, n=2)
+            safe_index_u_0_u_1_n_2_k_5_00_future,   _ = env.adaptive_safety_index(k=5.00,   sigma=sigma, n=2)
+            safe_index_u_0_u_1_n_2_k_10_00_future,  _ = env.adaptive_safety_index(k=10.00,  sigma=sigma, n=2)
+            safe_index_u_0_u_1_n_2_k_100_00_future, _ = env.adaptive_safety_index(k=100.00, sigma=sigma, n=2)
 
             # Compute Delta Safety Index
             safe_index_u_0_u_1_distance_delta = safe_index_u_0_u_1_distance_future - safe_index_u_0_u_1_distance_before
@@ -533,13 +533,13 @@ def check_unsafe_sc(s, point, dt_ratio:float, dt_adamba:float, env:Engine, thres
     stored_state = copy.deepcopy(env.sim.get_state())
 
     # Compute Safety Index
-    safe_index_now = env.adaptive_safety_index(k=adaptive_k, sigma=adaptive_sigma, n=adaptive_n)
+    safe_index_now, _ = env.adaptive_safety_index(k=adaptive_k, sigma=adaptive_sigma, n=adaptive_n)
 
     # Simulate the Action
     s_new = env.step(action, simulate_in_adamba=True)
 
     # Compute Future Safety Index
-    safe_index_future = env.adaptive_safety_index(k=adaptive_k, sigma=adaptive_sigma, n=adaptive_n)
+    safe_index_future, _ = env.adaptive_safety_index(k=adaptive_k, sigma=adaptive_sigma, n=adaptive_n)
 
     # Safety Index d_phi = safe_index_future - safe_index_now
     d_phi = safe_index_future - safe_index_now

@@ -369,7 +369,7 @@ class PPO_ISSA_PyTorch(LightningModule):
                 # Index
                 index_max_1 = self.env.projection_cost_index_max(self.hparams.margin)
                 index_argmin_dis_1 = self.env.projection_cost_index_argmin_dis(self.hparams.margin)
-                index_adaptive_max_1 = self.env.adaptive_safety_index_index(k=self.hparams.k, n=self.hparams.n, sigma=self.hparams.sigma)
+                _, index_adaptive_max_1 = self.env.adaptive_safety_index(k=self.hparams.k, n=self.hparams.n, sigma=self.hparams.sigma)
 
                 # Projection Cost Max
                 projection_cost_max_margin_logger.append(self.env.projection_cost_max(self.hparams.margin))
@@ -384,9 +384,9 @@ class PPO_ISSA_PyTorch(LightningModule):
                 closest_distance_cost_logger.append(self.env.closest_distance_cost()[0])
 
                 # Synthesis Safety Index
-                safe_index_now = self.env.adaptive_safety_index(k=self.hparams.k, sigma=self.hparams.sigma, n=self.hparams.n)
+                safe_index_now, _ = self.env.adaptive_safety_index(k=self.hparams.k, sigma=self.hparams.sigma, n=self.hparams.n)
                 adaptive_safety_index_default_logger.append(safe_index_now)
-                adaptive_safety_index_sigma_0_00_logger.append(self.env.adaptive_safety_index(k=self.hparams.k, n=self.hparams.n, sigma=0.00))
+                adaptive_safety_index_sigma_0_00_logger.append(self.env.adaptive_safety_index(k=self.hparams.k, n=self.hparams.n, sigma=0.00)[0])
 
                 trigger_by_pre_execute = False
 
@@ -399,7 +399,7 @@ class PPO_ISSA_PyTorch(LightningModule):
                     s_new = self.env.step(a, simulate_in_adamba=True)
 
                     # Get the Safety Index
-                    safe_index_future = self.env.adaptive_safety_index(k=self.hparams.k, sigma=self.hparams.sigma, n=self.hparams.n)
+                    safe_index_future, _ = self.env.adaptive_safety_index(k=self.hparams.k, sigma=self.hparams.sigma, n=self.hparams.n)
 
                     # Check Safe Index
                     if safe_index_future >= self.hparams.pre_execute_coef: trigger_by_pre_execute = True
@@ -502,7 +502,7 @@ class PPO_ISSA_PyTorch(LightningModule):
                 all_out_logger.append(valid_adamba_sc)
                 index_max_2 = self.env.projection_cost_index_max(self.hparams.margin)
                 index_argmin_dis_2 = self.env.projection_cost_index_argmin_dis(self.hparams.margin)
-                index_adaptive_max_2 = self.env.adaptive_safety_index_index(k=self.hparams.k, n=self.hparams.n, sigma=self.hparams.sigma)                
+                _, index_adaptive_max_2 = self.env.adaptive_safety_index(k=self.hparams.k, n=self.hparams.n, sigma=self.hparams.sigma)                
                 index_argmin_dis_change_logger.append(index_argmin_dis_1 != index_argmin_dis_2)
                 index_max_projection_cost_change_logger.append(index_max_1 != index_max_2)
                 index_adaptive_max_change_logger.append(index_adaptive_max_1 != index_adaptive_max_2)
@@ -536,7 +536,7 @@ class PPO_ISSA_PyTorch(LightningModule):
                     else:
 
                         # Compute Predicted Cost
-                        adaptive_cost = max(0, env.adaptive_safety_index(k=self.hparams.k, n=self.hparams.n, sigma=self.hparams.sigma))
+                        adaptive_cost = max(0, env.adaptive_safety_index(k=self.hparams.k, n=self.hparams.n, sigma=self.hparams.sigma)[0])
                         r_hat = r - self.hparams.cpc_coef * adaptive_cost
 
                         if valid_adamba_sc == "adamba_sc success":
@@ -568,8 +568,8 @@ class PPO_ISSA_PyTorch(LightningModule):
                 ep_projection_cost_max_0_8    += max(0, self.env.projection_cost_max(0.8))
 
                 # Increase Adaptive Safety Index
-                ep_adaptive_safety_index_max_sigma += max(0, self.env.adaptive_safety_index(k=self.hparams.k, n=self.hparams.n, sigma=self.hparams.sigma))
-                ep_adaptive_safety_index_max_0     += max(0, self.env.adaptive_safety_index(k=self.hparams.k, n=self.hparams.n,sigma=0))
+                ep_adaptive_safety_index_max_sigma += max(0, self.env.adaptive_safety_index(k=self.hparams.k, n=self.hparams.n, sigma=self.hparams.sigma)[0])
+                ep_adaptive_safety_index_max_0     += max(0, self.env.adaptive_safety_index(k=self.hparams.k, n=self.hparams.n,sigma=0)[0])
 
                 # Compute `timeout`, `terminal` and `epoch_ended` Episode
                 timeout = ep_len == self.max_episode_steps
