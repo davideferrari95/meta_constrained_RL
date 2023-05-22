@@ -17,7 +17,7 @@ PyYAML>=6.0
 gym>=0.26.2
 gym[box2d]
 gym[mujoco]
-git+https://github.com/davideferrari95/safety-gym.git
+-e git+https://github.com/davideferrari95/safety-gym.git@ppo-issa#egg=safety-gym
 
 # Torch
 pytorch-lightning>=2.0.1
