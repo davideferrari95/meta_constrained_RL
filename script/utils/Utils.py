@@ -1,4 +1,4 @@
-import os, io, random, omegaconf
+import os, io, random, omegaconf, shutil
 import torch
 import numpy as np
 from termcolor import colored
@@ -218,3 +218,28 @@ def video_rename(folder:str, old_name:str, new_name:str):
 
     # Rename Files
     os.rename(os.path.join(folder, old_name), os.path.join(folder, new_name))
+
+def delete_pycache_folders():
+
+    """ Delete Python `__pycache__` Folders Function """
+
+    # Walk Through the Project Folders
+    for root, dirs, files in os.walk(FOLDER):
+
+        if "__pycache__" in dirs:
+
+            # Get `__pycache__` Path
+            pycache_folder = os.path.join(root, "__pycache__")
+            print(f"Deleting {pycache_folder}")
+
+            # Delete `__pycache__`
+            try: shutil.rmtree(pycache_folder)
+            except Exception as e: print(f"An error occurred while deleting {pycache_folder}: {e}")
+
+def handle_signal(signal, frame):
+
+    # SIGINT (Ctrl+C)
+    print("\nProgram Interrupted. Deleting __pycache__ Folders...")
+    delete_pycache_folders()
+    print("Done\n")
+    exit(0)

@@ -10,7 +10,11 @@ from utils.Utils import set_seed_everywhere, set_hydra_absolute_path
 
 # Import Utilities
 from utils.Utils import FOLDER, AUTO, print_arguments, check_spells_error
-import sys, os, logging, torch
+import sys, os, signal, logging, torch
+
+# Import Signal Handler Function
+from utils.Utils import handle_signal, delete_pycache_folders
+signal.signal(signal.SIGINT, handle_signal)
 
 # Import Parent Folders
 sys.path.append(FOLDER)
@@ -106,6 +110,9 @@ def main(cfg: Params):
 
     # Start Training
     trainer.fit(compiled_model)
+
+    # Delete Cache Folders
+    delete_pycache_folders()
 
 if __name__ == '__main__':
 
