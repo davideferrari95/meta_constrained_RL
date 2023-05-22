@@ -5,15 +5,15 @@ _target_: algos.PPO-ISSA-PyTorch.PPO_ISSA_PyTorch
 max_epochs:         ${training_params.max_epochs}   # Maximum Number of Epochs
 early_stop_metric:  episode/avg_ep_reward           # Metric for Early Stopping
 
-steps_per_epoch:    4000        # How Action-State Pairs to Rollout for Trajectory Collection per Epoch
+steps_per_epoch:    30000       # How Action-State Pairs to Rollout for Trajectory Collection per Epoch
 batch_size:         1024        # Batch Size for Training
 num_mini_batches:   128         # Number of Mini-Batches for Training
-hidden_sizes:       [128,128]   # Hidden Layer Sizes for Actor and Critic Networks
+hidden_sizes:       [256,256]   # Hidden Layer Sizes for Actor and Critic Networks
 hidden_mod:         Tanh        # Hidden Layer Activation Function for Actor and Critic Networks
 
 # Optimization Parameters:
 optim:              Adam        # Optimizer for Critic and Actor Networks
-actor_update:       80          # Number of Actor SDG to Perform on Each Batch
+actor_update:       1           # Number of Actor SDG to Perform on Each Batch
 critic_update:      80          # Number of Critic SDG to Perform on Each Batch
 lr_actor:           3e-4        # Learning Rate for Actor Network
 lr_critic:          1e-3        # Learning Rate for Critic Network
@@ -40,15 +40,15 @@ clipped_adv:        True        # Clipped Surrogate Advantage
 target_kl:          0.01        # Target KL Divergence
 
 # Cost Constraints / Penalties Parameters:
-cost_lim:           25          # Cost Constraint Limit
+cost_lim:           0           # Cost Constraint Limit
 penalty_init:       1.0         # Initial Penalty for Cost Constraint
 
 # AdamBA Safety Constrained Parameters:
 margin:               0.4         # Margin for Safety Constraint
 threshold:            0.0         # Threshold for Safety Constraint
 ctrlrange:            10.0        # Control Range for Safety Constraint
-k:                    1.0         # K for Safety Constraint
-n:                    1.0         # N for Safety Constraint
+k:                    2.0         # K for Safety Constraint
+n:                    2.0         # N for Safety Constraint
 sigma:                0.04        # Sigma for Safety Constraint
 cpc:                  False       # Use CPC Safety Constraint
 cpc_coef:             0.01        # CPC Coefficient

@@ -199,4 +199,4 @@ frameskip_binom_p:          1.0             # Probability of trial return (contr
 default_camera_id:          1
 
 # Random State Seed (avoid name conflict with self.seed)
-_seed:                      null
+_seed:                      ${environment_params.seed}

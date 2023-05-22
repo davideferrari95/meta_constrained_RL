@@ -1,0 +1,15 @@
+defaults:
+
+  - default_training
+  - _self_
+
+min_epochs:         null
+max_epochs:         333
+
+early_stopping:     True
+early_stop_metric:  ${agent.early_stop_metric}
+patience:           750
+
+record_video:       True
+record_epochs:      100
+record_first_epoch: False
