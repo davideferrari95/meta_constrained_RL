@@ -1,5 +1,5 @@
 import os
-from typing import Optional
+from typing import Optional, Union
 
 # Import Utils
 from utils.Utils import VIDEO_FOLDER, VIOLATIONS_FOLDER, TEST_FOLDER
@@ -17,6 +17,9 @@ from envs.gym.wrappers.RecordEpisodeStatistics import RecordEpisodeStatistics
 
 # Import Vectorized Environment
 from gym.vector import SyncVectorEnv
+
+# Import Safety-Gym Env
+from safety_gym.envs.engine import Engine
 
 # Create Vectorized Environments
 def create_vectorized_environment(name:str, config:Optional[dict]=None, env_num:int=10, record_video:bool=True,
@@ -38,7 +41,7 @@ def create_vectorized_environment(name:str, config:Optional[dict]=None, env_num:
 def create_environment(name:str, config:Optional[dict]=None, record_video:bool=True,
                        record_epochs:int=100, record_first_epoch:bool=False,
                        render_mode='rgb_array', apply_wrappers:bool=True,
-                       environment_type:Optional[str]=None, env_epochs:int=1) -> gym.Env:
+                       environment_type:Optional[str]=None, env_epochs:int=1) -> Union[gym.Env, Engine]:
 
     """ Create Gym Environment """
 
@@ -55,7 +58,7 @@ def create_environment(name:str, config:Optional[dict]=None, record_video:bool=T
 
     return env
 
-def __make_custom_env(name, config:Optional[dict]=None, render_mode='rgb_array') -> gym.Env:
+def __make_custom_env(name, config:Optional[dict]=None, render_mode='rgb_array') -> Engine:
 
     """ Custom Environments used in the Paper (Official Implementation) """
 
@@ -81,7 +84,7 @@ def __make_custom_env(name, config:Optional[dict]=None, render_mode='rgb_array')
     # Custom `make` Function
     return make(name, render_mode=render_mode)
 
-def __apply_wrappers(env, record_video, record_epochs, record_first_epoch, folder) -> gym.Env:
+def __apply_wrappers(env, record_video, record_epochs, record_first_epoch, folder) -> Union[gym.Env, Engine]:
 
     """ Apply Custom Gym Wrappers """
 

@@ -23,6 +23,9 @@ from envs.gym.wrappers.PassiveEnvChecker import PassiveEnvChecker
 from gym.wrappers import  HumanRendering, RenderCollection
 from gym.wrappers.compatibility import EnvCompatibility
 
+# Import Safety-Gym Env
+from safety_gym.envs.engine import Engine
+
 def make(
 
     id: Union[str, EnvSpec],
@@ -32,7 +35,7 @@ def make(
     disable_env_checker: Optional[bool] = None,
     **kwargs,
 
-) -> Env:
+) -> Engine:
 
     """ Create an environment according to the given ID.
 
