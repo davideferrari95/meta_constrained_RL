@@ -367,8 +367,8 @@ class PPO_ISSA_PyTorch(LightningModule):
                 u_new = None
 
                 # Index
-                index_max_1 = self.env.projection_cost_index_max(self.hparams.margin)
-                index_argmin_dis_1 = self.env.projection_cost_index_argmin_dis(self.hparams.margin)
+                _, index_max_1 = self.env.projection_cost_max(self.hparams.margin)
+                _, index_argmin_dis_1 = self.env.projection_cost_argmin_dis(self.hparams.margin)
                 _, index_adaptive_max_1 = self.env.adaptive_safety_index(k=self.hparams.k, n=self.hparams.n, sigma=self.hparams.sigma)
 
                 # Projection Cost Max
@@ -376,8 +376,8 @@ class PPO_ISSA_PyTorch(LightningModule):
                 projection_cost_max_0_logger.append(self.env.projection_cost_max(0)[0])
 
                 # Projection Cost Argmin
-                projection_cost_argmin_margin_logger.append(self.env.projection_cost_argmin_dis(self.hparams.margin))
-                projection_cost_argmin_0_logger.append(self.env.projection_cost_argmin_dis(0))
+                projection_cost_argmin_margin_logger.append(self.env.projection_cost_argmin_dis(self.hparams.margin)[0])
+                projection_cost_argmin_0_logger.append(self.env.projection_cost_argmin_dis(0)[0])
 
                 # Distribution Cost
                 true_cost_logger.append(c)
@@ -500,8 +500,8 @@ class PPO_ISSA_PyTorch(LightningModule):
 
                 # Logging
                 all_out_logger.append(valid_adamba_sc)
-                index_max_2 = self.env.projection_cost_index_max(self.hparams.margin)
-                index_argmin_dis_2 = self.env.projection_cost_index_argmin_dis(self.hparams.margin)
+                _, index_max_2 = self.env.projection_cost_max(self.hparams.margin)
+                _, index_argmin_dis_2 = self.env.projection_cost_argmin_dis(self.hparams.margin)
                 _, index_adaptive_max_2 = self.env.adaptive_safety_index(k=self.hparams.k, n=self.hparams.n, sigma=self.hparams.sigma)                
                 index_argmin_dis_change_logger.append(index_argmin_dis_1 != index_argmin_dis_2)
                 index_max_projection_cost_change_logger.append(index_max_1 != index_max_2)
