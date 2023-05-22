@@ -5,8 +5,8 @@ from typing import List, Optional, Union, Tuple
 import torch, torch.nn as nn
 from torch import distributions as TD
 
-# Select Training Device
-DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+# Import Device
+from networks.Utils import DEVICE
 
 # Neural Network Creation Function
 def create_mlp(input_dim: int, output_dim: int, hidden_sizes: List[int] = [128, 128], 

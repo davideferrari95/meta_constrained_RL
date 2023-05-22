@@ -1,11 +1,11 @@
-import torch, numpy as np
+import torch
 from typing import Iterable, Callable
 
 # Import Torch IterableDataset
 from torch.utils.data.dataset import IterableDataset
 
 # Import Utilities
-from networks.Utils import combined_shape, discount_cumulative_sum, statistics_scalar
+from networks.Utils import DEVICE, combined_shape, discount_cumulative_sum, statistics_scalar
 
 class PPOBuffer:
 
@@ -19,21 +19,21 @@ class PPOBuffer:
                  gae_gamma=0.99, gae_lambda=0.95, cost_gamma=0.99, cost_lambda=0.95):
 
         # Initialize Buffers
-        self.observation_buffer = np.zeros(combined_shape(size, obs_shape), dtype=np.float32)
-        self.action_buffer      = np.zeros(combined_shape(size, act_shape), dtype=np.float32)
-        self.advantage_buffer   = np.zeros(size, dtype=np.float32)
-        self.reward_buffer      = np.zeros(size, dtype=np.float32)
-        self.return_buffer      = np.zeros(size, dtype=np.float32)
-        self.value_buffer       = np.zeros(size, dtype=np.float32)
-        self.log_probs_buffer   = np.zeros(size, dtype=np.float32)
-        self.pi_mean_buffer     = np.zeros(combined_shape(size, act_shape), dtype=np.float32)
-        self.pi_std_buffer      = np.zeros(combined_shape(size, act_shape), dtype=np.float32)
+        self.observation_buffer = torch.zeros(combined_shape(size, obs_shape), dtype=torch.float32, device=DEVICE)
+        self.action_buffer      = torch.zeros(combined_shape(size, act_shape), dtype=torch.float32, device=DEVICE)
+        self.advantage_buffer   = torch.zeros(size, dtype=torch.float32, device=DEVICE)
+        self.reward_buffer      = torch.zeros(size, dtype=torch.float32, device=DEVICE)
+        self.return_buffer      = torch.zeros(size, dtype=torch.float32, device=DEVICE)
+        self.value_buffer       = torch.zeros(size, dtype=torch.float32, device=DEVICE)
+        self.log_probs_buffer   = torch.zeros(size, dtype=torch.float32, device=DEVICE)
+        self.pi_mean_buffer     = torch.zeros(combined_shape(size, act_shape), dtype=torch.float32, device=DEVICE)
+        self.pi_std_buffer      = torch.zeros(combined_shape(size, act_shape), dtype=torch.float32, device=DEVICE)
 
         # Initialize Cost Buffers
-        self.cost_buffer            = np.zeros(size, dtype=np.float32)
-        self.cost_advantage_buffer  = np.zeros(size, dtype=np.float32)
-        self.cost_return_buffer     = np.zeros(size, dtype=np.float32)
-        self.cost_value_buffer      = np.zeros(size, dtype=np.float32)
+        self.cost_buffer            = torch.zeros(size, dtype=torch.float32, device=DEVICE)
+        self.cost_advantage_buffer  = torch.zeros(size, dtype=torch.float32, device=DEVICE)
+        self.cost_return_buffer     = torch.zeros(size, dtype=torch.float32, device=DEVICE)
+        self.cost_value_buffer      = torch.zeros(size, dtype=torch.float32, device=DEVICE)
 
         # GAE-Lambda Parameters
         self.gae_gamma, self.gae_lambda = gae_gamma, gae_lambda
@@ -50,9 +50,6 @@ class PPOBuffer:
         # Buffer Overflow Error
         assert self.ptr < self.max_size, f'Buffer Overflow: {self.ptr} > {self.max_size}'
 
-        # Check Action Type
-        if isinstance(action, torch.Tensor): action = action.cpu().detach()
-
         # Append Data to Buffers
         self.observation_buffer[self.ptr] = observation
         self.action_buffer[self.ptr]      = action
@@ -61,8 +58,8 @@ class PPOBuffer:
         self.cost_buffer[self.ptr]        = cost
         self.cost_value_buffer[self.ptr]  = cost_value
         self.log_probs_buffer[self.ptr]   = log_probs
-        self.pi_mean_buffer[self.ptr]     = distribution.mean.cpu().detach()
-        self.pi_std_buffer[self.ptr]      = distribution.stddev.cpu().detach()
+        self.pi_mean_buffer[self.ptr]     = distribution.mean
+        self.pi_std_buffer[self.ptr]      = distribution.stddev
         self.ptr += 1
 
     def finish_path(self, last_value=0, last_cost_value=0):
@@ -84,10 +81,12 @@ class PPOBuffer:
 
         # Get a Slice of the Path representing the Last Episode
         path_slice = slice(self.path_start_idx, self.ptr)
-        rews = np.append(self.reward_buffer[path_slice], last_value)
-        vals = np.append(self.value_buffer[path_slice], last_value)
-        costs = np.append(self.cost_buffer[path_slice], last_cost_value)
-        cost_vals = np.append(self.cost_value_buffer[path_slice], last_cost_value)
+
+        # Get Costs, Values and Rewards of Slice
+        rews      = torch.cat((self.reward_buffer[path_slice],     last_value))
+        vals      = torch.cat((self.value_buffer[path_slice],      last_value))
+        costs     = torch.cat((self.cost_buffer[path_slice],       last_cost_value))
+        cost_vals = torch.cat((self.cost_value_buffer[path_slice], last_cost_value))
 
         # GAE-Lambda Advantage Calculation
         deltas = rews[:-1] + self.gae_gamma * vals[1:] - vals[:-1]

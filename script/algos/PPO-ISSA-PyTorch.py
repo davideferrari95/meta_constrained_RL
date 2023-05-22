@@ -318,6 +318,7 @@ class PPO_ISSA_PyTorch(LightningModule):
 
         # Initialize Variables Environment
         o, _ = self.env.reset()
+        obs = torch.tensor(o, dtype=torch.float32, device=DEVICE)
         r, d, c, ep_ret, ep_cost, ep_len = 0, False, 0, 0, 0, 0
 
         # Initialize AdamBA Variables
@@ -358,7 +359,7 @@ class PPO_ISSA_PyTorch(LightningModule):
 
                 # Get outputs from policy
                 # pi, actions, log_probs, value, cost_value = self.agent(o)
-                pi, a, logp_t, v_t, vc_t = self.agent(torch.as_tensor(o, dtype=torch.float32, device=DEVICE))
+                pi, a, logp_t, v_t, vc_t = self.agent(obs)
 
                 # AdamBA Safety  Layer
 
@@ -497,6 +498,7 @@ class PPO_ISSA_PyTorch(LightningModule):
 
                     # Step in Environment
                     o2, r, d, truncated, info = self.env.step(a.cpu().detach().numpy())
+                    obs2 = torch.tensor(o2, dtype=torch.float32, device=DEVICE)
 
                 # Logging
                 all_out_logger.append(valid_adamba_sc)
@@ -523,7 +525,7 @@ class PPO_ISSA_PyTorch(LightningModule):
                     r_total = r - cur_penalty * c / (1 + cur_penalty)
 
                     # Store in PPO Buffer
-                    self.buffer.store(pi, o, a.cpu().detach(), r_total, v_t, 0, 0, logp_t)
+                    self.buffer.store(pi, obs, a, r_total, v_t, 0, 0, logp_t)
 
                 else:
 
@@ -531,7 +533,7 @@ class PPO_ISSA_PyTorch(LightningModule):
                     if self.hparams.cpc == False:
 
                         # Store in PPO Buffer
-                        self.buffer.store(pi, o, a.cpu().detach(), r, v_t, c, vc_t, logp_t)
+                        self.buffer.store(pi, obs, a, r, v_t, c, vc_t, logp_t)
 
                     else:
 
@@ -542,20 +544,20 @@ class PPO_ISSA_PyTorch(LightningModule):
                         if valid_adamba_sc == "adamba_sc success":
 
                             # Store AdamBA in PPO Buffer
-                            self.buffer.store(pi, o, a, r_hat, v_t, c, vc_t, logp_t)
-                            self.buffer.store(pi, o, np.array([u_new]), r, v_t, c, vc_t, logp_t)
+                            self.buffer.store(pi, obs, a, r_hat, v_t, c, vc_t, logp_t)
+                            self.buffer.store(pi, obs, np.array([u_new]), r, v_t, c, vc_t, logp_t)
 
                         else:
 
                             # Store Invalid AdamBA in PPO Buffer
-                            self.buffer.store(pi, o, a, r_hat, v_t, c, vc_t, logp_t)
-                            self.buffer.store(pi, o, a, r, v_t, c, vc_t, logp_t)
+                            self.buffer.store(pi, obs, a, r_hat, v_t, c, vc_t, logp_t)
+                            self.buffer.store(pi, obs, a, r, v_t, c, vc_t, logp_t)
 
                 # TODO: Logger
                 # logger.store(VVals=v_t, CostVVals=vc_t)
 
                 # Update Observations
-                o = o2
+                o, obs = o2, obs2
 
                 # Increase Episode Return, Cost and Length
                 ep_ret, ep_cost, ep_len = ep_ret + r, ep_cost + c, ep_len + 1
@@ -586,13 +588,13 @@ class PPO_ISSA_PyTorch(LightningModule):
                     else:
 
                         # Get Last Value
-                        _, _, _, last_value, last_cost_value = self.agent(torch.as_tensor(o, dtype=torch.float32, device=DEVICE))
+                        _, _, _, last_value, last_cost_value = self.agent(obs)
 
                         # Last Cost Value = 0 if Reward Penalized
                         if self.agent.reward_penalized: last_cost_value = 0
 
                     # Finish Path
-                    self.buffer.finish_path(last_value.cpu().detach(), last_cost_value.cpu().detach())
+                    self.buffer.finish_path(last_value, last_cost_value)
 
                     # Only Save Episode Return / Length if Trajectory Finished
                     if terminal:
@@ -613,6 +615,7 @@ class PPO_ISSA_PyTorch(LightningModule):
 
                     # Reset environment
                     o, _ = self.env.reset()
+                    obs = torch.tensor(o, dtype=torch.float32, device=DEVICE)
                     r, d, c, ep_ret, ep_len, ep_cost = 0, False, 0, 0, 0, 0
 
                     # Reset AdamBA Variables
