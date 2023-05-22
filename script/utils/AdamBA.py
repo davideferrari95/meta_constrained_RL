@@ -1,6 +1,9 @@
 # Import Project Folder
 from utils.Utils import FOLDER
 
+# Import Safety-Gym Env
+from safety_gym.envs.engine import Engine
+
 import os, copy, time, json, gym
 import numpy as np
 from typing import Optional
@@ -9,7 +12,7 @@ from typing import Optional
 from scipy import sparse
 import osqp
 
-def AdamBA(obs:np.ndarray, act:np.ndarray, env:gym.Env, threshold:float, dt_ratio:float=1.0, ctrlrange:float=10.0):
+def AdamBA(obs:np.ndarray, act:np.ndarray, env:Engine, threshold:float, dt_ratio:float=1.0, ctrlrange:float=10.0):
 
     # Reshape Action
     act, action_space_num = np.clip(act, -ctrlrange, ctrlrange), 2
@@ -155,7 +158,7 @@ def AdamBA(obs:np.ndarray, act:np.ndarray, env:gym.Env, threshold:float, dt_rati
     # Return None
     else: return [None, None], valid_adamba
 
-def AdamBA_SC(obs:np.ndarray, act:np.ndarray, env:gym.Env, threshold:float=0, dt_ratio:float=1.0, ctrlrange:float=10.0,
+def AdamBA_SC(obs:np.ndarray, act:np.ndarray, env:Engine, threshold:float=0, dt_ratio:float=1.0, ctrlrange:float=10.0,
               margin:float=0.4, adaptive_k:float=3, adaptive_n:float=1, adaptive_sigma:float=0.04, trigger_by_pre_execute:bool=False,
               pre_execute_coef:float=0.0, vec_num:Optional[int]=None, max_trial_num:int=1):
 
@@ -323,7 +326,7 @@ def AdamBA_SC(obs:np.ndarray, act:np.ndarray, env:gym.Env, threshold:float=0, dt
     # Return None
     else: return None, valid_adamba_sc, env, None
 
-def store_heatmap(env:gym.Env, cnt_store_heatmap_trigger:int, trigger_by_pre_execute:bool, safe_index_now:float,
+def store_heatmap(env:Engine, cnt_store_heatmap_trigger:int, trigger_by_pre_execute:bool, safe_index_now:float,
                   threshold:float, n:float, k:float, sigma:float, pre_execute:bool):
 
     # HeatMap Logger
@@ -356,7 +359,7 @@ def store_heatmap(env:gym.Env, cnt_store_heatmap_trigger:int, trigger_by_pre_exe
             stored_state = copy.deepcopy(env.sim.get_state())
 
             # Get Safety Index
-            safe_index_u_0_u_1_distance_before     = env.closest_distance_cost_n(n=1)
+            safe_index_u_0_u_1_distance_before, _  = env.closest_distance_cost(n=1)
             safe_index_u_0_u_1_n_2_k_0_10_before   = env.adaptive_safety_index(k=0.10,   sigma=sigma, n=2)
             safe_index_u_0_u_1_n_2_k_0_25_before   = env.adaptive_safety_index(k=0.25,   sigma=sigma, n=2)
             safe_index_u_0_u_1_n_2_k_0_50_before   = env.adaptive_safety_index(k=0.50,   sigma=sigma, n=2)
@@ -371,7 +374,7 @@ def store_heatmap(env:gym.Env, cnt_store_heatmap_trigger:int, trigger_by_pre_exe
             s_new = env.step(np.array([[u_0, u_1]]), simulate_in_adamba=True)
 
             # Get Closest Distance Cost
-            safe_index_u_0_u_1_distance_future = env.closest_distance_cost_n(n=1)
+            safe_index_u_0_u_1_distance_future, _  = env.closest_distance_cost(n=1)
 
             # Get Safety Index
             safe_index_u_0_u_1_n_2_k_0_10_future   = env.adaptive_safety_index(k=0.10,   sigma=sigma, n=2)
@@ -481,7 +484,7 @@ def quadratic_programming(H, f, A=None, b=None, initvals=None, verbose=False):
     # Return Results
     return results.x, results.info.status
 
-def check_unsafe(s, point, dt_ratio:float, dt_adamba:float, env:gym.Env, threshold:float):
+def check_unsafe(s, point, dt_ratio:float, dt_adamba:float, env:Engine, threshold:float):
 
     # Create Action
     action = [point[0], point[1]]
@@ -519,7 +522,7 @@ def check_unsafe(s, point, dt_ratio:float, dt_adamba:float, env:gym.Env, thresho
 
     return flag, env
 
-def check_unsafe_sc(s, point, dt_ratio:float, dt_adamba:float, env:gym.Env, threshold:float,
+def check_unsafe_sc(s, point, dt_ratio:float, dt_adamba:float, env:Engine, threshold:float,
                     margin:float, adaptive_k:float, adaptive_n:float, adaptive_sigma:float,
                     trigger_by_pre_execute:bool, pre_execute_coef:float):
 

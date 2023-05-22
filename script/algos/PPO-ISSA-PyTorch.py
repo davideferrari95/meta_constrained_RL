@@ -381,7 +381,7 @@ class PPO_ISSA_PyTorch(LightningModule):
 
                 # Distribution Cost
                 true_cost_logger.append(c)
-                closest_distance_cost_logger.append(self.env.closest_distance_cost())
+                closest_distance_cost_logger.append(self.env.closest_distance_cost()[0])
 
                 # Synthesis Safety Index
                 safe_index_now = self.env.adaptive_safety_index(k=self.hparams.k, sigma=self.hparams.sigma, n=self.hparams.n)
