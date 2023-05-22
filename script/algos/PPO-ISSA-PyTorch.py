@@ -372,8 +372,8 @@ class PPO_ISSA_PyTorch(LightningModule):
                 _, index_adaptive_max_1 = self.env.adaptive_safety_index(k=self.hparams.k, n=self.hparams.n, sigma=self.hparams.sigma)
 
                 # Projection Cost Max
-                projection_cost_max_margin_logger.append(self.env.projection_cost_max(self.hparams.margin))
-                projection_cost_max_0_logger.append(self.env.projection_cost_max(0))
+                projection_cost_max_margin_logger.append(self.env.projection_cost_max(self.hparams.margin)[0])
+                projection_cost_max_0_logger.append(self.env.projection_cost_max(0)[0])
 
                 # Projection Cost Argmin
                 projection_cost_argmin_margin_logger.append(self.env.projection_cost_argmin_dis(self.hparams.margin))
@@ -561,11 +561,11 @@ class PPO_ISSA_PyTorch(LightningModule):
                 ep_ret, ep_cost, ep_len = ep_ret + r, ep_cost + c, ep_len + 1
 
                 # Increase Projection Cost
-                ep_projection_cost_max_margin += max(0, self.env.projection_cost_max(self.hparams.margin))
-                ep_projection_cost_max_0      += max(0, self.env.projection_cost_max(0))
-                ep_projection_cost_max_0_2    += max(0, self.env.projection_cost_max(0.2))
-                ep_projection_cost_max_0_4    += max(0, self.env.projection_cost_max(0.4))
-                ep_projection_cost_max_0_8    += max(0, self.env.projection_cost_max(0.8))
+                ep_projection_cost_max_margin += max(0, self.env.projection_cost_max(self.hparams.margin)[0])
+                ep_projection_cost_max_0      += max(0, self.env.projection_cost_max(0)[0])
+                ep_projection_cost_max_0_2    += max(0, self.env.projection_cost_max(0.2)[0])
+                ep_projection_cost_max_0_4    += max(0, self.env.projection_cost_max(0.4)[0])
+                ep_projection_cost_max_0_8    += max(0, self.env.projection_cost_max(0.8)[0])
 
                 # Increase Adaptive Safety Index
                 ep_adaptive_safety_index_max_sigma += max(0, self.env.adaptive_safety_index(k=self.hparams.k, n=self.hparams.n, sigma=self.hparams.sigma)[0])
