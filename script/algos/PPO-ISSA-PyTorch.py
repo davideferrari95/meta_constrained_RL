@@ -240,7 +240,7 @@ class PPO_ISSA_PyTorch(LightningModule):
         d_kl = self.compute_dkl(pi, pi_mean_old, pi_std_old)
         approx_kl = (logp_old - log_prob).mean().item()
         clipped = ratio.gt(1 + self.hparams.clip_ratio) | ratio.lt(1 - self.hparams.clip_ratio)
-        clip_frac = torch.as_tensor(clipped, dtype=torch.float32).mean().item()
+        clip_frac = torch.as_tensor(clipped, dtype=torch.float32, device=DEVICE).mean().item()
 
         return loss_pi, dict(d_kl=d_kl, approx_kl=approx_kl, ent=entropy.item(), clip_frac=clip_frac)
 
@@ -358,7 +358,7 @@ class PPO_ISSA_PyTorch(LightningModule):
 
                 # Get outputs from policy
                 # pi, actions, log_probs, value, cost_value = self.agent(o)
-                pi, a, logp_t, v_t, vc_t = self.agent(torch.as_tensor(o, dtype=torch.float32))
+                pi, a, logp_t, v_t, vc_t = self.agent(torch.as_tensor(o, dtype=torch.float32, device=DEVICE))
 
                 # AdamBA Safety  Layer
 
@@ -396,7 +396,7 @@ class PPO_ISSA_PyTorch(LightningModule):
                     stored_state = copy.deepcopy(self.env.sim.get_state())
 
                     # Simulate the Action in AdamBA
-                    s_new = self.env.step(a, simulate_in_adamba=True)
+                    s_new = self.env.step(a.cpu().detach().numpy(), simulate_in_adamba=True)
 
                     # Get the Safety Index
                     safe_index_future, _ = self.env.adaptive_safety_index(k=self.hparams.k, sigma=self.hparams.sigma, n=self.hparams.n)
@@ -430,7 +430,7 @@ class PPO_ISSA_PyTorch(LightningModule):
                     if self.hparams.adamba_sc == True:
 
                         # Run AdamBA SC Algorithm -> dt_ration = 1.0 -> Do Not Rely on Small dt
-                        adamba_results = AdamBA_SC(o, a.numpy(), env=self.env, threshold=self.hparams.threshold, dt_ratio=1.0, ctrlrange=self.hparams.ctrlrange,
+                        adamba_results = AdamBA_SC(o, a.cpu().detach().numpy(), env=self.env, threshold=self.hparams.threshold, dt_ratio=1.0, ctrlrange=self.hparams.ctrlrange,
                                                    margin=self.hparams.margin, adaptive_k=self.hparams.k, adaptive_n=self.hparams.n, adaptive_sigma=self.hparams.sigma,
                                                    trigger_by_pre_execute=trigger_by_pre_execute, pre_execute_coef=self.hparams.pre_execute_coef)
 
@@ -456,7 +456,7 @@ class PPO_ISSA_PyTorch(LightningModule):
                         else:
 
                             # Step in Environment with Agent Action
-                            o2, r, d, truncated, info = self.env.step(a)
+                            o2, r, d, truncated, info = self.env.step(a.cpu().detach().numpy())
 
                             # Increase Other AdamBA Counters
                             if valid_adamba_sc == "all out": cnt_all_out += 1
@@ -467,7 +467,7 @@ class PPO_ISSA_PyTorch(LightningModule):
                     else:
 
                         # Run AdamBA Algorithm
-                        [A, b], valid_adamba = AdamBA(o, a.numpy(), env=self.env, threshold=self.hparams.threshold, dt_ratio=0.1,
+                        [A, b], valid_adamba = AdamBA(o, a.cpu().detach().numpy(), env=self.env, threshold=self.hparams.threshold, dt_ratio=0.1,
                                                       ctrlrange=self.hparams.ctrlrange, margin=self.hparams.margin)
 
                         if valid_adamba == "adamba success":
@@ -491,12 +491,12 @@ class PPO_ISSA_PyTorch(LightningModule):
                             elif valid_adamba == "exception": cnt_exception += 1
 
                             # Step in Environment
-                            o2, r, d, truncated, info = self.env.step(a)
+                            o2, r, d, truncated, info = self.env.step(a.cpu().detach().numpy())
 
                 else:
 
                     # Step in Environment
-                    o2, r, d, truncated, info = self.env.step(a)
+                    o2, r, d, truncated, info = self.env.step(a.cpu().detach().numpy())
 
                 # Logging
                 all_out_logger.append(valid_adamba_sc)
@@ -523,7 +523,7 @@ class PPO_ISSA_PyTorch(LightningModule):
                     r_total = r - cur_penalty * c / (1 + cur_penalty)
 
                     # Store in PPO Buffer
-                    self.buffer.store(pi, o, a, r_total, v_t, 0, 0, logp_t)
+                    self.buffer.store(pi, o, a.cpu().detach(), r_total, v_t, 0, 0, logp_t)
 
                 else:
 
@@ -531,7 +531,7 @@ class PPO_ISSA_PyTorch(LightningModule):
                     if self.hparams.cpc == False:
 
                         # Store in PPO Buffer
-                        self.buffer.store(pi, o, a, r, v_t, c, vc_t, logp_t)
+                        self.buffer.store(pi, o, a.cpu().detach(), r, v_t, c, vc_t, logp_t)
 
                     else:
 
@@ -586,13 +586,13 @@ class PPO_ISSA_PyTorch(LightningModule):
                     else:
 
                         # Get Last Value
-                        _, _, _, last_value, last_cost_value = self.agent(torch.as_tensor(o, dtype=torch.float32))
+                        _, _, _, last_value, last_cost_value = self.agent(torch.as_tensor(o, dtype=torch.float32, device=DEVICE))
 
                         # Last Cost Value = 0 if Reward Penalized
                         if self.agent.reward_penalized: last_cost_value = 0
 
                     # Finish Path
-                    self.buffer.finish_path(last_value, last_cost_value)
+                    self.buffer.finish_path(last_value.cpu().detach(), last_cost_value.cpu().detach())
 
                     # Only Save Episode Return / Length if Trajectory Finished
                     if terminal:

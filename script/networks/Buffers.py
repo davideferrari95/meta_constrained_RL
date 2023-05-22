@@ -50,6 +50,9 @@ class PPOBuffer:
         # Buffer Overflow Error
         assert self.ptr < self.max_size, f'Buffer Overflow: {self.ptr} > {self.max_size}'
 
+        # Check Action Type
+        if isinstance(action, torch.Tensor): action = action.cpu().detach()
+
         # Append Data to Buffers
         self.observation_buffer[self.ptr] = observation
         self.action_buffer[self.ptr]      = action
@@ -58,8 +61,8 @@ class PPOBuffer:
         self.cost_buffer[self.ptr]        = cost
         self.cost_value_buffer[self.ptr]  = cost_value
         self.log_probs_buffer[self.ptr]   = log_probs
-        self.pi_mean_buffer[self.ptr]     = distribution.mean
-        self.pi_std_buffer[self.ptr]      = distribution.stddev
+        self.pi_mean_buffer[self.ptr]     = distribution.mean.cpu().detach()
+        self.pi_std_buffer[self.ptr]      = distribution.stddev.cpu().detach()
         self.ptr += 1
 
     def finish_path(self, last_value=0, last_cost_value=0):
