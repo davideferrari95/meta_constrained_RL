@@ -346,153 +346,8 @@ class PPO_ISSA_PyTorch(LightningModule):
                 pi, a, logp_t, v_t, vc_t = self.agent(obs)
 
                 # AdamBA Safety Layer
-                # safety_layer_AdamBA(adamba_vars)
-
-                # Logging for Plotting: Adaptive Safety-Index
-                valid_adamba_sc = "Not activated"
-                u_new = None
-
-                # Index
-                _, index_max_1 = self.env.projection_cost_max(self.hparams.margin)
-                _, index_argmin_dis_1 = self.env.projection_cost_argmin_dis(self.hparams.margin)
-                _, index_adaptive_max_1 = self.env.adaptive_safety_index(k=self.hparams.k, n=self.hparams.n, sigma=self.hparams.sigma)
-
-                # Projection Cost Max
-                self.adamba_logger.projection_cost_max_margin.append(self.env.projection_cost_max(self.hparams.margin)[0])
-                self.adamba_logger.projection_cost_max_0.append(self.env.projection_cost_max(0)[0])
-
-                # Projection Cost Argmin
-                self.adamba_logger.projection_cost_argmin_margin.append(self.env.projection_cost_argmin_dis(self.hparams.margin)[0])
-                self.adamba_logger.projection_cost_argmin_0.append(self.env.projection_cost_argmin_dis(0)[0])
-
-                # Distribution Cost
-                self.adamba_logger.true_cost.append(c)
-                self.adamba_logger.closest_distance_cost.append(self.env.closest_distance_cost()[0])
-
-                # Synthesis Safety Index
-                safe_index_now, _ = self.env.adaptive_safety_index(k=self.hparams.k, sigma=self.hparams.sigma, n=self.hparams.n)
-                self.adamba_logger.adaptive_safety_index_default.append(safe_index_now)
-                self.adamba_logger.adaptive_safety_index_sigma_0_00.append(self.env.adaptive_safety_index(k=self.hparams.k, n=self.hparams.n, sigma=0.00)[0])
-
-                trigger_by_pre_execute = False
-
-                # Pre-Execute to Determine Whether `trigger_by_pre_execute` is True
-                if self.hparams.pre_execute and safe_index_now < 0: # if current safety index > 0, we should run normal AdamBA
-
-                    stored_state = copy.deepcopy(self.env.sim.get_state())
-
-                    # Simulate the Action in AdamBA
-                    s_new = self.env.step(a.cpu().detach().numpy(), simulate_in_adamba=True)
-
-                    # Get the Safety Index
-                    safe_index_future, _ = self.env.adaptive_safety_index(k=self.hparams.k, sigma=self.hparams.sigma, n=self.hparams.n)
-
-                    # Check Safe Index
-                    if safe_index_future >= self.hparams.pre_execute_coef: trigger_by_pre_execute = True
-                    else: trigger_by_pre_execute = False
-
-                    # Reset Env (Set q_pos and q_vel)
-                    self.env.sim.set_state(stored_state)
-
-                    """
-                    Note that the Position-Dependent Stages of the Computation Must Have Been Executed
-                    for the Current State in order for These Functions to Return Correct Results.
-
-                    So to be Safe, do `mj_forward` and then `mj_jac` -> The Jacobians will Correspond to the
-                    State Before the Integration of Positions and Velocities Took Place.
-                    """
-
-                    # Environment Forward
-                    self.env.sim.forward()
-
-                # If Adaptive Safety Index > 0 or Triggered by Pre-Execute
-                if self.hparams.adamba_layer and (trigger_by_pre_execute or safe_index_now >= 0):
-
-                    # Increase Counters
-                    adamba_vars.cnt_positive_cost += 1
-                    adamba_vars.ep_positive_safety_index += 1
-
-                    # AdamBA for Safety Control
-                    if self.hparams.adamba_sc == True:
-
-                        # Run AdamBA SC Algorithm -> dt_ration = 1.0 -> Do Not Rely on Small dt
-                        adamba_results = AdamBA_SC(o, a.cpu().detach().numpy(), env=self.env, threshold=self.hparams.threshold, dt_ratio=1.0, ctrlrange=self.hparams.ctrlrange,
-                                                   margin=self.hparams.margin, adaptive_k=self.hparams.k, adaptive_n=self.hparams.n, adaptive_sigma=self.hparams.sigma,
-                                                   trigger_by_pre_execute=trigger_by_pre_execute, pre_execute_coef=self.hparams.pre_execute_coef)
-
-                        # Un-Pack AdamBA Results
-                        u_new, valid_adamba_sc, env, all_satisfied_u = adamba_results
-
-                        if self.adamba_logger.store_heatmap_trigger:
-
-                            # Store HeatMap Function
-                            self.env, cnt_store_heatmap_trigger =  store_heatmap(self.env, cnt_store_heatmap_trigger, trigger_by_pre_execute,
-                                                                                 safe_index_now, self.hparams.threshold, self.hparams.n,
-                                                                                 self.hparams.k, self.hparams.sigma, self.hparams.pre_execute)
-
-                        # If AdamBA Status = Success
-                        if valid_adamba_sc == "adamba_sc success":
-
-                            # Increase AdamBA Counter
-                            adamba_vars.cnt_valid_adamba += 1
-
-                            # Step in Environment with AdamBA Action (u_new)
-                            o2, r, d, truncated, info = self.env.step(np.array([u_new]))
-
-                        else:
-
-                            # Step in Environment with Agent Action
-                            o2, r, d, truncated, info = self.env.step(a.cpu().detach().numpy())
-
-                            # Increase Other AdamBA Counters
-                            if   valid_adamba_sc == "all out":        adamba_vars.cnt_all_out += 1
-                            elif valid_adamba_sc == "itself satisfy": adamba_vars.cnt_itself_satisfy += 1
-                            elif valid_adamba_sc == "exception":      adamba_vars.cnt_exception += 1
-
-                    # Continuous AdamBA (Half Plane with QP-Solving) (note: not working in safety gym due to non-control-affine)
-                    else:
-
-                        # Run AdamBA Algorithm
-                        [A, b], valid_adamba = AdamBA(o, a.cpu().detach().numpy(), env=self.env, threshold=self.hparams.threshold, dt_ratio=0.1,
-                                                      ctrlrange=self.hparams.ctrlrange, margin=self.hparams.margin)
-
-                        if valid_adamba == "adamba success":
-
-                            # Increase Counter
-                            adamba_vars.cnt_valid_adamba += 1
-
-                            # Set the QP-Objective
-                            H, f = np.eye(2, 2), [-a[0][0], -a[0][1]]
-                            u_new, status = quadratic_programming(H, f, A, [b], initvals=np.array(a[0]), verbose=False)
-
-                            # Step in Environment
-                            o2, r, d, truncated, info = self.env.step(np.array([u_new]))
-
-                        else:
-
-                            # Increase Other AdamBA Counters
-                            if   valid_adamba == "all out":        adamba_vars.cnt_all_out += 1
-                            elif valid_adamba == "itself satisfy": adamba_vars.cnt_itself_satisfy += 1
-                            elif valid_adamba == "one valid":      adamba_vars.cnt_one_valid += 1
-                            elif valid_adamba == "exception":      adamba_vars.cnt_exception += 1
-
-                            # Step in Environment
-                            o2, r, d, truncated, info = self.env.step(a.cpu().detach().numpy())
-
-                else:
-
-                    # Step in Environment
-                    o2, r, d, truncated, info = self.env.step(a.cpu().detach().numpy())
-                    obs2 = torch.tensor(o2, dtype=torch.float32, device=DEVICE)
-
-                # Logging
-                self.adamba_logger.all_out.append(valid_adamba_sc)
-                _, index_max_2 = self.env.projection_cost_max(self.hparams.margin)
-                _, index_argmin_dis_2 = self.env.projection_cost_argmin_dis(self.hparams.margin)
-                _, index_adaptive_max_2 = self.env.adaptive_safety_index(k=self.hparams.k, n=self.hparams.n, sigma=self.hparams.sigma)                
-                self.adamba_logger.index_argmin_dis_change.append(index_argmin_dis_1 != index_argmin_dis_2)
-                self.adamba_logger.index_max_projection_cost_change.append(index_max_1 != index_max_2)
-                self.adamba_logger.index_adaptive_max_change.append(index_adaptive_max_1 != index_adaptive_max_2)
+                o2, r, d, truncated, info, u_new = safety_layer_AdamBA((o, a, r, d, c, ep_ret, ep_cost, ep_len),
+                                                        self.env, adamba_vars, self.adamba_logger, self.hparams)
 
                 # Store Logger only if Cost > 0
                 if c > 0: self.adamba_logger.store_json = True
@@ -523,10 +378,10 @@ class PPO_ISSA_PyTorch(LightningModule):
                     else:
 
                         # Compute Predicted Cost
-                        adaptive_cost = max(0, env.adaptive_safety_index(k=self.hparams.k, n=self.hparams.n, sigma=self.hparams.sigma)[0])
+                        adaptive_cost = max(0, self.env.adaptive_safety_index(k=self.hparams.k, n=self.hparams.n, sigma=self.hparams.sigma)[0])
                         r_hat = r - self.hparams.cpc_coef * adaptive_cost
 
-                        if valid_adamba_sc == "adamba_sc success":
+                        if adamba_vars.valid_adamba_sc == "adamba_sc success":
 
                             # Store AdamBA in PPO Buffer
                             self.buffer.store(pi, obs, a, r_hat, v_t, c, vc_t, logp_t)
@@ -542,7 +397,7 @@ class PPO_ISSA_PyTorch(LightningModule):
                 # logger.store(VVals=v_t, CostVVals=vc_t)
 
                 # Update Observations
-                o, obs = o2, obs2
+                o, obs = o2, torch.tensor(o2, dtype=torch.float32, device=DEVICE)
 
                 # Increase Episode Return, Cost and Length
                 ep_ret, ep_cost, ep_len = ep_ret + r, ep_cost + c, ep_len + 1

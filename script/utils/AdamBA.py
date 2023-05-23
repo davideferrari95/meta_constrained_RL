@@ -36,6 +36,10 @@ class AdamBAVariables:
     # Cumulative Cost
     cum_cost:               int = 0
 
+    # Valid AdamBA
+    valid_adamba:           str = "Not activated"
+    valid_adamba_sc:        str = "Not activated"
+
     # Counters
     cnt_positive_cost:      int = 0
     cnt_valid_adamba:       int = 0
@@ -156,11 +160,161 @@ class AdamBALogger:
 
         # else: print('No Violations in this Episode')
 
-def safety_layer_AdamBA():
+def safety_layer_AdamBA(observations, env:Engine, adamba_vars:AdamBAVariables, adamba_logger:AdamBALogger, hparams):
 
     """ AdamBA Safety Layer """
 
-    pass
+    # Unpack Observations
+    o, a, r, d, c, ep_ret, ep_cost, ep_len = observations
+
+    # Logging for Plotting: Adaptive Safety-Index
+    adamba_vars.valid_adamba_sc = "Not activated"
+    u_new = None
+
+    # Index
+    _, index_max_1 = env.projection_cost_max(hparams.margin)
+    _, index_argmin_dis_1 = env.projection_cost_argmin_dis(hparams.margin)
+    _, index_adaptive_max_1 = env.adaptive_safety_index(k=hparams.k, n=hparams.n, sigma=hparams.sigma)
+
+    # Projection Cost Max
+    adamba_logger.projection_cost_max_margin.append(env.projection_cost_max(hparams.margin)[0])
+    adamba_logger.projection_cost_max_0.append(env.projection_cost_max(0)[0])
+
+    # Projection Cost Argmin
+    adamba_logger.projection_cost_argmin_margin.append(env.projection_cost_argmin_dis(hparams.margin)[0])
+    adamba_logger.projection_cost_argmin_0.append(env.projection_cost_argmin_dis(0)[0])
+
+    # Distribution Cost
+    adamba_logger.true_cost.append(c)
+    adamba_logger.closest_distance_cost.append(env.closest_distance_cost()[0])
+
+    # Synthesis Safety Index
+    safe_index_now, _ = env.adaptive_safety_index(k=hparams.k, sigma=hparams.sigma, n=hparams.n)
+    adamba_logger.adaptive_safety_index_default.append(safe_index_now)
+    adamba_logger.adaptive_safety_index_sigma_0_00.append(env.adaptive_safety_index(k=hparams.k, n=hparams.n, sigma=0.00)[0])
+
+    # TODO: Config Variable
+    trigger_by_pre_execute = False
+
+    # Pre-Execute to Determine Whether `trigger_by_pre_execute` is True
+    if hparams.pre_execute and safe_index_now < 0: # if current safety index > 0, we should run normal AdamBA
+
+        stored_state = copy.deepcopy(env.sim.get_state())
+
+        # Simulate the Action in AdamBA
+        _ = env.step(a.cpu().detach().numpy(), simulate_in_adamba=True)
+
+        # Get the Safety Index
+        safe_index_future, _ = env.adaptive_safety_index(k=hparams.k, sigma=hparams.sigma, n=hparams.n)
+
+        # Check Safe Index
+        if safe_index_future >= hparams.pre_execute_coef: trigger_by_pre_execute = True
+        else: trigger_by_pre_execute = False
+
+        # Reset Env (Set q_pos and q_vel)
+        env.sim.set_state(stored_state)
+
+        """
+        Note that the Position-Dependent Stages of the Computation Must Have Been Executed
+        for the Current State in order for These Functions to Return Correct Results.
+
+        So to be Safe, do `mj_forward` and then `mj_jac` -> The Jacobians will Correspond to the
+        State Before the Integration of Positions and Velocities Took Place.
+        """
+
+        # Environment Forward
+        env.sim.forward()
+
+    # If Adaptive Safety Index > 0 or Triggered by Pre-Execute
+    if hparams.adamba_layer and (trigger_by_pre_execute or safe_index_now >= 0):
+
+        # Increase Counters
+        adamba_vars.cnt_positive_cost += 1
+        adamba_vars.ep_positive_safety_index += 1
+
+        # AdamBA for Safety Control
+        if hparams.adamba_sc == True:
+
+            # Run AdamBA SC Algorithm -> dt_ration = 1.0 -> Do Not Rely on Small dt
+            adamba_results = AdamBA_SC(o, a.cpu().detach().numpy(), env=env, threshold=hparams.threshold, dt_ratio=1.0, ctrlrange=hparams.ctrlrange,
+                                        margin=hparams.margin, adaptive_k=hparams.k, adaptive_n=hparams.n, adaptive_sigma=hparams.sigma,
+                                        trigger_by_pre_execute=trigger_by_pre_execute, pre_execute_coef=hparams.pre_execute_coef)
+
+            # Un-Pack AdamBA Results
+            u_new, adamba_vars.valid_adamba_sc, _, _ = adamba_results
+
+            if adamba_logger.store_heatmap_trigger:
+
+                # Store HeatMap Function
+                env, cnt_store_heatmap_trigger =  store_heatmap(env, cnt_store_heatmap_trigger, trigger_by_pre_execute,
+                                                                        safe_index_now, hparams.threshold, hparams.n,
+                                                                        hparams.k, hparams.sigma, hparams.pre_execute)
+
+            # If AdamBA Status = Success
+            if adamba_vars.valid_adamba_sc == "adamba_sc success":
+
+                # Increase AdamBA Counter
+                adamba_vars.cnt_valid_adamba += 1
+
+                # Step in Environment with AdamBA Action (u_new)
+                o2, r, d, truncated, info = env.step(np.array([u_new]))
+
+            else:
+
+                # Step in Environment with Agent Action
+                o2, r, d, truncated, info = env.step(a.cpu().detach().numpy())
+
+                # Increase Other AdamBA Counters
+                if   adamba_vars.valid_adamba_sc == "all out":        adamba_vars.cnt_all_out += 1
+                elif adamba_vars.valid_adamba_sc == "itself satisfy": adamba_vars.cnt_itself_satisfy += 1
+                elif adamba_vars.valid_adamba_sc == "exception":      adamba_vars.cnt_exception += 1
+
+        # Continuous AdamBA (Half Plane with QP-Solving) (note: not working in safety gym due to non-control-affine)
+        else:
+
+            # Run AdamBA Algorithm
+            [A, b], adamba_vars.valid_adamba = AdamBA(o, a.cpu().detach().numpy(), env=env, threshold=hparams.threshold, dt_ratio=0.1,
+                                            ctrlrange=hparams.ctrlrange, margin=hparams.margin)
+
+            if adamba_vars.valid_adamba == "adamba success":
+
+                # Increase Counter
+                adamba_vars.cnt_valid_adamba += 1
+
+                # Set the QP-Objective
+                H, f = np.eye(2, 2), [-a[0][0], -a[0][1]]
+                u_new, _ = quadratic_programming(H, f, A, [b], initvals=np.array(a[0]), verbose=False)
+
+                # Step in Environment
+                o2, r, d, truncated, info = env.step(np.array([u_new]))
+
+            else:
+
+                # Increase Other AdamBA Counters
+                if   adamba_vars.valid_adamba == "all out":        adamba_vars.cnt_all_out += 1
+                elif adamba_vars.valid_adamba == "itself satisfy": adamba_vars.cnt_itself_satisfy += 1
+                elif adamba_vars.valid_adamba == "one valid":      adamba_vars.cnt_one_valid += 1
+                elif adamba_vars.valid_adamba == "exception":      adamba_vars.cnt_exception += 1
+
+                # Step in Environment
+                o2, r, d, truncated, info = env.step(a.cpu().detach().numpy())
+
+    else:
+
+        # Step in Environment
+        o2, r, d, truncated, info = env.step(a.cpu().detach().numpy())
+
+    # Logging
+    adamba_logger.all_out.append(adamba_vars.valid_adamba_sc)
+    _, index_max_2 = env.projection_cost_max(hparams.margin)
+    _, index_argmin_dis_2 = env.projection_cost_argmin_dis(hparams.margin)
+    _, index_adaptive_max_2 = env.adaptive_safety_index(k=hparams.k, n=hparams.n, sigma=hparams.sigma)                
+    adamba_logger.index_argmin_dis_change.append(index_argmin_dis_1 != index_argmin_dis_2)
+    adamba_logger.index_max_projection_cost_change.append(index_max_1 != index_max_2)
+    adamba_logger.index_adaptive_max_change.append(index_adaptive_max_1 != index_adaptive_max_2)
+
+    # Return Observations
+    return o2, r, d, truncated, info, u_new
 
 def AdamBA(obs:np.ndarray, act:np.ndarray, env:Engine, threshold:float, dt_ratio:float=1.0, ctrlrange:float=10.0):
 
