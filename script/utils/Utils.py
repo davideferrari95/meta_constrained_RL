@@ -239,7 +239,7 @@ def delete_pycache_folders():
 def handle_signal(signal, frame):
 
     # SIGINT (Ctrl+C)
-    print("\nProgram Interrupted. Deleting __pycache__ Folders...")
+    print("\nProgram Interrupted. Deleting `__pycache__` Folders...")
     delete_pycache_folders()
     print("Done\n")
     exit(0)

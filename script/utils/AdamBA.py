@@ -7,10 +7,160 @@ from safety_gym.envs.engine import Engine
 import os, copy, time, json, gym
 import numpy as np
 from typing import Optional
+from dataclasses import dataclass
 
 # Import QP Utilities
 from scipy import sparse
 import osqp
+
+@dataclass
+class AdamBAVariables:
+
+    # Positive Safety Index
+    ep_positive_safety_index:       int = 0
+
+    # Projection Cost
+    ep_projection_cost_max_0:       int = 0
+    ep_projection_cost_max_0_2:     int = 0
+    ep_projection_cost_max_0_4:     int = 0
+    ep_projection_cost_max_0_8:     int = 0
+    ep_projection_cost_max_margin:  int = 0
+
+    # Adaptive Safety Index
+    ep_adaptive_safety_index_max_0:     int = 0
+    ep_adaptive_safety_index_max_sigma: int = 0
+
+    # Current Penalty
+    cur_penalty:            int = 0
+
+    # Cumulative Cost
+    cum_cost:               int = 0
+
+    # Counters
+    cnt_positive_cost:      int = 0
+    cnt_valid_adamba:       int = 0
+    cnt_all_out:            int = 0
+    cnt_one_valid:          int = 0
+    cnt_exception:          int = 0
+    cnt_itself_satisfy:     int = 0
+    cnt_timestep:           int = 0
+
+    def reset_episode_variables(self):
+
+        """ Reset Episode Variables """
+
+        self.ep_positive_safety_index           = 0
+        self.ep_projection_cost_max_margin      = 0
+        self.ep_projection_cost_max_0           = 0
+        self.ep_projection_cost_max_0_2         = 0
+        self.ep_projection_cost_max_0_4         = 0
+        self.ep_projection_cost_max_0_8         = 0
+        self.ep_adaptive_safety_index_max_sigma = 0
+        self.ep_adaptive_safety_index_max_0     = 0
+
+class AdamBALogger:
+
+    def __init__(self):
+
+        # Init Loggers
+        self.true_cost                          = []
+        self.all_out                            = []
+        self.closest_distance_cost              = []
+        self.projection_cost_max_0              = []
+        self.projection_cost_max_margin         = []
+        self.projection_cost_argmin_0           = []
+        self.projection_cost_argmin_margin      = []
+        self.index_argmin_dis_change            = []
+        self.index_max_projection_cost_change   = []
+        self.adaptive_safety_index_default      = []
+        self.adaptive_safety_index_sigma_0_00   = []
+        self.index_adaptive_max_change          = []
+
+        # Init JSON Loggers
+        self.store_json                         = False
+        self.cnt_store_json                     = 0
+
+        # Init HeatMap Loggers
+        self.store_heatmap_video                = False
+        self.store_heatmap_trigger              = False
+        self.cnt_store_heatmap                  = 0
+        self.cnt_store_heatmap_trigger          = 0
+
+    def reset_loggers(self):
+
+        # Reset Loggers
+        self.true_cost                          = []
+        self.all_out                            = []
+        self.closest_distance_cost              = []
+        self.projection_cost_max_0              = []
+        self.projection_cost_max_margin         = []
+        self.projection_cost_argmin_0           = []
+        self.projection_cost_argmin_margin      = []
+        self.index_argmin_dis_change            = []
+        self.index_max_projection_cost_change   = []
+        self.adaptive_safety_index_default      = []
+        self.adaptive_safety_index_sigma_0_00   = []
+        self.index_adaptive_max_change          = []
+
+    def save_json_logger(self, env:Engine):
+
+        """ AdamBA Store JSON Logger """
+
+        # Store Logger if Violation in Episode
+        if self.store_json:
+
+            # print('Violations Found in this Episode')
+
+            # TODO: ???
+            if self.cnt_store_json >= 0: pass
+
+            else:
+
+                # Increase JSON Counter
+                self.cnt_store_json += 1
+                print("Violation Episode Coming")
+                print("Storing %d/10 file" %(self.cnt_store_json))
+
+                # Logger Dictionary
+                data_all_out = {
+                    "all_out": self.all_out,
+                    "true_cost": self.true_cost,
+                    "closest_distance_cost":self.closest_distance_cost,
+                    "projection_cost_max_0": self.projection_cost_max_0,
+                    "projection_cost_max_margin": self.projection_cost_max_margin,
+                    "index_argmin_dis_change": self.index_argmin_dis_change,
+                    "index_adaptive_max_change": self.index_adaptive_max_change,
+                    "index_max_projection_cost_change": self.index_max_projection_cost_change,
+                    "adaptive_safety_index_default": self.adaptive_safety_index_default,
+                    "adaptive_safety_index_sigma_0_00": self.adaptive_safety_index_sigma_0_00
+                }
+
+                # Dump Data as JSON
+                json_data_all_out = json.dumps(data_all_out, indent=1)
+
+                # Prepare JSON File Path
+                time_str = time.strftime("%Y-%m-%d-%H:%M:%S", time.localtime())
+                if env.constrain_hazards:   json_dir_path = os.path.join(FOLDER, 'data/json_data/fixed_adaptive_hazard')
+                elif env.constrain_pillars: json_dir_path = os.path.join(FOLDER, 'data/json_data/fixed_adaptive_pillar')
+                else: raise NotImplementedError
+
+                # Make JSON Directory
+                if not os.path.exists(json_dir_path): os.makedirs(json_dir_path)
+
+                # Write File
+                json_file_path = f'{json_dir_path}/{time_str}.json'
+                with open(json_file_path, 'w') as json_file: json_file.write(json_data_all_out)
+
+                # Reset Store Logger Flag
+                self.store_json = False
+
+        # else: print('No Violations in this Episode')
+
+def safety_layer_AdamBA():
+
+    """ AdamBA Safety Layer """
+
+    pass
 
 def AdamBA(obs:np.ndarray, act:np.ndarray, env:Engine, threshold:float, dt_ratio:float=1.0, ctrlrange:float=10.0):
 

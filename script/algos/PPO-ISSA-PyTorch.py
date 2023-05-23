@@ -7,6 +7,8 @@ from utils.Utils import CostMonitor, FOLDER
 
 # Import AdamBA Algorithm
 from utils.AdamBA import AdamBA, AdamBA_SC, store_heatmap, quadratic_programming
+from utils.AdamBA import safety_layer_AdamBA
+from utils.AdamBA import AdamBALogger, AdamBAVariables
 
 # Import Utilities
 import os, sys, gym
@@ -128,6 +130,9 @@ class PPO_ISSA_PyTorch(LightningModule):
 
         # Initialize PPO Buffer
         self.buffer: PPOBuffer = self.create_replay_buffer()
+
+        # Initialize Logger
+        self.adamba_logger = AdamBALogger()
 
         # Main
         self.init_penalty()
@@ -322,28 +327,7 @@ class PPO_ISSA_PyTorch(LightningModule):
         r, d, c, ep_ret, ep_cost, ep_len = 0, False, 0, 0, 0, 0
 
         # Initialize AdamBA Variables
-        ep_positive_safety_index, ep_projection_cost_max_margin = 0, 0
-        ep_projection_cost_max_0, ep_projection_cost_max_0_2 = 0, 0
-        ep_projection_cost_max_0_4, ep_projection_cost_max_0_8 = 0, 0
-        ep_adaptive_safety_index_max_sigma, ep_adaptive_safety_index_max_0 = 0, 0
-
-        # Initialize Loggers
-        true_cost_logger, closest_distance_cost_logger = [], []
-        projection_cost_max_margin_logger, projection_cost_max_0_logger = [], []
-        projection_cost_argmin_0_logger, projection_cost_argmin_margin_logger = [], []
-        index_argmin_dis_change_logger, index_max_projection_cost_change_logger = [], []
-        adaptive_safety_index_default_logger, adaptive_safety_index_sigma_0_00_logger = [], []
-        index_adaptive_max_change_logger, all_out_logger = [], []
-        store_logger, cnt_store_json = False, 0
-
-        # HeatMap Loggers
-        store_heatmap_video, store_heatmap_trigger = False, False
-        cnt_store_heatmap, cnt_store_heatmap_trigger = 0, 0
-
-        # Initialize Vars
-        cur_penalty, cum_cost = 0, 0
-        cnt_positive_cost, cnt_valid_adamba, cnt_all_out, cnt_one_valid = 0, 0, 0, 0
-        cnt_exception, cnt_itself_satisfy, cnt_timestep = 0, 0, 0
+        adamba_vars = AdamBAVariables()
 
         # Main Training Loop
         for epoch in range(self.hparams.max_epochs):
@@ -351,17 +335,18 @@ class PPO_ISSA_PyTorch(LightningModule):
             print(f'Epoch: {epoch+1}')
 
             # Get Current Penalty
-            if self.agent.use_penalty: cur_penalty = self.penalty
+            if self.agent.use_penalty: adamba_vars.cur_penalty = self.penalty
 
             for t in range(self.local_steps_per_epoch):
 
-                cnt_timestep += 1
+                adamba_vars.cnt_timestep += 1
 
                 # Get outputs from policy
                 # pi, actions, log_probs, value, cost_value = self.agent(o)
                 pi, a, logp_t, v_t, vc_t = self.agent(obs)
 
-                # AdamBA Safety  Layer
+                # AdamBA Safety Layer
+                # safety_layer_AdamBA(adamba_vars)
 
                 # Logging for Plotting: Adaptive Safety-Index
                 valid_adamba_sc = "Not activated"
@@ -373,21 +358,21 @@ class PPO_ISSA_PyTorch(LightningModule):
                 _, index_adaptive_max_1 = self.env.adaptive_safety_index(k=self.hparams.k, n=self.hparams.n, sigma=self.hparams.sigma)
 
                 # Projection Cost Max
-                projection_cost_max_margin_logger.append(self.env.projection_cost_max(self.hparams.margin)[0])
-                projection_cost_max_0_logger.append(self.env.projection_cost_max(0)[0])
+                self.adamba_logger.projection_cost_max_margin.append(self.env.projection_cost_max(self.hparams.margin)[0])
+                self.adamba_logger.projection_cost_max_0.append(self.env.projection_cost_max(0)[0])
 
                 # Projection Cost Argmin
-                projection_cost_argmin_margin_logger.append(self.env.projection_cost_argmin_dis(self.hparams.margin)[0])
-                projection_cost_argmin_0_logger.append(self.env.projection_cost_argmin_dis(0)[0])
+                self.adamba_logger.projection_cost_argmin_margin.append(self.env.projection_cost_argmin_dis(self.hparams.margin)[0])
+                self.adamba_logger.projection_cost_argmin_0.append(self.env.projection_cost_argmin_dis(0)[0])
 
                 # Distribution Cost
-                true_cost_logger.append(c)
-                closest_distance_cost_logger.append(self.env.closest_distance_cost()[0])
+                self.adamba_logger.true_cost.append(c)
+                self.adamba_logger.closest_distance_cost.append(self.env.closest_distance_cost()[0])
 
                 # Synthesis Safety Index
                 safe_index_now, _ = self.env.adaptive_safety_index(k=self.hparams.k, sigma=self.hparams.sigma, n=self.hparams.n)
-                adaptive_safety_index_default_logger.append(safe_index_now)
-                adaptive_safety_index_sigma_0_00_logger.append(self.env.adaptive_safety_index(k=self.hparams.k, n=self.hparams.n, sigma=0.00)[0])
+                self.adamba_logger.adaptive_safety_index_default.append(safe_index_now)
+                self.adamba_logger.adaptive_safety_index_sigma_0_00.append(self.env.adaptive_safety_index(k=self.hparams.k, n=self.hparams.n, sigma=0.00)[0])
 
                 trigger_by_pre_execute = False
 
@@ -424,8 +409,8 @@ class PPO_ISSA_PyTorch(LightningModule):
                 if self.hparams.adamba_layer and (trigger_by_pre_execute or safe_index_now >= 0):
 
                     # Increase Counters
-                    cnt_positive_cost += 1
-                    ep_positive_safety_index += 1
+                    adamba_vars.cnt_positive_cost += 1
+                    adamba_vars.ep_positive_safety_index += 1
 
                     # AdamBA for Safety Control
                     if self.hparams.adamba_sc == True:
@@ -438,7 +423,7 @@ class PPO_ISSA_PyTorch(LightningModule):
                         # Un-Pack AdamBA Results
                         u_new, valid_adamba_sc, env, all_satisfied_u = adamba_results
 
-                        if store_heatmap_trigger:
+                        if self.adamba_logger.store_heatmap_trigger:
 
                             # Store HeatMap Function
                             self.env, cnt_store_heatmap_trigger =  store_heatmap(self.env, cnt_store_heatmap_trigger, trigger_by_pre_execute,
@@ -449,7 +434,7 @@ class PPO_ISSA_PyTorch(LightningModule):
                         if valid_adamba_sc == "adamba_sc success":
 
                             # Increase AdamBA Counter
-                            cnt_valid_adamba += 1
+                            adamba_vars.cnt_valid_adamba += 1
 
                             # Step in Environment with AdamBA Action (u_new)
                             o2, r, d, truncated, info = self.env.step(np.array([u_new]))
@@ -460,9 +445,9 @@ class PPO_ISSA_PyTorch(LightningModule):
                             o2, r, d, truncated, info = self.env.step(a.cpu().detach().numpy())
 
                             # Increase Other AdamBA Counters
-                            if valid_adamba_sc == "all out": cnt_all_out += 1
-                            elif valid_adamba_sc == "itself satisfy": cnt_itself_satisfy += 1
-                            elif valid_adamba_sc == "exception": cnt_exception += 1
+                            if   valid_adamba_sc == "all out":        adamba_vars.cnt_all_out += 1
+                            elif valid_adamba_sc == "itself satisfy": adamba_vars.cnt_itself_satisfy += 1
+                            elif valid_adamba_sc == "exception":      adamba_vars.cnt_exception += 1
 
                     # Continuous AdamBA (Half Plane with QP-Solving) (note: not working in safety gym due to non-control-affine)
                     else:
@@ -474,7 +459,7 @@ class PPO_ISSA_PyTorch(LightningModule):
                         if valid_adamba == "adamba success":
 
                             # Increase Counter
-                            cnt_valid_adamba += 1
+                            adamba_vars.cnt_valid_adamba += 1
 
                             # Set the QP-Objective
                             H, f = np.eye(2, 2), [-a[0][0], -a[0][1]]
@@ -486,10 +471,10 @@ class PPO_ISSA_PyTorch(LightningModule):
                         else:
 
                             # Increase Other AdamBA Counters
-                            if valid_adamba == "all out": cnt_all_out += 1
-                            elif valid_adamba == "itself satisfy": cnt_itself_satisfy += 1
-                            elif valid_adamba == "one valid": cnt_one_valid += 1
-                            elif valid_adamba == "exception": cnt_exception += 1
+                            if   valid_adamba == "all out":        adamba_vars.cnt_all_out += 1
+                            elif valid_adamba == "itself satisfy": adamba_vars.cnt_itself_satisfy += 1
+                            elif valid_adamba == "one valid":      adamba_vars.cnt_one_valid += 1
+                            elif valid_adamba == "exception":      adamba_vars.cnt_exception += 1
 
                             # Step in Environment
                             o2, r, d, truncated, info = self.env.step(a.cpu().detach().numpy())
@@ -501,28 +486,28 @@ class PPO_ISSA_PyTorch(LightningModule):
                     obs2 = torch.tensor(o2, dtype=torch.float32, device=DEVICE)
 
                 # Logging
-                all_out_logger.append(valid_adamba_sc)
+                self.adamba_logger.all_out.append(valid_adamba_sc)
                 _, index_max_2 = self.env.projection_cost_max(self.hparams.margin)
                 _, index_argmin_dis_2 = self.env.projection_cost_argmin_dis(self.hparams.margin)
                 _, index_adaptive_max_2 = self.env.adaptive_safety_index(k=self.hparams.k, n=self.hparams.n, sigma=self.hparams.sigma)                
-                index_argmin_dis_change_logger.append(index_argmin_dis_1 != index_argmin_dis_2)
-                index_max_projection_cost_change_logger.append(index_max_1 != index_max_2)
-                index_adaptive_max_change_logger.append(index_adaptive_max_1 != index_adaptive_max_2)
+                self.adamba_logger.index_argmin_dis_change.append(index_argmin_dis_1 != index_argmin_dis_2)
+                self.adamba_logger.index_max_projection_cost_change.append(index_max_1 != index_max_2)
+                self.adamba_logger.index_adaptive_max_change.append(index_adaptive_max_1 != index_adaptive_max_2)
 
                 # Store Logger only if Cost > 0
-                if c > 0: store_logger = True
+                if c > 0: self.adamba_logger.store_json = True
 
                 # Get Cost from Environment
                 c = info.get('cost', 0)
 
                 # Track Cumulative Cost Over Training
-                cum_cost += c
+                adamba_vars.cum_cost += c
 
                 # Reward Penalized Buffer Saving
                 if self.agent.reward_penalized:
 
                     # Compute Total Reward
-                    r_total = r - cur_penalty * c / (1 + cur_penalty)
+                    r_total = r - adamba_vars.cur_penalty * c / (1 + adamba_vars.cur_penalty)
 
                     # Store in PPO Buffer
                     self.buffer.store(pi, obs, a, r_total, v_t, 0, 0, logp_t)
@@ -563,15 +548,15 @@ class PPO_ISSA_PyTorch(LightningModule):
                 ep_ret, ep_cost, ep_len = ep_ret + r, ep_cost + c, ep_len + 1
 
                 # Increase Projection Cost
-                ep_projection_cost_max_margin += max(0, self.env.projection_cost_max(self.hparams.margin)[0])
-                ep_projection_cost_max_0      += max(0, self.env.projection_cost_max(0)[0])
-                ep_projection_cost_max_0_2    += max(0, self.env.projection_cost_max(0.2)[0])
-                ep_projection_cost_max_0_4    += max(0, self.env.projection_cost_max(0.4)[0])
-                ep_projection_cost_max_0_8    += max(0, self.env.projection_cost_max(0.8)[0])
+                adamba_vars.ep_projection_cost_max_0      += max(0, self.env.projection_cost_max(0)[0])
+                adamba_vars.ep_projection_cost_max_0_2    += max(0, self.env.projection_cost_max(0.2)[0])
+                adamba_vars.ep_projection_cost_max_0_4    += max(0, self.env.projection_cost_max(0.4)[0])
+                adamba_vars.ep_projection_cost_max_0_8    += max(0, self.env.projection_cost_max(0.8)[0])
+                adamba_vars.ep_projection_cost_max_margin += max(0, self.env.projection_cost_max(self.hparams.margin)[0])
 
                 # Increase Adaptive Safety Index
-                ep_adaptive_safety_index_max_sigma += max(0, self.env.adaptive_safety_index(k=self.hparams.k, n=self.hparams.n, sigma=self.hparams.sigma)[0])
-                ep_adaptive_safety_index_max_0     += max(0, self.env.adaptive_safety_index(k=self.hparams.k, n=self.hparams.n,sigma=0)[0])
+                adamba_vars.ep_adaptive_safety_index_max_0     += max(0, self.env.adaptive_safety_index(k=self.hparams.k, n=self.hparams.n,sigma=0)[0])
+                adamba_vars.ep_adaptive_safety_index_max_sigma += max(0, self.env.adaptive_safety_index(k=self.hparams.k, n=self.hparams.n, sigma=self.hparams.sigma)[0])
 
                 # Compute `timeout`, `terminal` and `epoch_ended` Episode
                 timeout = ep_len == self.max_episode_steps
@@ -602,16 +587,16 @@ class PPO_ISSA_PyTorch(LightningModule):
                         # TODO: Logger
                         # logger.store(EpRet=ep_ret, EpLen=ep_len, EpCost=ep_cost)
                         self.current_cost = ep_cost
-                        ep_activation_ratio = ep_positive_safety_index / ep_len
+                        ep_activation_ratio = adamba_vars.ep_positive_safety_index / ep_len
                         # logger.store(EpActivationRatio=ep_activation_ratio)
-                        # logger.store(EpProjectionCostMaxMargin=ep_projection_cost_max_margin)
-                        # logger.store(EpProjectionCostMax0=ep_projection_cost_max_0)
-                        # logger.store(EpAdaptiveSafetyIndexMaxSigma=ep_adaptive_safety_index_max_sigma)
-                        # logger.store(EpAdaptiveSafetyIndexMax0=ep_adaptive_safety_index_max_0)
+                        # logger.store(EpProjectionCostMaxMargin=adamba_vars.ep_projection_cost_max_margin)
+                        # logger.store(EpProjectionCostMax0=adamba_vars.ep_projection_cost_max_0)
+                        # logger.store(EpAdaptiveSafetyIndexMaxSigma=adamba_vars.ep_adaptive_safety_index_max_sigma)
+                        # logger.store(EpAdaptiveSafetyIndexMax0=adamba_vars.ep_adaptive_safety_index_max_0)
 
-                        # logger.store(EpProjectionCostMax0_2=ep_projection_cost_max_0_2)
-                        # logger.store(EpProjectionCostMax0_4=ep_projection_cost_max_0_4)
-                        # logger.store(EpProjectionCost0_8=ep_projection_cost_0_8)
+                        # logger.store(EpProjectionCostMax0_2=adamba_vars.ep_projection_cost_max_0_2)
+                        # logger.store(EpProjectionCostMax0_4=adamba_vars.ep_projection_cost_max_0_4)
+                        # logger.store(EpProjectionCost0_8=adamba_vars.ep_projection_cost_max_0_8)
 
                     # Reset environment
                     o, _ = self.env.reset()
@@ -619,71 +604,13 @@ class PPO_ISSA_PyTorch(LightningModule):
                     r, d, c, ep_ret, ep_len, ep_cost = 0, False, 0, 0, 0, 0
 
                     # Reset AdamBA Variables
-                    ep_positive_safety_index, ep_projection_cost_max_margin = 0, 0
-                    ep_projection_cost_max_0, ep_projection_cost_max_0_2 = 0, 0
-                    ep_projection_cost_max_0_4, ep_projection_cost_max_0_8 = 0, 0
-                    ep_adaptive_safety_index_max_sigma, ep_adaptive_safety_index_max_0 = 0, 0
+                    adamba_vars.reset_episode_variables()
 
                     # AdamBA Store Logger
-                    if self.hparams.adamba_layer and self.hparams.adamba_sc:
-
-                        # Store Logger if Violation in Episode
-                        if store_logger:
-
-                            print('Violations Found in this Episode')
-
-                            # TODO: ???
-                            if cnt_store_json >= 0: pass
-
-                            else:
-
-                                import os, json, time
-
-                                # Increase JSON Counter
-                                cnt_store_json += 1
-                                print("Violation Episode Coming")
-                                print("Storing %d/10 file" %(cnt_store_json))
-
-                                # Logger Dictionary
-                                data_all_out = {"closest_distance_cost":closest_distance_cost_logger,
-                                                "true_cost": true_cost_logger,
-                                                "projection_cost_max_margin": projection_cost_max_margin_logger,
-                                                "projection_cost_max_0": projection_cost_max_0_logger,
-                                                "all_out": all_out_logger,
-                                                "index_argmin_dis_change": index_argmin_dis_change_logger,
-                                                "index_max_projection_cost_change": index_max_projection_cost_change_logger,
-                                                "index_adaptive_max_change": index_adaptive_max_change_logger,
-                                                "adaptive_safety_index_default": adaptive_safety_index_default_logger,
-                                                "adaptive_safety_index_sigma_0_00": adaptive_safety_index_sigma_0_00_logger}
-
-                                # Dump Data as JSON
-                                json_data_all_out = json.dumps(data_all_out, indent=1)
-
-                                # Prepare JSON File Path
-                                time_str = time.strftime("%Y-%m-%d-%H:%M:%S", time.localtime())
-                                if self.env.constrain_hazards:   json_dir_path = os.path.join(FOLDER, 'data/json_data/fixed_adaptive_hazard_%s_size_%s_threshold_%s_sigma_%s_n_%s_k_%s_pre_execute_%s_fixed_simulation/' % (str(env.hazards_num), str(env.hazards_size), str(self.hparams.threshold), str(self.hparams.sigma), str(self.hparams.n), str(self.hparams.k), str(self.hparams.pre_execute)))
-                                elif self.env.constrain_pillars: json_dir_path = os.path.join(FOLDER, 'data/json_data/fixed_adaptive_pillar_%s_size_%s_threshold_%s_sigma_%s_n_%s_k_%s_pre_execute_%s_fixed_simulation/' % (str(env.pillars_num), str(env.pillars_size), str(self.hparams.threshold), str(self.hparams.sigma), str(self.hparams.n), str(self.hparams.k), str(self.hparams.pre_execute)))
-                                else: raise NotImplementedError
-
-                                # Make JSON Directory
-                                if not os.path.exists(json_dir_path): os.makedirs(json_dir_path)
-
-                                # Write File
-                                json_file_path = json_dir_path + '%s.json' % (time_str)
-                                with open(json_file_path, 'w') as json_file: json_file.write(json_data_all_out)
-
-                                # Reset Store Logger Flag
-                                store_logger = False
-
-                        # else: print('No Violations in this Episode')
+                    if self.hparams.adamba_layer and self.hparams.adamba_sc: self.adamba_logger.save_json_logger(self.env)
 
                     # Reset Loggers
-                    closest_distance_cost_logger, true_cost_logger = [], []
-                    projection_cost_max_margin_logger, projection_cost_max_0_logger = [], []
-                    projection_cost_argmin_0_logger, projection_cost_argmin_margin_logger = [], []
-                    all_out_logger, index_argmin_dis_change_logger = [], []
-                    index_max_projection_cost_change_logger, index_adaptive_max_change_logger = [], []
-                    adaptive_safety_index_default_logger, adaptive_safety_index_sigma_0_00_logger = [], []
+                    self.adamba_logger.reset_loggers()
 
             # TODO: Save Model
             # if (epoch % save_freq == 0) or (epoch == epochs-1):
@@ -693,8 +620,7 @@ class PPO_ISSA_PyTorch(LightningModule):
             self.update()
 
             # Cumulative Cost Calculations
-            cumulative_cost = cum_cost
-            cost_rate = cumulative_cost / ((epoch+1) * self.hparams.steps_per_epoch)
+            cost_rate = adamba_vars.cum_cost / ((epoch+1) * self.hparams.steps_per_epoch)
 
             """
             # Loggers
@@ -714,7 +640,7 @@ class PPO_ISSA_PyTorch(LightningModule):
             logger.log_tabular('EpAdaptiveSafetyIndexMax0', with_min_and_max=True)
 
             logger.log_tabular('EpLen', average_only=True)
-            logger.log_tabular('CumulativeCost', cumulative_cost)
+            logger.log_tabular('CumulativeCost', adamba_vars.cum_cost)
             logger.log_tabular('CostRate', cost_rate)
 
             # Value function values
