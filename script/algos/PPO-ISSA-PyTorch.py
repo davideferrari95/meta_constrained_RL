@@ -402,16 +402,8 @@ class PPO_ISSA_PyTorch(LightningModule):
                 # Increase Episode Return, Cost and Length
                 ep_ret, ep_cost, ep_len = ep_ret + r, ep_cost + c, ep_len + 1
 
-                # Increase Projection Cost
-                adamba_vars.ep_projection_cost_max_0      += max(0, self.env.projection_cost_max(0)[0])
-                adamba_vars.ep_projection_cost_max_0_2    += max(0, self.env.projection_cost_max(0.2)[0])
-                adamba_vars.ep_projection_cost_max_0_4    += max(0, self.env.projection_cost_max(0.4)[0])
-                adamba_vars.ep_projection_cost_max_0_8    += max(0, self.env.projection_cost_max(0.8)[0])
-                adamba_vars.ep_projection_cost_max_margin += max(0, self.env.projection_cost_max(self.hparams.margin)[0])
-
-                # Increase Adaptive Safety Index
-                adamba_vars.ep_adaptive_safety_index_max_0     += max(0, self.env.adaptive_safety_index(k=self.hparams.k, n=self.hparams.n,sigma=0)[0])
-                adamba_vars.ep_adaptive_safety_index_max_sigma += max(0, self.env.adaptive_safety_index(k=self.hparams.k, n=self.hparams.n, sigma=self.hparams.sigma)[0])
+                # Update AdamBA Variables
+                adamba_vars.update_episode_variables(self.env, self.hparams)
 
                 # Compute `timeout`, `terminal` and `epoch_ended` Episode
                 timeout = ep_len == self.max_episode_steps

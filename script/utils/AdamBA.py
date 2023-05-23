@@ -62,6 +62,21 @@ class AdamBAVariables:
         self.ep_adaptive_safety_index_max_sigma = 0
         self.ep_adaptive_safety_index_max_0     = 0
 
+    def update_episode_variables(self, env:Engine, hparams):
+
+        """ Update Episode Variables """
+
+        # Increase Projection Cost
+        self.ep_projection_cost_max_0      += max(0, env.projection_cost_max(0)[0])
+        self.ep_projection_cost_max_0_2    += max(0, env.projection_cost_max(0.2)[0])
+        self.ep_projection_cost_max_0_4    += max(0, env.projection_cost_max(0.4)[0])
+        self.ep_projection_cost_max_0_8    += max(0, env.projection_cost_max(0.8)[0])
+        self.ep_projection_cost_max_margin += max(0, env.projection_cost_max(hparams.margin)[0])
+
+        # Increase Adaptive Safety Index
+        self.ep_adaptive_safety_index_max_0     += max(0, env.adaptive_safety_index(k=hparams.k, n=hparams.n, sigma=0)[0])
+        self.ep_adaptive_safety_index_max_sigma += max(0, env.adaptive_safety_index(k=hparams.k, n=hparams.n, sigma=hparams.sigma)[0])
+
 class AdamBALogger:
 
     def __init__(self):
