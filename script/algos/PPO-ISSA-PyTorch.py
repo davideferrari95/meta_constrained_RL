@@ -181,7 +181,7 @@ class PPO_ISSA_PyTorch(LightningModule):
         self.actor_optimizer = torch.optim.Adam(self.agent.actor.parameters(), lr=self.hparams.lr_actor)
         self.critic_optimizer = torch.optim.Adam(critic_params, lr=self.hparams.lr_critic)
 
-    def compute_penalty_loss(self, episode_cost):
+    def compute_penalty_loss(self, episode_cost) -> torch.Tensor:
 
         if self.hparams.penalty_loss: return -self.penalty_param * (episode_cost - self.hparams.cost_lim)
         else: return -self.penalty * (episode_cost - self.hparams.cost_lim)
@@ -197,7 +197,7 @@ class PPO_ISSA_PyTorch(LightningModule):
         kl = torch.distributions.kl_divergence(dist, old_dist)
         return torch.mean(kl)
 
-    def compute_actor_loss(self, data):
+    def compute_actor_loss(self, data) -> Tuple[torch.Tensor, dict]:
 
         """ Compute the Actor Loss """
 
@@ -249,7 +249,7 @@ class PPO_ISSA_PyTorch(LightningModule):
 
         return loss_pi, dict(d_kl=d_kl, approx_kl=approx_kl, ent=entropy.item(), clip_frac=clip_frac)
 
-    def compute_critic_loss(self, data):
+    def compute_critic_loss(self, data) -> torch.Tensor:
 
         """ Compute the Critic-Value Loss """
 
